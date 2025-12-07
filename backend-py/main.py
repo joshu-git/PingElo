@@ -33,12 +33,18 @@ def root():
 
 #Elo calculation for every match
 
-#Scales elo change: 25 <---> 50
-BASE_K = 50
-
 #Standard expected score formula for elo
 def expected_score(rating_a: int, rating_b: int) -> float:
     return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
+
+
+def calculate_effective_k(score_a: int, score_b: int, game_points: int) -> float:
+    #Base elo sensitivity per match
+    BASE_K = 50
+
+    #BASE_K is scaled based on score difference
+    score_diff_factor =  abs(score_a - score_b) / game_points
+    return BASE_K * score_diff_factor
 
 #The data py expects from ts
 class EloRequest(BaseModel):
@@ -79,3 +85,21 @@ def calculate_elo(request: EloRequest):
     #Determines who was expected to win
     expected_a = expected_score(rating_a, rating_b)
     expected_b = 1 - expected_a
+
+    #Calculates elo scale modifier
+    effective_k = calculate_effective_k(score_a, score_b, game_points)
+
+    #Gives elo change for both players
+    change_a = round(effective_k * (actual_a - expected_a))
+    change_b = -change_a
+
+    #Uses change to assign new rating
+    new_rating_a = rating_a + change_a
+    new_rating_b = rating_b + change_b
+
+    #returns winner and new elo ratings
+    return EloResponse(
+        new_rating_player_a=new_rating_a,
+        new_rating_player_b=new_rating_b,
+        winner=winner
+    )
