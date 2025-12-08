@@ -5,6 +5,9 @@ import dotenv from "dotenv";
 //Gives access to player routes
 import playersRoutes from "./routes/players.routes.js"
 
+//Gives access to match routes
+import matchesRoutes from "./routes/matches.routes.js"
+
 //Load environment variables
 dotenv.config();
 
@@ -23,6 +26,7 @@ app.use(cors({
 
 //All routes for players and matches
 app.use("/players", playersRoutes);
+app.use("/matches", matchesRoutes);
 
 //Health check to confirm the backend is running
 app.get("/", (_req, res) => {
