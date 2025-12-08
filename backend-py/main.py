@@ -59,8 +59,10 @@ class EloRequest(BaseModel):
 
 #The data py will send ts
 class EloResponse(BaseModel):
-    new_rating_player_a: int
-    new_rating_player_b: int
+    new_rating_a: int
+    new_rating_b: int
+    rating_change_a: int
+    rating_change_b: int
     winner: str
 
 @app.post("/calculate_elo", response_model=EloResponse)
@@ -93,8 +95,8 @@ def calculate_elo(request: EloRequest):
     effective_k = calculate_effective_k(score_a, score_b, game_points)
 
     #Gives elo change for both players
-    change_a = round(effective_k * (actual_a - expected_a))
-    change_b = -change_a
+    rating_change_a = round(effective_k * (actual_a - expected_a))
+    rating_change_b = -change_a
 
     #Uses change to assign new rating
     new_rating_a = rating_a + change_a
@@ -102,7 +104,9 @@ def calculate_elo(request: EloRequest):
 
     #returns winner and new elo ratings
     return EloResponse(
-        new_rating_player_a=new_rating_a,
-        new_rating_player_b=new_rating_b,
+        new_rating_a=new_rating_a,
+        new_rating_b=new_rating_b,
+        rating_change_a=rating_change_a,
+        rating_change_b=rating_change_b,
         winner=winner
     )
