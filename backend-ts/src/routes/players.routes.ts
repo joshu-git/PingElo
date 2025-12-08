@@ -6,7 +6,7 @@ import { supabase } from "../supabase.js"
 import { requireAuth, AuthenticatedRequest } from "../middleware/requireAuth.js";
 
 //Services required for routes
-import { createPlayer } from "../services/players.services.js"
+import { createPlayer, claimPlayer } from "../services/players.services.js"
 
 const router = Router();
 
@@ -39,6 +39,30 @@ router.post('/create', requireAuth, async (req: AuthenticatedRequest, res) => {
         //A success response is sent with the player's id, username and claim code
         res.status(201).json({
             message: "Player created successfully",
+            player
+        });
+    } catch (err: any) {
+        res.status(400).json({ error: err.message });
+    }
+});
+
+//Route for claiming a player
+router.post("/claim", requireAuth, async (req: AuthenticatedRequest, res) => {
+    try {
+        //Gets claimCode from the request
+        const { claimCode } = req.body;
+
+        //If there is no claimCode an error is thrown
+        if (!claimCode) {
+            return res.status(400).json({ error: "Claim code required" });
+        }
+
+        //claimPlayer is called with parameters user.id and claimCode
+        const player = await claimPlayer(req.user!.id, claimCode);
+
+        //A success response is sent with player's id and username
+        res.json({
+            message: 'Player claimed successfully',
             player
         });
     } catch (err: any) {

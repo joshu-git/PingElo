@@ -33,4 +33,57 @@ export async function createPlayer(
         username: data.username,
         claimCode: data.claim_code
     }
+};
+
+//Used for claiming a player that has been created
+export async function claimPlayer(
+    userId: string,
+    claimCode: string
+) {
+    //Check to see if the user already owns a player
+    const { data: existingPlayer } = await supabase
+        .from("players")
+        .select("id")
+        .eq("user_id", userId)
+        .single();
+
+    //If they do own a player throw an error
+    if (existingPlayer) {
+        throw new Error("User already owns a player");
+    }
+
+    //Find the unclaimed player
+    const { data: player, error: findError } = await supabase
+        .from("players")
+        .select("*")
+        .eq("claim_code", claimCode)
+        .is("user_id", null)
+        .single();
+
+    //If the code could not be found or the user_id was not null
+    if (findError || !player) {
+        throw new Error("Invalid or already used code");
+    }
+    
+    //Update the user_id with their ID and make claim_code null
+    const { data: updatedPlayer, error: UpdateError} = await supabase
+        .from("players")
+        .update({
+            user_id: userId,
+            claim_code: null
+        })
+        .eq("id", player.id)
+        .select()
+        .single();
+    
+    //If there is an error updating show message
+    if (UpdateError) {
+        throw new Error(UpdateError.message);
+    }
+
+    //Return the player's ID and username
+    return {
+        id: updatedPlayer.id,
+        username: updatedPlayer.username
+    }
 }
