@@ -11,7 +11,7 @@ import { createPlayer, claimPlayer } from "../services/players.services.js"
 const router = Router();
 
 //Route for creating a new player
-router.post('/create', requireAuth, async (req: AuthenticatedRequest, res) => {
+router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
     try {
         //Check if the user making the request is an admin
         const { data: profile } = await supabase

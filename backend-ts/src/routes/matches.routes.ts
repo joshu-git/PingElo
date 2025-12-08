@@ -37,7 +37,7 @@ async function isUserAdmin(userId: string): Promise<boolean> {
         .eq("id", userId)
         .single();
 
-        //If the user is an admin return true
+    //If the user is an admin return true
     if (error || !data) return false;
     return data.is_admin ?? false;
 }
@@ -69,10 +69,16 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
     //Calls admin checker function
     const isAdmin = await isUserAdmin(req.user!.id);
 
+    type PlayerRow = {
+      id: string;
+      user_id: string | null;
+      elo: number | null;
+    };  
+
     //Fetch both of the players by their IDs
     const { data: players, error } = await supabase
       .from("players")
-      .select("id, user_id")
+      .select("id, user_id, elo")
       .in("id", [playerAId, playerBId]);
 
     //If there IDs are not valid then throw an error
@@ -80,22 +86,39 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
       return res.status(400).json({ error: "Invalid player IDs" });
     }
 
+    //Checks the user can make this match
     checkOwnershipOrAdmin(players, req.user!.id, isAdmin);
 
+    //Explicit extraction so ts knows these exist
+    const playerA = players.find(p => p.id === playerAId);
+    const playerB = players.find(p => p.id === playerBId);
+
+    //Throws an error if these do not exist
+    if (!playerA || !playerB) {
+      return res.status(400).json({ error: "Players not found" });
+    }
+
+    //Sets the ratings the the player's elo
+    const ratingA = playerA.elo;
+    const ratingB = playerB.elo
+
     //All checks have passed so call createMatch
-    const match = await createMatch(
+    const result = await createMatch(
       req.user!.id,
       playerAId,
       playerBId,
       scoreA,
       scoreB,
-      gamePoints
+      gamePoints,
+      ratingA,
+      ratingB
     );
 
     //A success response is sent along with the match data
     res.status(201).json({ 
         message: "Match created successfully",
-        match
+        match: result.match,
+        eloData: result.eloData
     });
   } catch (err: any) {
     const status = err.status || 400;

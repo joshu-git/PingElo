@@ -1,5 +1,16 @@
 import Image from "next/image";
 
+//DO NOT IMPLEMENT YET
+fetch('/players/claim', {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`
+    },
+    body: JSON.stringify({ claimCode: 'X7P9Q' })
+})
+
+
 export default function Home() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
