@@ -13,8 +13,8 @@ load_dotenv()
 #Create FastAPI app
 app = FastAPI()
 
-#Enable CORS for the frontend URL
-allowed_origin = os.getenv("FRONTEND_URL")
+#Enable CORS for the ts backend URL
+allowed_origin = os.getenv("TYPESCRIPT_BACKEND_URL")
 
 app.add_middleware(
     CORSMiddleware,
