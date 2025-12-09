@@ -65,8 +65,8 @@ class EloResponse(BaseModel):
     rating_change_b: int
     winner: str
 
-@app.post("/calculate_elo", response_model=EloResponse)
-def calculate_elo(request: EloRequest):
+@app.post("/calculate-elo", response_model=EloResponse)
+def calculate-elo(request: EloRequest):
     #Get previous elo of players
     rating_a = request.rating_player_a
     rating_b = request.rating_player_b
