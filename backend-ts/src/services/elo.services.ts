@@ -18,7 +18,7 @@ export interface EloResponse {
   newRatingB: number;
   eloChangeA: number;
   eloChangeB: number;
-  winner: string; // playerAId or playerBId
+  winner: string;
 }
 
 //Allows calculation of elo
@@ -26,10 +26,10 @@ export async function calculateElo(request: EloRequest): Promise<EloResponse> {
   try {
     //Calls the python backend for calculation of elo
     const response = await axios.post(`${process.env.PYTHON_BACKEND_URL}/calculate_elo`, {
-      player_a_rating: request.ratingA,
-      player_b_rating: request.ratingB,
-      score_a: request.scoreA,
-      score_b: request.scoreB,
+      rating_player_a: request.ratingA,
+      rating_player_b: request.ratingB,
+      score_player_a: request.scoreA,
+      score_player_b: request.scoreB,
       game_points: request.gamePoints
     });
 
