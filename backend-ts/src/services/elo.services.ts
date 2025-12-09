@@ -12,6 +12,21 @@ interface EloRequest {
   gamePoints: number;
 }
 
+//Ensure env variable exists at startup
+const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL;
+if (!PYTHON_BACKEND_URL) {
+  throw new Error("PYTHON_BACKEND_URL is not defined");
+}
+
+//Create a reusable axios client (best practice)
+const pythonClient = axios.create({
+  baseURL: PYTHON_BACKEND_URL,
+  timeout: 30_000,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
 //Data we expect to get back from python
 export interface EloResponse {
   newRatingA: number;
@@ -25,12 +40,12 @@ export interface EloResponse {
 export async function calculateElo(request: EloRequest): Promise<EloResponse> {
   try {
     //Calls the python backend for calculation of elo
-    const response = await axios.post(`${process.env.PYTHON_BACKEND_URL}/calculate_elo`, {
+    const response = await pythonClient.post("/calculate_elo", {
       rating_player_a: request.ratingA,
       rating_player_b: request.ratingB,
       score_player_a: request.scoreA,
       score_player_b: request.scoreB,
-      game_points: request.gamePoints
+      game_points: request.gamePoints,
     });
 
     //Stores the data from the python backend
@@ -49,7 +64,10 @@ export async function calculateElo(request: EloRequest): Promise<EloResponse> {
     };
   } catch (err: any) {
     if (err.response) {
-      console.error("Python error:", err.response.data);
+      console.error("Python error:", {
+        status: err.response.status,
+        data: err.response.data,
+      });
     } else {
       console.error("Network error:", err.message);
     }

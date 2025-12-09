@@ -33,8 +33,14 @@ app.get("/", (_req, res) => {
     res.json({ message: "Backend is running" });
 });
 
-//Start server using Render Port or local dev
-const Port = process.env.PORT || 5000;
+//Health check for UptimeRobot
+app.head("/health", (_req, res) => {
+  res.sendStatus(200);
+});
 
-app.listen(Port);
-console.log("ALevel is running on port: " + Port);
+//Start server using Render Port or local dev
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`PingElo backend running on port ${PORT}`);
+});

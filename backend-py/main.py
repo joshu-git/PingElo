@@ -29,6 +29,11 @@ app.add_middleware(
 def root():
     return {"message": "Backend is running!"}
 
+#Health check for UptimeRobot
+@app.head("/health")
+def health():
+    return Response(status_code=200)
+
 #Elo calculation for every match
 
 #Base elo sensitivity per match
