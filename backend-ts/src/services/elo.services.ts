@@ -18,7 +18,7 @@ if (!PYTHON_BACKEND_URL) {
   throw new Error("PYTHON_BACKEND_URL is not defined");
 }
 
-//Create a reusable axios client (best practice)
+//Create a reusable axios client
 const pythonClient = axios.create({
   baseURL: PYTHON_BACKEND_URL,
   timeout: 30_000,

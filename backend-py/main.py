@@ -30,9 +30,9 @@ def root():
     return {"message": "Backend is running!"}
 
 #Health check for UptimeRobot
-@app.head("/health")
+@app.get("/health")
 def health():
-    return Response(status_code=200)
+    return {"status": "ok"}
 
 #Elo calculation for every match
 
