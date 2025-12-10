@@ -30,7 +30,7 @@ export default function MatchForm() {
 
         //Calls the typescript backend
         const res = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/matches`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/matches/create`,
         {
             method: "POST",
             headers: {
