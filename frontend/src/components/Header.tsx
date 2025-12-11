@@ -25,7 +25,7 @@ export default function Header() {
                     href="/"
                     className="text-2xl font-bold tracking-wide hover:text-gray-300 transition-colors"
                 >
-                    Pingelo
+                    PingElo
                 </Link>
 
                 {/* Desktop Navigation */}

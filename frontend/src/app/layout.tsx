@@ -4,7 +4,7 @@ import Footer from "@/components/Footer";
 
 /* Metadata for SEO and social previews */
 export const metadata = {
-    title: "Pingelo",
+    title: "PingElo",
     description: "Elo ranking system",
 };
 
