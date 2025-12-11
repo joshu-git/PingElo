@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -6,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { fetchPlayers } from "@/lib/api";
 import { Player } from "@/types/player";
 
-//What we expect from backend
+// What we expect from backend
 type MatchResult = {
     newRatingA: number;
     newRatingB: number;
@@ -28,22 +27,20 @@ export default function MatchForm() {
     const [result, setResult] = useState<MatchResult | null>(null);
     const [loading, setLoading] = useState(false);
 
-    //Fetch players from supabase
+    // Fetch players
     useEffect(() => {
         fetchPlayers().then((p) => setPlayers(p || []));
     }, []);
 
-    //Find username for winner
+    // Correct winner resolution
     const winnerName = useMemo(() => {
         if (!result) return null;
 
-        const winnerId =
-            result.winner === "A" ? playerAId : playerBId;
-
+        const winnerId = result.winner === "A" ? playerAId : playerBId;
         return players.find((p) => p.id === winnerId)?.username ?? "Unknown";
     }, [result, players, playerAId, playerBId]);
 
-    //Function for submitting the match
+    // Submit match
     async function submitMatch(e: React.FormEvent) {
         e.preventDefault();
         setResult(null);
@@ -81,16 +78,11 @@ export default function MatchForm() {
             );
 
             if (!res.ok) {
-                const t = await res.text();
-                throw new Error(t || "Failed to submit match");
+                const text = await res.text();
+                throw new Error(text || "Failed to submit match");
             }
 
             const json = await res.json();
-            if (!json.eloData) {
-                alert("Unexpected server response.");
-                return;
-            }
-
             setResult(json.eloData as MatchResult);
         } catch (err) {
             console.error(err);
@@ -101,140 +93,148 @@ export default function MatchForm() {
     }
 
     return (
-        <form
-            onSubmit={submitMatch}
-            className="space-y-4 p-6 bg-black/40 rounded-xl border border-white/10 shadow-lg max-w-sm"
-        >
-            <h1 className="text-xl font-semibold mb-2">Submit Match</h1>
+        <div className="w-full flex justify-center px-4 mt-6">
+            <form
+                onSubmit={submitMatch}
+                className="
+                    w-full
+                    max-w-lg
+                    sm:max-w-xl
+                    md:max-w-2xl
+                    bg-black/40
+                    border border-white/10
+                    rounded-2xl
+                    p-6 sm:p-8
+                    flex flex-col gap-5
+                    shadow-xl
+                "
+            >
+                <h1 className="text-3xl font-bold mb-2 text-center">
+                    Submit Match
+                </h1>
 
-            {/* Player A */}
-            <div>
-                <label className="block mb-1 text-sm text-white/80">
-                    Player A
-                </label>
+                {/* Player A */}
                 <select
                     value={playerAId}
                     onChange={(e) => setPlayerAId(e.target.value)}
-                    className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="
+                        bg-black/60 
+                        border border-white/20 
+                        rounded-xl 
+                        p-3
+                        text-white
+                    "
                 >
-                    <option value="">Select Player</option>
+                    <option value="">Select Player A</option>
                     {players.map((p) => (
-                        <option
-                            key={p.id}
-                            value={p.id}
-                            disabled={p.id === playerBId}
-                        >
+                        <option key={p.id} value={p.id}>
                             {p.username}
                         </option>
                     ))}
                 </select>
-            </div>
 
-            {/* Player B */}
-            <div>
-                <label className="block mb-1 text-sm text-white/80">
-                    Player B
-                </label>
+                {/* Player B */}
                 <select
                     value={playerBId}
                     onChange={(e) => setPlayerBId(e.target.value)}
-                    className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="
+                        bg-black/60 
+                        border border-white/20 
+                        rounded-xl 
+                        p-3
+                        text-white
+                    "
                 >
-                    <option value="">Select Player</option>
+                    <option value="">Select Player B</option>
                     {players.map((p) => (
-                        <option
-                            key={p.id}
-                            value={p.id}
-                            disabled={p.id === playerAId}
-                        >
+                        <option key={p.id} value={p.id}>
                             {p.username}
                         </option>
                     ))}
                 </select>
-            </div>
 
-            {/* Scores */}
-            <div className="grid grid-cols-2 gap-3">
-                <div>
-                    <label className="block mb-1 text-sm text-white/80">
-                        Score A
-                    </label>
+                {/* Scores */}
+                <div className="grid grid-cols-2 gap-4">
                     <input
                         type="number"
                         min={0}
+                        placeholder="Score A"
                         value={scoreA}
                         onChange={(e) => setScoreA(Number(e.target.value))}
-                        className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="bg-black/60 border border-white/20 rounded-xl p-3 text-white"
                     />
-                </div>
 
-                <div>
-                    <label className="block mb-1 text-sm text-white/80">
-                        Score B
-                    </label>
                     <input
                         type="number"
                         min={0}
+                        placeholder="Score B"
                         value={scoreB}
                         onChange={(e) => setScoreB(Number(e.target.value))}
-                        className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="bg-black/60 border border-white/20 rounded-xl p-3 text-white"
                     />
                 </div>
-            </div>
 
-            {/* Game points */}
-            <div>
-                <label className="block mb-1 text-sm text-white/80">
-                    Game Points
-                </label>
+                {/* Game point cap */}
                 <input
                     type="number"
                     min={1}
+                    placeholder="Game Points"
                     value={gamePoints}
                     onChange={(e) => setGamePoints(Number(e.target.value))}
-                    className="w-full bg-black border border-white/10 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="bg-black/60 border border-white/20 rounded-xl p-3 text-white"
                 />
-            </div>
 
-            <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg py-2 transition-all"
-            >
-                {loading ? "Submitting..." : "Submit Match"}
-            </button>
+                {/* Submit */}
+                <button
+                    type="submit"
+                    disabled={loading}
+                    className="
+                        w-full py-3 
+                        bg-purple-600 
+                        hover:bg-purple-700 
+                        rounded-xl 
+                        font-semibold 
+                        transition 
+                        text-white
+                    "
+                >
+                    {loading ? "Submitting..." : "Submit Match"}
+                </button>
 
-            {/* Display match result */}
-            {result && (
-                <div className="mt-4 p-4 bg-black/30 border border-white/10 rounded-lg">
-                    <h2 className="font-semibold mb-2">Match Result</h2>
+                {/* Result */}
+                {result && (
+                    <div className="mt-4 border-t border-white/10 pt-4">
+                        <h2 className="text-xl font-semibold mb-2">
+                            Match Result
+                        </h2>
 
-                    <p>
-                        Player A:{" "}
-                        <strong>
-                            {result.eloChangeA > 0 ? "+" : ""}
-                            {result.eloChangeA}
-                        </strong>{" "}
-                        → {result.newRatingA}
-                    </p>
+                        <p>
+                            Player A:
+                            <strong className="ml-1">
+                                {result.eloChangeA > 0 && "+"}
+                                {result.eloChangeA}
+                            </strong>{" "}
+                            → {result.newRatingA}
+                        </p>
 
-                    <p>
-                        Player B:{" "}
-                        <strong>
-                            {result.eloChangeB > 0 ? "+" : ""}
-                            {result.eloChangeB}
-                        </strong>{" "}
-                        → {result.newRatingB}
-                    </p>
+                        <p>
+                            Player B:
+                            <strong className="ml-1">
+                                {result.eloChangeB > 0 && "+"}
+                                {result.eloChangeB}
+                            </strong>{" "}
+                            → {result.newRatingB}
+                        </p>
 
-                    <p className="mt-2">
-                        Winner:{" "}
-                        <span className="font-bold text-indigo-400">
-                            {winnerName}
-                        </span>
-                    </p>
-                </div>
-            )}
-        </form>
+                        <p className="mt-1">
+                            Winner:{" "}
+                            <span className="font-bold text-purple-400">
+                                {winnerName}
+                            </span>
+                        </p>
+                    </div>
+                )}
+            </form>
+        </div>
     );
 }
