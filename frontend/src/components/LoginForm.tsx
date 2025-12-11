@@ -26,11 +26,11 @@ export default function LoginForm() {
     //Change loading status
     setLoading(false);
 
-    //Shows error message or pushes user to /match
+    //Shows error message or pushes user to /submitmatch
     if (error) {
         alert(error.message);
     } else {
-        router.push("/match");
+        router.push("/submitmatch");
     }
 }
 

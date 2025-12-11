@@ -10,11 +10,11 @@ export default function Header() {
 
     //Navigation links
     const navLinks = [
-        { href: "/", label: "Home" },
-        { href: "/profile", label: "Profile" },
         { href: "/leaderboard", label: "Leaderboard" },
-        { href: "/match", label: "Submit Match" },
+        { href: "/submitmatch", label: "Submit Match" },
         { href: "/tournament", label: "Tournaments" },
+        { href: "/profile", label: "Profile" },
+        { href: "/login", label: "Login" },
     ];
 
     return (
