@@ -75,8 +75,17 @@ export default function MatchForm() {
         }
 
         //Receive results from backend
-        const matchResult: MatchResult = await res.json();
+        const json = await res.json();
+
+        if (!json.eloData) {
+            console.error("Missing eloData:", json);
+            alert("Unexpected response from server");
+            return;
+        }
+
+        const matchResult: MatchResult = json.eloData;
         setResult(matchResult);
+
     } catch (err) {
         console.error(err);
         alert("Failed to submit match");
