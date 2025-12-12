@@ -1,8 +1,8 @@
-import { Player } from "@/types/player";
+import { PlayerRow } from "@/types/players";
 import { supabase } from "@/lib/supabase";
 
 //Fetches players from supabase
-export async function fetchPlayers(): Promise<Player[]> {
+export async function fetchPlayers(): Promise<PlayerRow[]> {
     const { data, error } = await supabase
         .from("players")
         .select("id, username, elo");
@@ -16,7 +16,7 @@ export async function fetchPlayers(): Promise<Player[]> {
 }
 
 //Fetches leaderboard of players
-export async function fetchLeaderboard(): Promise<Player[]> {
+export async function fetchLeaderboard(): Promise<PlayerRow[]> {
     const { data, error } = await supabase
         .from("players")
         .select("id, username, elo")

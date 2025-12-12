@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { fetchPlayers } from "@/lib/api";
-import { PlayerRow } from "@/types/player";
+import { PlayerRow } from "@/types/players";
 
 // What we expect from backend
 type MatchResult = {

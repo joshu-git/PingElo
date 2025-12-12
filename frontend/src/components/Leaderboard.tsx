@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { fetchLeaderboard } from "@/lib/api";
-import { Player } from "@/types/player";
+import { PlayerRow } from "@/types/players";
 
 export default function Leaderboard() {
-    const [players, setPlayers] = useState<Player[]>([]);
+    const [players, setPlayers] = useState<PlayerRow[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
