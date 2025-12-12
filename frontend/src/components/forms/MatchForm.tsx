@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
 import { fetchPlayers } from "@/lib/api";
-import { Player } from "@/types/player";
+import { PlayerRow } from "@/types/player";
 
 // What we expect from backend
 type MatchResult = {
@@ -15,7 +15,7 @@ type MatchResult = {
 };
 
 export default function MatchForm() {
-    const [players, setPlayers] = useState<Player[]>([]);
+    const [players, setPlayers] = useState<PlayerRow[]>([]);
 
     const [playerAId, setPlayerAId] = useState("");
     const [playerBId, setPlayerBId] = useState("");
