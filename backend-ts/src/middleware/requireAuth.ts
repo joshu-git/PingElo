@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { supabase } from "../supabase.js"
+import { supabase } from "../libs/supabase.js"
 
 //Extends express request object to include user
 export interface AuthenticatedRequest extends Request {

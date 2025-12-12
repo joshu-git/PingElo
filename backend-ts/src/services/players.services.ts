@@ -1,5 +1,5 @@
 //For using supabase calls
-import { supabase } from "../supabase.js";
+import { supabase } from "../libs/supabase.js";
 
 //For generating claim codes
 import { v4 as uuidv4 } from "uuid";

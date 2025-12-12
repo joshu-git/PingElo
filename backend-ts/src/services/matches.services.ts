@@ -1,5 +1,5 @@
 //For using supabase calls
-import { supabase } from "../supabase.js"
+import { supabase } from "../libs/supabase.js"
 
 //For calculating elo post match
 import { calculateElo, EloCalculationResult } from "./elo.services.js";

@@ -1,6 +1,6 @@
 import { Router } from "express";
 
-import { supabase } from "../supabase.js"
+import { supabase } from "../libs/supabase.js"
 
 //Authentication required for performing actions
 import { requireAuth, AuthenticatedRequest } from "../middleware/requireAuth.js";
