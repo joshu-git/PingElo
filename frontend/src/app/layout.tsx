@@ -2,6 +2,9 @@ import "./globals.css";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
+//Handles analytics in vercel
+import { Analytics } from "@vercel/analytics/next"
+
 /* Metadata for SEO and social previews */
 export const metadata = {
     title: "PingElo",
@@ -14,7 +17,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <html lang="en">
             {/* Body is flex column for header + main + footer layout */}
             <body className="bg-black text-white flex flex-col min-h-screen">
-        
+
+                <Analytics/>
+
                 {/* Header component: contains navigation */}
                 <Header />
 
