@@ -1,4 +1,4 @@
-import MatchForm from "@/components/MatchForm";
+import MatchForm from "@/components/forms/MatchForm";
 
 //Display MatchForm component
 export default function MatchPage() {
