@@ -2,12 +2,12 @@
 import { supabase } from "../supabase.js"
 
 //For calculating elo post match
-import { EloResponse, calculateElo } from "./elo.services.js";
+import { calculateElo, EloCalculationResult } from "./elo.services.js";
 
 //Defines the return type
 export interface MatchWithElo {
   match: any;
-  eloData: EloResponse;
+  eloData: EloCalculationResult;
 }
 
 //Allows the creation of matches
@@ -21,10 +21,9 @@ export async function createMatch(
     ratingA: number,
     ratingB: number
 ): Promise<MatchWithElo> {
+    
     //Calls elo service to get new data
-    const eloData = await calculateElo({
-        playerAId,
-        playerBId,
+    const eloData = calculateElo({
         ratingA,
         ratingB,
         scoreA,

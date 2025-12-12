@@ -1,10 +1,5 @@
-//Allows calls to external python backend
-import axios from "axios";
-
-//Data we will send to python
-interface EloRequest {
-  playerAId: string;
-  playerBId: string;
+//Data we expect to receive
+export interface EloCalculationInput {
   ratingA: number;
   ratingB: number;
   scoreA: number;
@@ -12,65 +7,68 @@ interface EloRequest {
   gamePoints: number;
 }
 
-//Ensure env variable exists at startup
-const PYTHON_BACKEND_URL = process.env.PYTHON_BACKEND_URL;
-if (!PYTHON_BACKEND_URL) {
-  throw new Error("PYTHON_BACKEND_URL is not defined");
-}
-
-//Create a reusable axios client
-const pythonClient = axios.create({
-  baseURL: PYTHON_BACKEND_URL,
-  timeout: 30_000,
-  headers: {
-    "Content-Type": "application/json",
-  },
-});
-
-//Data we expect to get back from python
-export interface EloResponse {
+//Data we will send back
+export interface EloCalculationResult {
   newRatingA: number;
   newRatingB: number;
   eloChangeA: number;
   eloChangeB: number;
-  winner: string;
+  winner: "A" | "B";
 }
 
-//Allows calculation of elo
-export async function calculateElo(request: EloRequest): Promise<EloResponse> {
-  try {
-    //Calls the python backend for calculation of elo
-    const response = await pythonClient.post("/calculate_elo", {
-      rating_player_a: request.ratingA,
-      rating_player_b: request.ratingB,
-      score_player_a: request.scoreA,
-      score_player_b: request.scoreB,
-      game_points: request.gamePoints,
-    });
+//Base elo sensitivity
+const BASE_K = 50;
 
-    //Stores the data from the python backend
-    const data = response.data;
+//Standard amount of points per game
+const IDEAL_POINTS = 7;
 
-    //Determines the ID of the winner
-    const winnerId = data.winner === "A" ? request.playerAId : request.playerBId;
+//Expected score formula for elo
+function expectedScore(ratingA: number, ratingB: number): number {
+  return 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
+}
 
-    //Returns new ratings, elo changes and the winnerId
-    return {
-      newRatingA: data.new_rating_a,
-      newRatingB: data.new_rating_b,
-      eloChangeA: data.rating_change_a,
-      eloChangeB: data.rating_change_b,
-      winner: winnerId
-    };
-  } catch (err: any) {
-    if (err.response) {
-      console.error("Python error:", {
-        status: err.response.status,
-        data: err.response.data,
-      });
-    } else {
-      console.error("Network error:", err.message);
-    }
-    throw new Error("Could not calculate Elo");
-  }
+// Matches Python calculate_effective_k()
+function calculateEffectiveK(
+  scoreA: number,
+  scoreB: number,
+  gamePoints: number
+): number {
+  //Elo is scaled based on game length
+  const lengthFactor = gamePoints / IDEAL_POINTS;
+
+  //Elo is scaled based on point difference
+  const scoreDiffFactor = Math.abs(scoreA - scoreB) / gamePoints;
+  return BASE_K * scoreDiffFactor * lengthFactor;
+}
+
+//Elo calculation for every match
+export function calculateElo({
+  ratingA,
+  ratingB,
+  scoreA,
+  scoreB,
+  gamePoints,
+}: EloCalculationInput): EloCalculationResult {
+  //Decide who the winner is
+  const winner: "A" | "B" = scoreA > scoreB ? "A" : "B";
+  const actualA = winner === "A" ? 1 : 0;
+
+  //Determines who is expected to win
+  const expectedA = expectedScore(ratingA, ratingB);
+  const expectedB = 1 - expectedA;
+
+  //Calculate elo scale modifier
+  const effectiveK = calculateEffectiveK(scoreA, scoreB, gamePoints);
+
+  //Gives elo change for both players
+  const eloChangeA = Math.round(effectiveK * (actualA - expectedA));
+  const eloChangeB = -eloChangeA;
+
+  return {
+    newRatingA: ratingA + eloChangeA,
+    newRatingB: ratingB + eloChangeB,
+    eloChangeA,
+    eloChangeB,
+    winner,
+  };
 }
