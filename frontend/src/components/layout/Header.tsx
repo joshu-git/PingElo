@@ -11,7 +11,7 @@ export default function Header() {
     //Navigation links
     const navLinks = [
         { href: "/leaderboard", label: "Leaderboard" },
-        { href: "/match/submit", label: "Submit Match" },
+        { href: "/matches/submit", label: "Submit Match" },
         { href: "/tournament", label: "Tournaments" },
         { href: "/profile", label: "Profile" },
         { href: "/login", label: "Login" },
