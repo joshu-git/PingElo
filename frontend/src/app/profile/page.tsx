@@ -1,6 +1,6 @@
-import Profile from "@/components/Profile";
+import Profile from "@/components/profile/Profile";
 
 //Display Profile component
-export default function MatchPage() {
+export default function ProfilePage() {
   return <Profile />;
 }
