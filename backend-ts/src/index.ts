@@ -8,6 +8,9 @@ import playersRoutes from "./routes/players.routes.js"
 //Gives access to match routes
 import matchesRoutes from "./routes/matches.routes.js"
 
+//Gives access to admin routes
+import adminRoutes from  "./routes/admin.routes.js"
+
 //Load environment variables
 dotenv.config();
 
@@ -24,9 +27,10 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-//All routes for players and matches
+//All routes for players, matches and admins
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);
+app.use("/admin", adminRoutes)
 
 //Health check to confirm the backend is running
 app.get("/", (_req, res) => {
