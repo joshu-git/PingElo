@@ -1,6 +1,6 @@
 import "./globals.css";
-import Header from "@/components/Header";
-import Footer from "@/components/Footer";
+import Header from "@/components/layout/Header";
+import Footer from "@/components/layout/Footer";
 
 //Handles analytics in vercel
 import { Analytics } from "@vercel/analytics/next"
