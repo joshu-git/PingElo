@@ -5,13 +5,13 @@ import Footer from "@/components/layout/Footer";
 //Handles analytics in vercel
 import { Analytics } from "@vercel/analytics/next"
 
-/* Metadata for SEO and social previews */
+//Metadata for SEO and social previews
 export const metadata = {
     title: "PingElo",
     description: "Elo ranking system",
 };
 
-/* RootLayout wraps all pages: includes Header, Footer, and main content */
+//RootLayout wraps all pages: includes Header, Footer, and main content
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en">
