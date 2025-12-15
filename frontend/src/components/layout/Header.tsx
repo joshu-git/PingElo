@@ -54,7 +54,7 @@ function AuthButton({ onClick }: { onClick?: () => void; }) {
         return (
             <Link
                 href="/signin"
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold transition text-white"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white"
                 onClick={onClick}
             >
                 Sign In
@@ -66,7 +66,7 @@ function AuthButton({ onClick }: { onClick?: () => void; }) {
     return (
         <Link
             href={`/profile/${username}`}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold transition text-white"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white"
             onClick={onClick}
         >
             Profile
@@ -97,7 +97,7 @@ export default function Header() {
                 </Link>
 
                 {/* Desktop Navigation */}
-                <nav className="hidden md:flex gap-6 text-sm font-medium">
+                <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
                     {navLinks.map((link) => (
                         <Link
                             key={link.href}
