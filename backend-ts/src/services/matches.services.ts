@@ -10,6 +10,27 @@ export interface MatchWithElo {
   eloData: EloCalculationResult;
 }
 
+
+// Returns the next match number
+export async function getNextMatchNumber(): Promise<number> {
+  const { data, error } = await supabase
+    .from("matches")
+    .select("match_number")
+    .order("match_number", { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error) {
+    console.error("Failed to fetch highest match number:", error);
+    throw new Error(error.message);
+  }
+
+  // If there are no matches yet, start from 1
+  const highest = data?.match_number ?? 0;
+  return highest + 1;
+}
+
+
 //Allows the creation of matches
 export async function createMatch(
     userId: string,
@@ -35,6 +56,8 @@ export async function createMatch(
     const winnerId =
         eloData.winner === "A" ? playerAId : playerBId;
 
+    const matchNumber = getNextMatchNumber
+
     //Insert match into database. Validation has been done
     const { data: match, error } = await supabase
         .from("matches")
@@ -46,8 +69,9 @@ export async function createMatch(
             game_points: gamePoints,
             created_by: userId,
             winner: winnerId,
+            match_number: matchNumber,
             elo_change_a: eloData.eloChangeA,
-            elo_change_b: eloData.eloChangeB
+            elo_change_b: eloData.eloChangeB,
         })
         .select()
         .single();
