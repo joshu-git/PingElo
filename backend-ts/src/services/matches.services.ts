@@ -45,7 +45,7 @@ export async function createMatch(
             score_b: scoreB,
             game_points: gamePoints,
             created_by: userId,
-            winner: eloData.winner,
+            winner: winnerId,
             elo_change_a: eloData.eloChangeA,
             elo_change_b: eloData.eloChangeB
         })
