@@ -23,11 +23,11 @@ export default function HomePage() {
       {/* HERO */}
       <section className="text-center space-y-6">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-          Competitive Ping Pong Elo Rankings
+          Ping Pong Elo Rankings
         </h1>
 
         <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-          Track matches, climb the leaderboard, play tournaments, and find out who is best.
+          Track matches, climb the leaderboard, and find out who is the best.
           PingElo uses an Elo system based on point difference, Elo difference, and game length.
         </p>
 
@@ -62,7 +62,7 @@ export default function HomePage() {
                 text-white
               "
             >
-              Submit a Match
+              Submit A Match
             </button>
           </Link>
         </div>
@@ -71,12 +71,12 @@ export default function HomePage() {
       {/* FEATURES */}
       <section className="grid md:grid-cols-3 gap-6">
         <Feature
-          title="Elo-Based Rankings"
-          description="Every match updates player ratings using a fair, point-aware Elo algorithm."
+          title="Elo Based Rankings"
+          description="Every match updates player ratings using a fair Elo algorithm."
         />
         <Feature
           title="Public Profiles"
-          description="View match history, Elo progression, and win / loss stats for every player."
+          description="View match history, elo progression, and stats for every player."
         />
         <Feature
           title="Match History"
