@@ -52,24 +52,26 @@ function AuthButton({ onClick }: { onClick?: () => void; }) {
     //If no username prompt them to sign in
     if (!username) {
         return (
-            <Link
-                href="/signin"
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white"
-                onClick={onClick}
-            >
-                Sign In
+            <Link href="/signin" onClick={onClick}>
+                <button
+                    type="button"
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white"
+                >
+                    Sign In
+                </button>
             </Link>
         );
     }
 
     //Else give them a link to their profile
     return (
-        <Link
-            href={`/profile/${username}`}
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white"
-            onClick={onClick}
-        >
-            Profile
+        <Link href={`/profile/${username}`} onClick={onClick}>
+            <button
+                type="button"
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white"
+            >
+                Profile
+            </button>
         </Link>
     );
 }
