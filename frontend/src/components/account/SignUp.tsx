@@ -55,7 +55,7 @@ export default function SignUp() {
                 "
             >
                 <h1 className="text-2xl font-bold text-center mb-1">
-                    Login
+                    Sign Up
                 </h1>
 
                 <input
@@ -90,7 +90,7 @@ export default function SignUp() {
                 </button>
 
                 <div className="text-center text-sm text-white/70 mt-2">
-                    Already have an account?
+                    Have an account?
                 </div>
 
                 <Link

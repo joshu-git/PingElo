@@ -53,7 +53,7 @@ export default function SignIn() {
                 "
             >
                 <h1 className="text-2xl font-bold text-center mb-1">
-                    Login
+                    Sign In
                 </h1>
 
                 <input
@@ -88,7 +88,7 @@ export default function SignIn() {
                 </button>
 
                 <div className="text-center text-sm text-white/70 mt-2">
-                    Don’t have an account?
+                    Need an account?
                 </div>
 
                 <Link
@@ -101,7 +101,7 @@ export default function SignIn() {
                         transition
                     "
                 >
-                    Create Account
+                    Sign Up
                 </Link>
             </form>
         </div>
