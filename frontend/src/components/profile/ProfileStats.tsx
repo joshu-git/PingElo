@@ -23,7 +23,7 @@ export default function ProfileStats({
       losses,
       ratio:
         wins + losses > 0
-          ? (wins / (wins + losses)).toFixed(2)
+          ? (wins / losses).toFixed(2)
           : "0.00",
     };
   }, [matches, playerId]);
