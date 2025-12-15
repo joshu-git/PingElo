@@ -10,11 +10,7 @@ export interface AuthenticatedRequest extends Request {
 }
 
 //Function for verifying a route request
-export async function requireAuth(
-    req: AuthenticatedRequest,
-    res: Response,
-    next: NextFunction
-) {
+export async function requireAuth( req: AuthenticatedRequest, res: Response, next: NextFunction ) {
     //Gets the frontend to send JWT token
     const authHeader = req.headers.authorization;
 

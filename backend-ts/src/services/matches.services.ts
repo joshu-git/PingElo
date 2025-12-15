@@ -72,6 +72,8 @@ export async function createMatch(
             match_number: matchNumber,
             elo_change_a: eloData.eloChangeA,
             elo_change_b: eloData.eloChangeB,
+            elo_before_a: ratingA,
+            elo_before_b: ratingB
         })
         .select()
         .single();

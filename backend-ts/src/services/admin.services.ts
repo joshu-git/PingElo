@@ -16,7 +16,7 @@ export async function dryRunBootstrapEloSystem() {
   //Will store ratings of all players
   const ratings = new Map<string, number>();
 
-  //
+  //Stores the format of mismatches
   const mismatches: {
     matchNumber: number;
     playerId: string;
