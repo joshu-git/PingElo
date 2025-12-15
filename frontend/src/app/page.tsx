@@ -72,7 +72,7 @@ export default function HomePage() {
       <section className="grid md:grid-cols-3 gap-6">
         <Feature
           title="Elo Based Rankings"
-          description="Every match updates player ratings using a fair Elo algorithm."
+          description="Every match updates player ratings using a fair elo algorithm."
         />
         <Feature
           title="Public Profiles"
