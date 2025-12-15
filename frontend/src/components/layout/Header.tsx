@@ -1,20 +1,88 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
+import { supabase } from "@/lib/supabase"
+
+//Authenticate button
+function AuthButton({ onClick }: { onClick?: () => void; }) {
+    const [username, setUsername] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+
+    //Load the session data and player
+    useEffect(() => {
+        async function loadUser() {
+            const { data } = await supabase.auth.getSession();
+        
+            //If their is no data for the session then return
+            if (!data.session) {
+                setUsername(null);
+                setLoading(false);
+                return;
+            }
+
+            //Fetch the player id
+            const { data: player } = await supabase
+                .from("players")
+                .select("username")
+                .eq("user_id", data.session.user.id)
+                .single();
+
+            setUsername(player?.username ?? null);
+            setLoading(false);
+        }
+
+        loadUser();
+
+        //When the auth state changes rerun the function
+        const { data: sub } = supabase.auth.onAuthStateChange(() => {
+            loadUser();
+        });
+
+        //Stop listening
+        return () => {
+            sub.subscription.unsubscribe();
+        };
+    }, []);
+
+    //If still loading then return
+    if (loading) return null;
+
+    //If no username prompt them to sign in
+    if (!username) {
+        return (
+            <Link
+                href="/signin"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold transition text-white"
+                onClick={onClick}
+            >
+                Sign In
+            </Link>
+        );
+    }
+
+    //Else give them a link to their profile
+    return (
+        <Link
+            href={`/profile/${username}`}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl font-semibold transition text-white"
+            onClick={onClick}
+        >
+            Profile
+        </Link>
+    );
+}
 
 //Header with responsive navigation
 export default function Header() {
     const [open, setOpen] = useState(false);
-
-    //Navigation links
+    
+    //Static navigation links
     const navLinks = [
         { href: "/leaderboard", label: "Leaderboard" },
         { href: "/matches/submit", label: "Submit Match" },
         { href: "/tournament", label: "Tournaments" },
-        { href: "/profile", label: "Profile" },
-        { href: "/signin", label: "Sign In" },
     ];
 
     return (
@@ -39,6 +107,8 @@ export default function Header() {
                             {link.label}
                         </Link>
                     ))}
+
+                    <AuthButton />
                 </nav>
 
                 {/* Mobile Menu Button */}
@@ -66,6 +136,8 @@ export default function Header() {
                         {link.label}
                     </Link>
                 ))}
+                
+                <AuthButton onClick={() => setOpen(false)} />
             </nav>
         </header>
     );
