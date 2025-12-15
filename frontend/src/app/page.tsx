@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-//Function for displaying features
+// Feature card
 function Feature({
   title,
   description,
@@ -16,7 +16,7 @@ function Feature({
   );
 }
 
-//Displays home page. Optimized for SEO
+// Home page
 export default function HomePage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
@@ -27,23 +27,43 @@ export default function HomePage() {
         </h1>
 
         <p className="text-lg text-gray-400 max-w-2xl mx-auto">
-          Track matches, climb the leaderboard, play tournaments, and find our who is best.
-          PingElo uses an Elo system based on point different, elo difference and length of game.
+          Track matches, climb the leaderboard, play tournaments, and find out who is best.
+          PingElo uses an Elo system based on point difference, Elo difference, and game length.
         </p>
 
         <div className="flex justify-center gap-4 pt-4">
-          <Link
-            href="/leaderboard"
-            className="px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 transition font-semibold"
-          >
-            View Leaderboard
+          <Link href="/leaderboard">
+            <button
+              type="button"
+              className="
+                px-6 py-3
+                bg-purple-600
+                hover:bg-purple-700
+                rounded-xl
+                font-semibold
+                transition
+                text-white
+              "
+            >
+              View Leaderboard
+            </button>
           </Link>
 
-          <Link
-            href="/matches/submit"
-            className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 transition font-semibold"
-          >
-            Submit a Match
+          <Link href="/matches/submit">
+            <button
+              type="button"
+              className="
+                px-6 py-3
+                bg-purple-600
+                hover:bg-purple-700
+                rounded-xl
+                font-semibold
+                transition
+                text-white
+              "
+            >
+              Submit a Match
+            </button>
           </Link>
         </div>
       </section>
@@ -52,7 +72,7 @@ export default function HomePage() {
       <section className="grid md:grid-cols-3 gap-6">
         <Feature
           title="Elo-Based Rankings"
-          description="Every match updates player ratings using a fair, point aware Elo algorithm."
+          description="Every match updates player ratings using a fair, point-aware Elo algorithm."
         />
         <Feature
           title="Public Profiles"
@@ -72,11 +92,23 @@ export default function HomePage() {
         <p className="text-gray-400">
           Sign in, submit matches, and start climbing.
         </p>
-        <Link
-          href="/signin"
-          className="inline-block mt-2 px-6 py-3 rounded-xl bg-purple-600 hover:bg-purple-700 transition font-semibold"
-        >
-          Sign In
+
+        <Link href="/signin">
+          <button
+            type="button"
+            className="
+              mt-2
+              px-6 py-3
+              bg-purple-600
+              hover:bg-purple-700
+              rounded-xl
+              font-semibold
+              transition
+              text-white
+            "
+          >
+            Sign In
+          </button>
         </Link>
       </section>
     </main>
