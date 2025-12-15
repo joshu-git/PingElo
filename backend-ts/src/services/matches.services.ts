@@ -56,7 +56,7 @@ export async function createMatch(
     const winnerId =
         eloData.winner === "A" ? playerAId : playerBId;
 
-    const matchNumber = getNextMatchNumber
+    const matchNumber = await getNextMatchNumber()
 
     //Insert match into database. Validation has been done
     const { data: match, error } = await supabase
