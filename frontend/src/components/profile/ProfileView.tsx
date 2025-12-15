@@ -12,9 +12,9 @@ import ProfileMatchList from "./ProfileMatchList";
 import type { MatchRow } from "@/types/matches";
 import type { PlayerRow } from "@/types/players";
 
-type MatchWithPlayers = MatchRow & {
-  player_a: { username: string };
-  player_b: { username: string };
+type MatchWithNames = MatchRow & {
+  playerAName: string;
+  playerBName: string;
 };
 
 export default function ProfileView() {
@@ -22,13 +22,13 @@ export default function ProfileView() {
   const router = useRouter();
 
   const [player, setPlayer] = useState<PlayerRow | null>(null);
-  const [matches, setMatches] = useState<MatchWithPlayers[]>([]);
+  const [matches, setMatches] = useState<MatchWithNames[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     async function load() {
       /* -------------------------
-         FETCH PLAYER
+         FETCH PLAYER (PUBLIC)
       -------------------------- */
       const { data: playerData } = await supabase
         .from("players")
@@ -48,30 +48,43 @@ export default function ProfileView() {
       -------------------------- */
       const { data: matchData } = await supabase
         .from("matches")
-        .select(`
-          *,
-          player_a:players!matches_player_a_id_fkey(username),
-          player_b:players!matches_player_b_id_fkey(username)
-        `)
+        .select("*")
         .or(
           `player_a_id.eq.${playerData.id},player_b_id.eq.${playerData.id}`
         )
         .order("match_number", { ascending: true });
 
-      // Normalize joined relations (Supabase returns arrays)
-      const normalized =
+      /* -------------------------
+         FETCH PLAYERS (LOOKUP)
+      -------------------------- */
+      const { data: players } = await supabase
+        .from("players")
+        .select("id, username");
+
+      const playerMap = new Map(
+        players?.map((p) => [p.id, p.username])
+      );
+
+      /* -------------------------
+         ATTACH USERNAMES
+      -------------------------- */
+      const enriched =
         matchData?.map((m) => ({
           ...m,
-          player_a: m.player_a[0],
-          player_b: m.player_b[0],
+          playerAName:
+            playerMap.get(m.player_a_id) ?? "Unknown",
+          playerBName:
+            playerMap.get(m.player_b_id) ?? "Unknown",
         })) ?? [];
 
-      setMatches(normalized);
+      setMatches(enriched);
 
       /* -------------------------
          CHECK ADMIN
       -------------------------- */
-      const { data: session } = await supabase.auth.getSession();
+      const { data: session } =
+        await supabase.auth.getSession();
+
       if (session?.session) {
         const { data } = await supabase
           .from("profiles")
@@ -95,17 +108,24 @@ export default function ProfileView() {
     return matches
       .map((m) => {
         const isA = m.player_a_id === player.id;
-        const before = isA ? m.elo_before_a : m.elo_before_b;
-        const change = isA ? m.elo_change_a : m.elo_change_b;
+        const before = isA
+          ? m.elo_before_a
+          : m.elo_before_b;
+        const change = isA
+          ? m.elo_change_a
+          : m.elo_change_b;
 
-        if (before === null || change === null) return null;
+        if (before == null || change == null) return null;
 
         return {
           match: m.match_number,
           elo: before + change,
         };
       })
-      .filter(Boolean) as { match: number; elo: number }[];
+      .filter(Boolean) as {
+      match: number;
+      elo: number;
+    }[];
   }, [matches, player]);
 
   if (!player) return null;
@@ -114,7 +134,9 @@ export default function ProfileView() {
     <div className="max-w-5xl mx-auto mt-10 px-4 space-y-8">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-4xl font-bold">{player.username}</h1>
+        <h1 className="text-4xl font-bold">
+          {player.username}
+        </h1>
 
         {isAdmin && (
           <Link
@@ -128,7 +150,6 @@ export default function ProfileView() {
 
       <ProfileStats playerId={player.id} matches={matches} />
 
-      {/* Elo Chart */}
       <div className="bg-black/40 rounded-2xl p-6">
         <h2 className="text-xl font-semibold mb-4">
           Elo Over Time

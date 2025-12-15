@@ -1,15 +1,15 @@
 import Link from "next/link";
 import type { MatchRow } from "@/types/matches";
 
-type MatchWithPlayers = MatchRow & {
-  player_a: { username: string };
-  player_b: { username: string };
+export type MatchWithNames = MatchRow & {
+  playerAName: string;
+  playerBName: string;
 };
 
 export default function ProfileMatchList({
   matches,
 }: {
-  matches: MatchWithPlayers[];
+  matches: MatchWithNames[];
 }) {
   return (
     <div className="bg-black/40 rounded-2xl p-6">
@@ -24,8 +24,7 @@ export default function ProfileMatchList({
           >
             <div className="flex justify-between">
               <span>
-                {m.player_a.username} vs{" "}
-                {m.player_b.username}
+                {m.playerAName} vs {m.playerBName}
               </span>
               <span className="text-gray-400">
                 {m.score_a} – {m.score_b}
