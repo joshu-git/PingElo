@@ -14,7 +14,7 @@ export default function Header() {
         { href: "/matches/submit", label: "Submit Match" },
         { href: "/tournament", label: "Tournaments" },
         { href: "/profile", label: "Profile" },
-        { href: "/login", label: "Login" },
+        { href: "/signin", label: "Sign In" },
     ];
 
     return (

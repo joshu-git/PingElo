@@ -5,16 +5,16 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-//Function for logging in
-export default function LoginForm() {
+//Function for signing in
+export default function SignIn() {
     const router = useRouter();
 
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [loading, setLoading] = useState(false);
 
-    //Uses the login information
-    async function login(e: React.FormEvent) {
+    //Uses the sign in information
+    async function signIn(e: React.FormEvent) {
         e.preventDefault();
         setLoading(true);
 
@@ -26,19 +26,19 @@ export default function LoginForm() {
         //Sets loading status
         setLoading(false);
         
-        //Shows error message or pushes user to /submitmatch
+        //Shows error message or pushes user to /profile
         if (error) {
             alert(error.message);
         } else {
-            router.push("/submitmatch");
+            router.push("/profile");
         }
     }
 
-    //Displays login information
+    //Displays sign in information
     return (
         <div className="w-full flex justify-center mt-10">
             <form
-                onSubmit={login}
+                onSubmit={signIn}
                 className="
                     w-full 
                     max-w-md 
