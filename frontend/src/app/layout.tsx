@@ -3,7 +3,11 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 
 //Handles analytics in vercel
-import { Analytics } from "@vercel/analytics/next"
+import { Analytics } from "@vercel/analytics/next";
+
+
+//Handles speed insights in vercel
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 //Metadata for SEO and social previews
 export const metadata = {
@@ -19,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <body className="bg-black text-white flex flex-col min-h-screen">
 
                 <Analytics/>
+                <SpeedInsights/>
 
                 {/* Header component: contains navigation */}
                 <Header />
