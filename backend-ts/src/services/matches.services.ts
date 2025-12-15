@@ -31,6 +31,10 @@ export async function createMatch(
         gamePoints
     });
 
+    //Translate the winner into their ID
+    const winnerId =
+        eloData.winner === "A" ? playerAId : playerBId;
+
     //Insert match into database. Validation has been done
     const { data: match, error } = await supabase
         .from("matches")
