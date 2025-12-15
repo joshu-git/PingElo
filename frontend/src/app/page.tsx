@@ -28,7 +28,7 @@ export default function HomePage() {
 
         <p className="text-lg text-gray-400 max-w-2xl mx-auto">
           Track matches, climb the leaderboard, and find out who is the best.
-          PingElo uses an Elo system based on point difference, Elo difference, and game length.
+          PingElo uses a competitive elo system based on point and elo difference.
         </p>
 
         <div className="flex justify-center gap-4 pt-4">
