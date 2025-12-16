@@ -4,7 +4,7 @@ import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 //Function for claiming a player
-export default function ClaimPage() {
+export default function Claim() {
     const [claimCode, setClaimCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -46,10 +46,22 @@ export default function ClaimPage() {
 
     //Displays claim information
     return (
-        <div className="w-full flex justify-center">
+        <div className="w-full flex justify-center mt-10">
             <form
                 onSubmit={submit}
-                className="w-full max-w-md bg-black/40 border border-white/10 rounded-xl p-6 shadow-lg flex flex-col gap-4"
+                className="
+                    w-full
+                    max-w-md
+                    sm:max-w-lg
+                    md:max-w-xl
+                    bg-black/40
+                    border border-white/10
+                    rounded-xl
+                    p-6
+                    shadow-lg
+                    flex flex-col
+                    gap-4
+                "
             >
                 <h1 className="text-2xl font-bold text-center mb-2">Claim Player</h1>
 
@@ -63,13 +75,13 @@ export default function ClaimPage() {
                     value={claimCode}
                     onChange={(e) => setClaimCode(e.target.value)}
                     required
-                    className="bg-black/60 border border-white/20 rounded-lg p-2"
+                    className="bg-black/60 border border-white/20 rounded-lg p-3"
                 />
 
                 <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition"
+                    className="w-full py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-semibold transition text-white"
                 >
                     {loading ? "Claiming..." : "Claim Player"}
                 </button>

@@ -1,6 +1,6 @@
-import ClaimForm from "@/components/forms/ClaimForm";
+import Claim from "@/components/account/Claim";
 
 //Display ClaimForm component
 export default function ClaimPage() {
-  return <ClaimForm />;
+  return <Claim />;
 }
