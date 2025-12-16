@@ -15,9 +15,11 @@ type MatchRow = {
   player_b_id: string;
   score_a: number;
   score_b: number;
+  elo_before_a: number;
+  elo_before_b: number;
   elo_change_a: number;
   elo_change_b: number;
-  winner: "A" | "B";
+  winner: string; // winner's player id
 };
 
 type Props = {
@@ -36,10 +38,7 @@ export default function Matches({
   const [players, setPlayers] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-
   const [playerFilter, setPlayerFilter] = useState("");
-  const [minScore, setMinScore] = useState<number | "">("");
-  const [maxScore, setMaxScore] = useState<number | "">("");
 
   // Load players
   useEffect(() => {
@@ -67,6 +66,8 @@ export default function Matches({
         player_b_id,
         score_a,
         score_b,
+        elo_before_a,
+        elo_before_b,
         elo_change_a,
         elo_change_b,
         winner
@@ -82,24 +83,20 @@ export default function Matches({
       return;
     }
 
-    // filter in front-end for player name or score
+    // filter by player name
     const filtered = data.filter((m) => {
       const aName = players.get(m.player_a_id)?.toLowerCase() ?? "";
       const bName = players.get(m.player_b_id)?.toLowerCase() ?? "";
-      const playerMatch = playerFilter
+      return playerFilter
         ? aName.includes(playerFilter.toLowerCase()) ||
-          bName.includes(playerFilter.toLowerCase())
+            bName.includes(playerFilter.toLowerCase())
         : true;
-      const scoreMatch =
-        (minScore === "" || m.score_a >= minScore || m.score_b >= minScore) &&
-        (maxScore === "" || m.score_a <= maxScore || m.score_b <= maxScore);
-      return playerMatch && scoreMatch;
     });
 
     setMatches((prev) => [...prev, ...filtered]);
     setHasMore(data.length === PAGE_SIZE);
     setLoading(false);
-  }, [matches.length, loading, hasMore, players, playerFilter, minScore, maxScore]);
+  }, [matches.length, loading, hasMore, players, playerFilter]);
 
   // Infinite scroll
   useEffect(() => {
@@ -143,31 +140,9 @@ export default function Matches({
             className="bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-sm w-40"
           />
 
-          {/* Score Filters */}
-          <input
-            type="number"
-            placeholder="Min score"
-            value={minScore}
-            onChange={(e) => {
-              setMinScore(e.target.value ? Number(e.target.value) : "");
-              resetFilters();
-            }}
-            className="bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-sm w-24"
-          />
-          <input
-            type="number"
-            placeholder="Max score"
-            value={maxScore}
-            onChange={(e) => {
-              setMaxScore(e.target.value ? Number(e.target.value) : "");
-              resetFilters();
-            }}
-            className="bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-sm w-24"
-          />
-
           {/* Submit Match Button */}
           <Link href="/matches/submit">
-            <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white">
+            <button className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white text-sm">
               Submit Match
             </button>
           </Link>
@@ -180,14 +155,18 @@ export default function Matches({
           const aName = players.get(m.player_a_id) ?? "Unknown";
           const bName = players.get(m.player_b_id) ?? "Unknown";
 
+          // calculate Elo after match
+          const eloA = m.elo_before_a + m.elo_change_a;
+          const eloB = m.elo_before_b + m.elo_change_b;
+
           return (
             <div
               key={m.id}
               onClick={() => router.push(`/match/${m.id}`)}
               className={clsx(
                 "bg-black/40 border rounded-2xl p-4 cursor-pointer transition hover:bg-black/50",
-                outline(m.player_a_id, m.winner === "A"),
-                outline(m.player_b_id, m.winner === "B")
+                outline(m.player_a_id, m.winner === m.player_a_id),
+                outline(m.player_b_id, m.winner === m.player_b_id)
               )}
             >
               <div className="flex justify-between items-center gap-6">
@@ -200,8 +179,7 @@ export default function Matches({
                   >
                     <span>{aName}</span>
                     <span className="ml-2 text-sm text-gray-400 w-12 text-right">
-                      {m.elo_change_a > 0 && "+"}
-                      {m.elo_change_a}
+                      ({eloA})
                     </span>
                   </Link>
 
@@ -212,8 +190,7 @@ export default function Matches({
                   >
                     <span>{bName}</span>
                     <span className="ml-2 text-sm text-gray-400 w-12 text-right">
-                      {m.elo_change_b > 0 && "+"}
-                      {m.elo_change_b}
+                      ({eloB})
                     </span>
                   </Link>
                 </div>
@@ -227,7 +204,8 @@ export default function Matches({
                 {/* Meta */}
                 <div className="text-right text-sm text-gray-400">
                   <div className="text-white font-medium">
-                    Winner: {m.winner === "A" ? aName : bName}
+                    Winner:{" "}
+                    {players.get(m.winner) ?? "Unknown"}
                   </div>
                   <div>{new Date(m.created_at).toLocaleDateString()}</div>
                 </div>
