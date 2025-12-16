@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase"
 //Authenticate button
 function AuthButton({ onClick }: { onClick?: () => void; }) {
     const [username, setUsername] = useState<string | null>(null);
+    const [sessionUserId, setSessionUserId] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
 
     //Load the session data and player
@@ -15,12 +16,16 @@ function AuthButton({ onClick }: { onClick?: () => void; }) {
         async function loadUser() {
             const { data } = await supabase.auth.getSession();
         
-            //If their is no data for the session then return
+            //User not logged in
             if (!data.session) {
+                setSessionUserId(null);
                 setUsername(null);
                 setLoading(false);
                 return;
             }
+
+            const userId = data.session.user.id;
+            setSessionUserId(userId);
 
             //Fetch the player id
             const { data: player } = await supabase
@@ -49,8 +54,22 @@ function AuthButton({ onClick }: { onClick?: () => void; }) {
     //If still loading then return
     if (loading) return null;
 
-    //If no username prompt them to sign in
+    //If no username prompt them to claim
     if (!username) {
+        return (
+            <Link href="/claim" onClick={onClick}>
+                <button
+                    type="button"
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white"
+                >
+                    Claim
+                </button>
+            </Link>
+        );
+    }
+
+    //If no username prompt them to sign in
+    if (!sessionUserId) {
         return (
             <Link href="/signin" onClick={onClick}>
                 <button
