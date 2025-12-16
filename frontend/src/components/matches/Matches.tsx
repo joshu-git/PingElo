@@ -51,12 +51,11 @@ export default function Matches({
     loadPlayers();
   }, []);
 
-  // Load matches
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     setLoading(true);
 
-    const query = supabase
+    const { data, error } = await supabase
       .from("matches")
       .select(
         `
@@ -76,7 +75,6 @@ export default function Matches({
       .order("created_at", { ascending: false })
       .range(matches.length, matches.length + PAGE_SIZE - 1);
 
-    const { data, error } = await query;
     if (error || !data) {
       console.error(error);
       setLoading(false);
@@ -100,101 +98,99 @@ export default function Matches({
     return () => observer.disconnect();
   }, [loadMore]);
 
-  function outline(playerId: string, won: boolean) {
-    if (variant !== "profile" || highlightPlayerId !== playerId)
-      return "border-white/10";
-    return won ? "border-green-500/30" : "border-red-500/30";
+  function outline(playerId: string) {
+    if (variant !== "profile" || highlightPlayerId !== playerId) return "border-white/10";
+    const isWinner = highlightPlayerId === playerId;
+    return isWinner ? "border-green-500/30" : "border-red-500/30";
+  }
+
+  function resetMatches() {
+    setMatches([]);
+    setHasMore(true);
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4 px-4">
-      {/* Header & Submit */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <h1 className="text-2xl font-bold">Matches</h1>
+    <div className="w-full flex justify-center px-4 mt-6">
+      <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl space-y-4">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+          <h1 className="text-2xl font-bold">Matches</h1>
+          <Link href="/matches/submit">
+            <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold text-white transition">
+              Submit Match
+            </button>
+          </Link>
+        </div>
 
-        <Link href="/matches/submit">
-          <button className="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white text-sm sm:text-base">
-            Submit Match
-          </button>
-        </Link>
-      </div>
+        {/* Matches */}
+        <div className="space-y-3">
+          {matches.map((m) => {
+            const aName = players.get(m.player_a_id) ?? "Unknown";
+            const bName = players.get(m.player_b_id) ?? "Unknown";
 
-      {/* Matches */}
-      <div className="space-y-3">
-        {matches.map((m) => {
-          const aName = players.get(m.player_a_id) ?? "Unknown";
-          const bName = players.get(m.player_b_id) ?? "Unknown";
+            const aEloAfter = m.elo_before_a + m.elo_change_a;
+            const bEloAfter = m.elo_before_b + m.elo_change_b;
 
-          const aEloAfter = m.elo_before_a + m.elo_change_a;
-          const bEloAfter = m.elo_before_b + m.elo_change_b;
+            return (
+              <div
+                key={m.id}
+                onClick={() => router.push(`/match/${m.id}`)}
+                className={clsx(
+                  "bg-black/40 border rounded-2xl p-4 cursor-pointer transition hover:bg-black/50",
+                  outline(m.player_a_id),
+                  outline(m.player_b_id)
+                )}
+              >
+                <div className="flex justify-between items-center gap-6">
+                  {/* Players + Elo */}
+                  <div className="flex flex-col gap-1 w-56">
+                    <Link
+                      href={`/profile/${aName}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:underline font-medium flex justify-between items-center w-full"
+                    >
+                      <span className="truncate">{aName} ({aEloAfter})</span>
+                      <span className="text-gray-400 ml-2 flex-shrink-0 w-12 text-right">
+                        {m.elo_change_a > 0 && "+"}{m.elo_change_a}
+                      </span>
+                    </Link>
 
-          const aWon = m.winner === m.player_a_id;
-          const bWon = m.winner === m.player_b_id;
-
-          return (
-            <div
-              key={m.id}
-              onClick={() => router.push(`/match/${m.id}`)}
-              className={clsx(
-                "bg-black/40 border rounded-2xl p-4 cursor-pointer transition hover:bg-black/50",
-                outline(m.player_a_id, aWon),
-                outline(m.player_b_id, bWon)
-              )}
-            >
-              <div className="flex justify-between items-center gap-6">
-                {/* Player Names + Elo After + Elo Change */}
-                <div className="flex flex-col gap-1 w-56">
-                  <Link
-                    href={`/profile/${aName}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="hover:underline font-medium flex justify-between w-full"
-                  >
-                    <span>{aName} ({aEloAfter})</span>
-                    <span className="text-gray-400 w-12 text-right">
-                      {m.elo_change_a > 0 && "+"}{m.elo_change_a}
-                    </span>
-                  </Link>
-
-                  <Link
-                    href={`/profile/${bName}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="hover:underline font-medium flex justify-between w-full"
-                  >
-                    <span>{bName} ({bEloAfter})</span>
-                    <span className="text-gray-400 w-12 text-right">
-                      {m.elo_change_b > 0 && "+"}{m.elo_change_b}
-                    </span>
-                  </Link>
-                </div>
-
-                {/* Scores */}
-                <div className="flex flex-col items-center font-semibold w-12">
-                  <span>{m.score_a}</span>
-                  <span>{m.score_b}</span>
-                </div>
-
-                {/* Meta */}
-                <div className="text-right text-sm text-gray-400">
-                  <div className="text-white font-medium">
-                    Winner: {players.get(m.winner) ?? "Unknown"}
+                    <Link
+                      href={`/profile/${bName}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:underline font-medium flex justify-between items-center w-full"
+                    >
+                      <span className="truncate">{bName} ({bEloAfter})</span>
+                      <span className="text-gray-400 ml-2 flex-shrink-0 w-12 text-right">
+                        {m.elo_change_b > 0 && "+"}{m.elo_change_b}
+                      </span>
+                    </Link>
                   </div>
-                  <div>{new Date(m.created_at).toLocaleDateString()}</div>
+
+                  {/* Scores */}
+                  <div className="flex flex-col items-center font-semibold w-12 flex-shrink-0">
+                    <span>{m.score_a}</span>
+                    <span>{m.score_b}</span>
+                  </div>
+
+                  {/* Meta */}
+                  <div className="text-right text-sm text-gray-400">
+                    <div className="text-white font-medium">
+                      Winner: {players.get(m.winner) ?? "Unknown"}
+                    </div>
+                    <div>{new Date(m.created_at).toLocaleDateString()}</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
 
-      {/* Loader */}
-      <div
-        ref={loaderRef}
-        className="h-10 flex justify-center items-center"
-      >
-        {loading && <span className="text-gray-400">Loading…</span>}
-        {!hasMore && (
-          <span className="text-gray-500 text-sm">No more matches</span>
-        )}
+        {/* Loader */}
+        <div ref={loaderRef} className="h-10 flex justify-center items-center">
+          {loading && <span className="text-gray-400">Loading…</span>}
+          {!hasMore && <span className="text-gray-500 text-sm">No more matches</span>}
+        </div>
       </div>
     </div>
   );
