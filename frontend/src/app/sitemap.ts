@@ -18,10 +18,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
             priority: 0.9,
         },
         {
-            url: `${baseUrl}/matches/submit`,
+            url: `${baseUrl}/matches`,
             lastModified: new Date(),
-            changeFrequency: "weekly",
-            priority: 0.6,
+            changeFrequency: "daily",
+            priority: 0.7,
         },
         {
             url: `${baseUrl}/signin`,
