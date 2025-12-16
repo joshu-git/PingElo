@@ -27,10 +27,7 @@ type Props = {
   highlightPlayerId?: string;
 };
 
-export default function Matches({
-  variant = "global",
-  highlightPlayerId,
-}: Props) {
+export default function Matches({ variant = "global", highlightPlayerId }: Props) {
   const router = useRouter();
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
@@ -38,14 +35,11 @@ export default function Matches({
   const [players, setPlayers] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [playerFilter, setPlayerFilter] = useState("");
 
   // Load players
   useEffect(() => {
     async function loadPlayers() {
-      const { data } = await supabase
-        .from("players")
-        .select("id, username");
+      const { data } = await supabase.from("players").select("id, username");
       if (!data) return;
       setPlayers(new Map(data.map((p) => [p.id, p.username])));
     }
@@ -83,70 +77,37 @@ export default function Matches({
       return;
     }
 
-    // filter by player name
-    const filtered = data.filter((m) => {
-      const aName = players.get(m.player_a_id)?.toLowerCase() ?? "";
-      const bName = players.get(m.player_b_id)?.toLowerCase() ?? "";
-      return playerFilter
-        ? aName.includes(playerFilter.toLowerCase()) ||
-            bName.includes(playerFilter.toLowerCase())
-        : true;
-    });
-
-    setMatches((prev) => [...prev, ...filtered]);
+    setMatches((prev) => [...prev, ...data]);
     setHasMore(data.length === PAGE_SIZE);
     setLoading(false);
-  }, [matches.length, loading, hasMore, players, playerFilter]);
+  }, [matches.length, loading, hasMore]);
 
   // Infinite scroll
   useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => entry.isIntersecting && loadMore(),
-      { threshold: 1 }
-    );
+    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && loadMore(), {
+      threshold: 1,
+    });
     observer.observe(el);
     return () => observer.disconnect();
   }, [loadMore]);
 
   function outline(playerId: string, won: boolean) {
-    if (variant !== "profile" || highlightPlayerId !== playerId)
-      return "border-white/10";
+    if (variant !== "profile" || highlightPlayerId !== playerId) return "border-white/10";
     return won ? "border-green-500/30" : "border-red-500/30";
-  }
-
-  function resetFilters() {
-    setMatches([]);
-    setHasMore(true);
   }
 
   return (
     <div className="w-full max-w-2xl mx-auto space-y-4">
-      {/* Header & Filters */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+      {/* Header */}
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Matches</h1>
-
-        <div className="flex flex-wrap gap-3 items-center">
-          {/* Player Filter */}
-          <input
-            type="text"
-            placeholder="Search player..."
-            value={playerFilter}
-            onChange={(e) => {
-              setPlayerFilter(e.target.value);
-              resetFilters();
-            }}
-            className="bg-black/60 border border-white/20 rounded-xl px-3 py-2 text-sm w-40"
-          />
-
-          {/* Submit Match Button */}
-          <Link href="/matches/submit">
-            <button className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white text-sm">
-              Submit Match
-            </button>
-          </Link>
-        </div>
+        <Link href="/matches/submit">
+          <button className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white text-sm">
+            Submit Match
+          </button>
+        </Link>
       </div>
 
       {/* Matches */}
@@ -155,7 +116,6 @@ export default function Matches({
           const aName = players.get(m.player_a_id) ?? "Unknown";
           const bName = players.get(m.player_b_id) ?? "Unknown";
 
-          // calculate Elo after match
           const eloA = m.elo_before_a + m.elo_change_a;
           const eloB = m.elo_before_b + m.elo_change_b;
 
@@ -170,29 +130,17 @@ export default function Matches({
               )}
             >
               <div className="flex justify-between items-center gap-6">
-                {/* Players + Elo */}
+                {/* Players with Elo after and Elo change */}
                 <div className="flex flex-col gap-1 min-w-[200px]">
                   <Link
                     href={`/profile/${aName}`}
                     onClick={(e) => e.stopPropagation()}
                     className="hover:underline font-medium flex justify-between items-center"
                   >
-                    <span>{aName}</span>
-                    <div className="flex gap-1">
-                      <span
-                        className={`text-sm ${
-                          m.elo_change_a >= 0
-                            ? "text-green-400"
-                            : "text-red-400"
-                        } w-8 text-right`}
-                      >
-                        {m.elo_change_a > 0 && "+"}
-                        {m.elo_change_a}
-                      </span>
-                      <span className="text-sm text-gray-400 w-12 text-right">
-                        ({eloA})
-                      </span>
-                    </div>
+                    <span>{aName} ({eloA})</span>
+                    <span className={`text-sm ${m.elo_change_a >= 0 ? "text-green-400" : "text-red-400"} w-8 text-right`}>
+                      {m.elo_change_a > 0 && "+"}{m.elo_change_a}
+                    </span>
                   </Link>
 
                   <Link
@@ -200,22 +148,10 @@ export default function Matches({
                     onClick={(e) => e.stopPropagation()}
                     className="hover:underline font-medium flex justify-between items-center"
                   >
-                    <span>{bName}</span>
-                    <div className="flex gap-1">
-                      <span
-                        className={`text-sm ${
-                          m.elo_change_b >= 0
-                            ? "text-green-400"
-                            : "text-red-400"
-                        } w-8 text-right`}
-                      >
-                        {m.elo_change_b > 0 && "+"}
-                        {m.elo_change_b}
-                      </span>
-                      <span className="text-sm text-gray-400 w-12 text-right">
-                        ({eloB})
-                      </span>
-                    </div>
+                    <span>{bName} ({eloB})</span>
+                    <span className={`text-sm ${m.elo_change_b >= 0 ? "text-green-400" : "text-red-400"} w-8 text-right`}>
+                      {m.elo_change_b > 0 && "+"}{m.elo_change_b}
+                    </span>
                   </Link>
                 </div>
 
@@ -239,14 +175,9 @@ export default function Matches({
       </div>
 
       {/* Loader */}
-      <div
-        ref={loaderRef}
-        className="h-10 flex justify-center items-center"
-      >
+      <div ref={loaderRef} className="h-10 flex justify-center items-center">
         {loading && <span className="text-gray-400">Loading…</span>}
-        {!hasMore && (
-          <span className="text-gray-500 text-sm">No more matches</span>
-        )}
+        {!hasMore && <span className="text-gray-500 text-sm">No more matches</span>}
       </div>
     </div>
   );
