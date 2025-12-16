@@ -14,7 +14,7 @@ import type { Metadata } from "next";
 //Metadata for SEO and social previes
 export const metadata: Metadata = {
     title: {
-        default: "PingElo - Ping Pong Elo Rankings",
+        default: "PingElo",
         template: "%s | PingElo",
     },
     description:
