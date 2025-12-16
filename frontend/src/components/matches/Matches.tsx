@@ -175,23 +175,47 @@ export default function Matches({
                   <Link
                     href={`/profile/${aName}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="hover:underline font-medium flex justify-between"
+                    className="hover:underline font-medium flex justify-between items-center"
                   >
                     <span>{aName}</span>
-                    <span className="ml-2 text-sm text-gray-400 w-12 text-right">
-                      ({eloA})
-                    </span>
+                    <div className="flex gap-1">
+                      <span
+                        className={`text-sm ${
+                          m.elo_change_a >= 0
+                            ? "text-green-400"
+                            : "text-red-400"
+                        } w-8 text-right`}
+                      >
+                        {m.elo_change_a > 0 && "+"}
+                        {m.elo_change_a}
+                      </span>
+                      <span className="text-sm text-gray-400 w-12 text-right">
+                        ({eloA})
+                      </span>
+                    </div>
                   </Link>
 
                   <Link
                     href={`/profile/${bName}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="hover:underline font-medium flex justify-between"
+                    className="hover:underline font-medium flex justify-between items-center"
                   >
                     <span>{bName}</span>
-                    <span className="ml-2 text-sm text-gray-400 w-12 text-right">
-                      ({eloB})
-                    </span>
+                    <div className="flex gap-1">
+                      <span
+                        className={`text-sm ${
+                          m.elo_change_b >= 0
+                            ? "text-green-400"
+                            : "text-red-400"
+                        } w-8 text-right`}
+                      >
+                        {m.elo_change_b > 0 && "+"}
+                        {m.elo_change_b}
+                      </span>
+                      <span className="text-sm text-gray-400 w-12 text-right">
+                        ({eloB})
+                      </span>
+                    </div>
                   </Link>
                 </div>
 
@@ -204,8 +228,7 @@ export default function Matches({
                 {/* Meta */}
                 <div className="text-right text-sm text-gray-400">
                   <div className="text-white font-medium">
-                    Winner:{" "}
-                    {players.get(m.winner) ?? "Unknown"}
+                    Winner: {players.get(m.winner) ?? "Unknown"}
                   </div>
                   <div>{new Date(m.created_at).toLocaleDateString()}</div>
                 </div>
