@@ -17,12 +17,14 @@ export default function Claim() {
         setLoading(true);
         setMessage("");
 
+        //Tries to claim the player
         try {
             const { data, error } = await supabase.auth.getSession();
             if (error || !data.session) {
                 throw new Error("You must be logged in.");
             }
-
+            
+            //Call the ts backend
             const res = await fetch(
                 `${process.env.NEXT_PUBLIC_BACKEND_URL}/players/claim`,
                 {
@@ -35,12 +37,14 @@ export default function Claim() {
                 }
             );
 
+            //Stores json from backend
             const json = await res.json();
 
             if (!res.ok) {
                 throw new Error(json.error || "Claim failed.");
             }
 
+            //Gives success message then routes to new profile
             setMessage(`Player claimed: ${json.player.username}`);
 
             router.push(`/profile/${json.player.username}`);
@@ -50,6 +54,7 @@ export default function Claim() {
             }
             throw new Error("Unknown error occurred");
         } finally {
+            //Set loading to false after submission
             setLoading(false);
         }
     }
