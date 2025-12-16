@@ -114,75 +114,83 @@ export default function MatchForm() {
                 </h1>
 
                 {/* Player A */}
-                <select
-                    value={playerAId}
-                    onChange={(e) => setPlayerAId(e.target.value)}
-                    className="
-                        bg-black/60 
-                        border border-white/20 
-                        rounded-xl 
-                        p-3
-                        text-white
-                    "
-                >
-                    <option value="">Select Player A</option>
-                    {players.map((p) => (
-                        <option key={p.id} value={p.id}>
-                            {p.username}
-                        </option>
-                    ))}
-                </select>
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-300">
+                        Player A
+                    </label>
 
-                {/* Player B */}
-                <select
-                    value={playerBId}
-                    onChange={(e) => setPlayerBId(e.target.value)}
-                    className="
-                        bg-black/60 
-                        border border-white/20 
-                        rounded-xl 
-                        p-3
-                        text-white
-                    "
-                >
-                    <option value="">Select Player B</option>
-                    {players.map((p) => (
-                        <option key={p.id} value={p.id}>
-                            {p.username}
-                        </option>
-                    ))}
-                </select>
+                    <select
+                        value={playerAId}
+                        onChange={(e) => setPlayerAId(e.target.value)}
+                        className="bg-black/60 border border-white/20 rounded-xl p-3 text-white w-full"
+                    >
+                        <option value="">Select Player A</option>
+                        {players.map((p) => (
+                            <option key={p.id} value={p.id}>
+                                {p.username}
+                            </option>
+                        ))}
+                    </select>
 
-                {/* Scores */}
-                <div className="grid grid-cols-2 gap-4">
                     <input
                         type="number"
                         min={0}
-                        placeholder="Score A"
                         value={scoreA}
                         onChange={(e) => setScoreA(Number(e.target.value))}
-                        className="bg-black/60 border border-white/20 rounded-xl p-3 text-white"
+                        placeholder="Score"
+                        className="bg-black/60 border border-white/20 rounded-xl p-3 text-white w-full"
                     />
+                </div>
+
+
+                {/* Player B */}
+                <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-300">
+                        Player B
+                    </label>
+
+                    <select
+                        value={playerBId}
+                        onChange={(e) => setPlayerBId(e.target.value)}
+                        className="bg-black/60 border border-white/20 rounded-xl p-3 text-white w-full"
+                    >
+                        <option value="">Select Player B</option>
+                        {players.map((p) => (
+                            <option key={p.id} value={p.id}>
+                                {p.username}
+                            </option>
+                        ))}
+                    </select>
 
                     <input
                         type="number"
                         min={0}
-                        placeholder="Score B"
                         value={scoreB}
                         onChange={(e) => setScoreB(Number(e.target.value))}
-                        className="bg-black/60 border border-white/20 rounded-xl p-3 text-white"
+                        placeholder="Score"
+                        className="bg-black/60 border border-white/20 rounded-xl p-3 text-white w-full"
                     />
                 </div>
 
                 {/* Game point cap */}
-                <input
-                    type="number"
-                    min={1}
-                    placeholder="Game Points"
-                    value={gamePoints}
-                    onChange={(e) => setGamePoints(Number(e.target.value))}
-                    className="bg-black/60 border border-white/20 rounded-xl p-3 text-white"
-                />
+                <div className="space-y-1">
+                    <label className="text-sm font-medium text-gray-300">
+                        Game Points
+                    </label>
+
+                    <input
+                        type="number"
+                        min={1}
+                        value={gamePoints}
+                        onChange={(e) => setGamePoints(Number(e.target.value))}
+                        className="bg-black/60 border border-white/20 rounded-xl p-3 text-white w-full"
+                    />
+
+                    <p className="text-xs text-gray-500">
+                        First player to reach this score wins the match
+                    </p>
+                </div>
+
 
                 {/* Submit */}
                 <button
