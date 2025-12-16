@@ -84,7 +84,7 @@ export default function SignIn() {
                         transition
                     "
                 >
-                    {loading ? "Logging in..." : "Login"}
+                    {loading ? "Signing In..." : "Sign In"}
                 </button>
 
                 <div className="text-center text-sm text-white/70 mt-2">
