@@ -18,19 +18,35 @@ export default function SignIn() {
         e.preventDefault();
         setLoading(true);
 
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
-
-        //Sets loading status
-        setLoading(false);
         
-        //Shows error message or pushes user to /profile
+        //If there is an error then stop loading and show error
         if (error) {
+            setLoading(false);
             alert(error.message);
+            return;
+        }
+
+        //User is authenticated
+        const userId = data.user.id;
+
+        //Look up linked player
+        const { data: player } = await supabase
+            .from("players")
+            .select("username")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+        setLoading(false);
+
+        //Redirect based on player existence
+        if (player && player.username) {
+            router.push(`/profile/${player.username}`);
         } else {
-            router.push("/profile");
+            router.push("/account/claim");
         }
     }
 
