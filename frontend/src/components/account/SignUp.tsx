@@ -32,7 +32,7 @@ export default function SignUp() {
         if (error) {
             alert(error.message);
         } else {
-            router.push("/claim");
+            router.push("/account/claim");
         }
     }
 

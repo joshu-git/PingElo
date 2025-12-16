@@ -93,7 +93,7 @@ export default function HomePage() {
           Sign in, submit matches, and start climbing.
         </p>
 
-        <Link href="/signin">
+        <Link href="/account/signin">
           <button
             type="button"
             className="

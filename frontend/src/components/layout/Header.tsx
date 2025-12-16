@@ -57,7 +57,7 @@ function AuthButton({ onClick }: { onClick?: () => void; }) {
     //If no username prompt them to sign in
     if (!sessionUserId) {
         return (
-            <Link href="/signin" onClick={onClick}>
+            <Link href="/account/signin" onClick={onClick}>
                 <button
                     type="button"
                     className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white"
