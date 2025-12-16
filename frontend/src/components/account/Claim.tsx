@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/router";
 
 //Function for claiming a player
 export default function Claim() {
+    const router = useRouter();
     const [claimCode, setClaimCode] = useState("");
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -17,7 +19,9 @@ export default function Claim() {
 
         try {
             const { data, error } = await supabase.auth.getSession();
-            if (error || !data.session) throw new Error("You must be logged in.");
+            if (error || !data.session) {
+                throw new Error("You must be logged in.");
+            }
 
             const res = await fetch(
                 `${process.env.NEXT_PUBLIC_BACKEND_URL}/players/claim`,
@@ -33,14 +37,20 @@ export default function Claim() {
 
             const json = await res.json();
 
-            if (!res.ok) throw new Error(json.error || "Claim failed.");
+            if (!res.ok) {
+                throw new Error(json.error || "Claim failed.");
+            }
 
             setMessage(`Player claimed: ${json.player.username}`);
+
+            router.push(`/profile/${json.player.username}`);
         } catch (err: unknown) {
             if (err instanceof Error) {
                 throw new Error(err.message);
             }
             throw new Error("Unknown error occurred");
+        } finally {
+            setLoading(false);
         }
     }
 
