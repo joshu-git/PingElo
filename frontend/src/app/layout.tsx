@@ -9,10 +9,40 @@ import { Analytics } from "@vercel/analytics/next";
 //Handles speed insights in vercel
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
-//Metadata for SEO and social previews
-export const metadata = {
-    title: "PingElo",
-    description: "Elo ranking system",
+import type { Metadata } from "next";
+
+//Metadata for SEO and social previes
+export const metadata: Metadata = {
+    title: {
+        default: "PingElo - Ping Pong Elo Rankings",
+        template: "%s | PingElo",
+    },
+    description:
+        "PingElo is a competitive ping pong Elo ranking system. Track matches, climb the leaderboard, and see who is the best.",
+    keywords: [
+        "ping pong elo",
+        "ping pong rankings",
+        "table tennis elo",
+        "ping pong leaderboard",
+        "table tennis rankings",
+        "competitive ping pong",
+    ],
+    metadataBase: new URL("https://pingelo.vercel.app"),
+    openGraph: {
+        title: "PingElo - Ping Pong Elo Rankings",
+        description:
+            "Track ping pong matches, climb the leaderboard, and see who is the best using a competitive Elo system.",
+        url: "https://pingelo.vercel.app",
+        siteName: "PingElo",
+        locale: "en_US",
+        type: "website",
+    },
+    twitter: {
+        card: "summary_large_image",
+        title: "PingElo - Ping Pong Elo Rankings",
+        description:
+            "Track ping pong matches and compete on a public Elo leaderboard.",
+    },
 };
 
 //RootLayout wraps all pages: includes Header, Footer, and main content
