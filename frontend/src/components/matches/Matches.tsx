@@ -19,7 +19,7 @@ type MatchRow = {
   elo_before_b: number;
   elo_change_a: number;
   elo_change_b: number;
-  winner: string; // winner's player id
+  winner: string; // winner id
 };
 
 type Props = {
@@ -27,7 +27,10 @@ type Props = {
   highlightPlayerId?: string;
 };
 
-export default function Matches({ variant = "global", highlightPlayerId }: Props) {
+export default function Matches({
+  variant = "global",
+  highlightPlayerId,
+}: Props) {
   const router = useRouter();
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
@@ -39,13 +42,16 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
   // Load players
   useEffect(() => {
     async function loadPlayers() {
-      const { data } = await supabase.from("players").select("id, username");
+      const { data } = await supabase
+        .from("players")
+        .select("id, username");
       if (!data) return;
       setPlayers(new Map(data.map((p) => [p.id, p.username])));
     }
     loadPlayers();
   }, []);
 
+  // Load matches
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
     setLoading(true);
@@ -86,25 +92,28 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
   useEffect(() => {
     const el = loaderRef.current;
     if (!el) return;
-    const observer = new IntersectionObserver(([entry]) => entry.isIntersecting && loadMore(), {
-      threshold: 1,
-    });
+    const observer = new IntersectionObserver(
+      ([entry]) => entry.isIntersecting && loadMore(),
+      { threshold: 1 }
+    );
     observer.observe(el);
     return () => observer.disconnect();
   }, [loadMore]);
 
   function outline(playerId: string, won: boolean) {
-    if (variant !== "profile" || highlightPlayerId !== playerId) return "border-white/10";
+    if (variant !== "profile" || highlightPlayerId !== playerId)
+      return "border-white/10";
     return won ? "border-green-500/30" : "border-red-500/30";
   }
 
   return (
-    <div className="w-full max-w-2xl mx-auto space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-center">
+    <div className="w-full max-w-2xl mx-auto space-y-4 px-4">
+      {/* Header & Submit */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <h1 className="text-2xl font-bold">Matches</h1>
+
         <Link href="/matches/submit">
-          <button className="px-3 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white text-sm">
+          <button className="px-3 sm:px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white text-sm sm:text-base">
             Submit Match
           </button>
         </Link>
@@ -116,8 +125,11 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
           const aName = players.get(m.player_a_id) ?? "Unknown";
           const bName = players.get(m.player_b_id) ?? "Unknown";
 
-          const eloA = m.elo_before_a + m.elo_change_a;
-          const eloB = m.elo_before_b + m.elo_change_b;
+          const aEloAfter = m.elo_before_a + m.elo_change_a;
+          const bEloAfter = m.elo_before_b + m.elo_change_b;
+
+          const aWon = m.winner === m.player_a_id;
+          const bWon = m.winner === m.player_b_id;
 
           return (
             <div
@@ -125,20 +137,20 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
               onClick={() => router.push(`/match/${m.id}`)}
               className={clsx(
                 "bg-black/40 border rounded-2xl p-4 cursor-pointer transition hover:bg-black/50",
-                outline(m.player_a_id, m.winner === m.player_a_id),
-                outline(m.player_b_id, m.winner === m.player_b_id)
+                outline(m.player_a_id, aWon),
+                outline(m.player_b_id, bWon)
               )}
             >
               <div className="flex justify-between items-center gap-6">
-                {/* Players with Elo after and Elo change */}
-                <div className="flex flex-col gap-1 min-w-[200px]">
+                {/* Player Names + Elo After + Elo Change */}
+                <div className="flex flex-col gap-1 w-56">
                   <Link
                     href={`/profile/${aName}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="hover:underline font-medium flex justify-between items-center"
+                    className="hover:underline font-medium flex justify-between w-full"
                   >
-                    <span>{aName} ({eloA})</span>
-                    <span className={`text-sm ${m.elo_change_a >= 0 ? "text-green-400" : "text-red-400"} w-8 text-right`}>
+                    <span>{aName} ({aEloAfter})</span>
+                    <span className="text-gray-400 w-12 text-right">
                       {m.elo_change_a > 0 && "+"}{m.elo_change_a}
                     </span>
                   </Link>
@@ -146,10 +158,10 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                   <Link
                     href={`/profile/${bName}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="hover:underline font-medium flex justify-between items-center"
+                    className="hover:underline font-medium flex justify-between w-full"
                   >
-                    <span>{bName} ({eloB})</span>
-                    <span className={`text-sm ${m.elo_change_b >= 0 ? "text-green-400" : "text-red-400"} w-8 text-right`}>
+                    <span>{bName} ({bEloAfter})</span>
+                    <span className="text-gray-400 w-12 text-right">
                       {m.elo_change_b > 0 && "+"}{m.elo_change_b}
                     </span>
                   </Link>
@@ -175,9 +187,14 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
       </div>
 
       {/* Loader */}
-      <div ref={loaderRef} className="h-10 flex justify-center items-center">
+      <div
+        ref={loaderRef}
+        className="h-10 flex justify-center items-center"
+      >
         {loading && <span className="text-gray-400">Loading…</span>}
-        {!hasMore && <span className="text-gray-500 text-sm">No more matches</span>}
+        {!hasMore && (
+          <span className="text-gray-500 text-sm">No more matches</span>
+        )}
       </div>
     </div>
   );
