@@ -102,7 +102,7 @@ export default function Header() {
     //Static navigation links
     const navLinks = [
         { href: "/leaderboard", label: "Leaderboard" },
-        { href: "/matches/submit", label: "Submit Match" },
+        { href: "/matches", label: "Matches" },
         { href: "/tournament", label: "Tournaments" },
     ];
 
