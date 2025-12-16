@@ -8,33 +8,21 @@ import { supabase } from "@/lib/supabase";
 
 const PAGE_SIZE = 25;
 
-type Player = {
-  id: string;
-  username: string;
-};
-
 type MatchRow = {
   id: string;
   created_at: string;
+  player_a_id: string;
+  player_b_id: string;
   score_a: number;
   score_b: number;
   elo_change_a: number;
   elo_change_b: number;
   winner: "A" | "B";
-  player_a: Player[];
-  player_b: Player[];
 };
 
-type Match = {
+type Player = {
   id: string;
-  created_at: string;
-  scoreA: number;
-  scoreB: number;
-  eloA: number;
-  eloB: number;
-  winner: "A" | "B";
-  playerA: Player;
-  playerB: Player;
+  username: string;
 };
 
 type Props = {
@@ -51,12 +39,28 @@ export default function Matches({
   const router = useRouter();
   const loaderRef = useRef<HTMLDivElement | null>(null);
 
-  const [matches, setMatches] = useState<Match[]>([]);
+  const [matches, setMatches] = useState<MatchRow[]>([]);
+  const [players, setPlayers] = useState<Map<string, string>>(new Map());
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-
   const [winnerFilter, setWinnerFilter] = useState<"" | "A" | "B">("");
 
+  // Load players once
+  useEffect(() => {
+    async function loadPlayers() {
+      const { data } = await supabase
+        .from("players")
+        .select("id, username");
+
+      if (!data) return;
+
+      setPlayers(new Map(data.map((p) => [p.id, p.username])));
+    }
+
+    loadPlayers();
+  }, []);
+
+  // Load matches (paginated)
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return;
 
@@ -68,13 +72,13 @@ export default function Matches({
         `
         id,
         created_at,
+        player_a_id,
+        player_b_id,
         score_a,
         score_b,
         elo_change_a,
         elo_change_b,
-        winner,
-        player_a:player_a_id ( id, username ),
-        player_b:player_b_id ( id, username )
+        winner
       `
       )
       .order("created_at", { ascending: false })
@@ -92,22 +96,10 @@ export default function Matches({
       return;
     }
 
-    const normalized: Match[] = (data as MatchRow[]).map((m) => ({
-      id: m.id,
-      created_at: m.created_at,
-      scoreA: m.score_a,
-      scoreB: m.score_b,
-      eloA: m.elo_change_a,
-      eloB: m.elo_change_b,
-      winner: m.winner,
-      playerA: m.player_a[0],
-      playerB: m.player_b[0],
-    }));
-
-    setMatches((prev) => [...prev, ...normalized]);
+    setMatches((prev) => [...prev, ...data]);
     setHasMore(data.length === PAGE_SIZE);
     setLoading(false);
-  }, [matches.length, hasMore, loading, winnerFilter]);
+  }, [matches.length, winnerFilter, loading, hasMore]);
 
   // Infinite scroll
   useEffect(() => {
@@ -129,9 +121,7 @@ export default function Matches({
     return won ? "border-green-500/30" : "border-red-500/30";
   }
 
-  function handleWinnerFilterChange(
-    value: "" | "A" | "B"
-  ) {
+  function resetFilter(value: "" | "A" | "B") {
     setWinnerFilter(value);
     setMatches([]);
     setHasMore(true);
@@ -147,9 +137,7 @@ export default function Matches({
           <select
             value={winnerFilter}
             onChange={(e) =>
-              handleWinnerFilterChange(
-                e.target.value as "" | "A" | "B"
-              )
+              resetFilter(e.target.value as "" | "A" | "B")
             }
             className="bg-black/60 border border-white/20 rounded-lg px-3 py-2 text-sm"
           >
@@ -170,70 +158,84 @@ export default function Matches({
 
       {/* Matches */}
       <div className="space-y-3">
-        {matches.map((m) => (
-          <div
-            key={m.id}
-            onClick={() => router.push(`/match/${m.id}`)}
-            className={clsx(
-              "bg-black/40 border rounded-2xl p-4 cursor-pointer transition hover:bg-black/50",
-              outline(m.playerA.id, m.winner === "A"),
-              outline(m.playerB.id, m.winner === "B")
-            )}
-          >
-            <div className="flex justify-between items-center gap-6">
-              {/* Players */}
-              <div className="flex flex-col gap-1 min-w-[220px]">
-                {[
-                  { p: m.playerA, elo: m.eloA },
-                  { p: m.playerB, elo: m.eloB },
-                ].map(({ p, elo }) => (
+        {matches.map((m) => {
+          const aName =
+            players.get(m.player_a_id) ?? "Unknown";
+          const bName =
+            players.get(m.player_b_id) ?? "Unknown";
+
+          return (
+            <div
+              key={m.id}
+              onClick={() => router.push(`/match/${m.id}`)}
+              className={clsx(
+                "bg-black/40 border rounded-2xl p-4 cursor-pointer transition hover:bg-black/50",
+                outline(m.player_a_id, m.winner === "A"),
+                outline(m.player_b_id, m.winner === "B")
+              )}
+            >
+              <div className="flex justify-between items-center gap-6">
+                {/* Players */}
+                <div className="flex flex-col gap-1 min-w-[220px]">
                   <Link
-                    key={p.id}
-                    href={`/profile/${p.username}`}
+                    href={`/profile/${aName}`}
                     onClick={(e) => e.stopPropagation()}
                     className="hover:underline font-medium"
                   >
-                    {p.username}
-                    <span
-                      className={`ml-2 text-sm ${
-                        elo >= 0 ? "text-green-400" : "text-red-400"
-                      }`}
-                    >
-                      {elo > 0 && "+"}
-                      {elo}
+                    {aName}
+                    <span className="ml-2 text-sm text-gray-400">
+                      {m.elo_change_a > 0 && "+"}
+                      {m.elo_change_a}
                     </span>
                   </Link>
-                ))}
-              </div>
 
-              {/* Scores */}
-              <div className="flex flex-col items-center font-semibold">
-                <span>{m.scoreA}</span>
-                <span>{m.scoreB}</span>
-              </div>
-
-              {/* Meta */}
-              <div className="text-right text-sm text-gray-400">
-                <div className="text-white font-medium">
-                  Winner:{" "}
-                  {m.winner === "A"
-                    ? m.playerA.username
-                    : m.playerB.username}
+                  <Link
+                    href={`/profile/${bName}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:underline font-medium"
+                  >
+                    {bName}
+                    <span className="ml-2 text-sm text-gray-400">
+                      {m.elo_change_b > 0 && "+"}
+                      {m.elo_change_b}
+                    </span>
+                  </Link>
                 </div>
-                <div>
-                  {new Date(m.created_at).toLocaleDateString()}
+
+                {/* Scores */}
+                <div className="flex flex-col items-center font-semibold">
+                  <span>{m.score_a}</span>
+                  <span>{m.score_b}</span>
+                </div>
+
+                {/* Meta */}
+                <div className="text-right text-sm text-gray-400">
+                  <div className="text-white font-medium">
+                    Winner:{" "}
+                    {m.winner === "A" ? aName : bName}
+                  </div>
+                  <div>
+                    {new Date(m.created_at).toLocaleDateString()}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Loader */}
-      <div ref={loaderRef} className="h-10 flex justify-center items-center">
-        {loading && <span className="text-gray-400">Loading…</span>}
+      <div
+        ref={loaderRef}
+        className="h-10 flex justify-center items-center"
+      >
+        {loading && (
+          <span className="text-gray-400">Loading…</span>
+        )}
         {!hasMore && (
-          <span className="text-gray-500 text-sm">No more matches</span>
+          <span className="text-gray-500 text-sm">
+            No more matches
+          </span>
         )}
       </div>
     </div>
