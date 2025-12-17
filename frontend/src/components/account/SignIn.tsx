@@ -108,7 +108,7 @@ export default function SignIn() {
                 </div>
 
                 <Link
-                    href="/signup"
+                    href="/account/signup"
                     className="
                         w-full text-center py-2 
                         border border-white/20 

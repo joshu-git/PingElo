@@ -71,7 +71,7 @@ function AuthButton({ onClick }: { onClick?: () => void; }) {
     //If no username prompt them to claim
     if (!username) {
         return (
-            <Link href="/claim" onClick={onClick}>
+            <Link href="/account/claim" onClick={onClick}>
                 <button
                     type="button"
                     className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold transition text-white"
