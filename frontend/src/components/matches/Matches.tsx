@@ -37,17 +37,25 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
     const [hasMore, setHasMore] = useState(true);
     const [highestGameNumber, setHighestGameNumber] = useState<number | null>(null);
 
-    // Load players
+    //Load all players
     useEffect(() => {
         async function loadPlayers() {
-            const { data } = await supabase.from("players").select("id, username");
+            const { data } = await supabase
+                .from("players")
+                .select("id, username");
+
+            //If there are no players return
             if (!data) return;
+            
+            //Else map the players
             setPlayers(new Map(data.map((p) => [p.id, p.username])));
         }
+
+        //Calls loadPlayers
         loadPlayers();
     }, []);
 
-    // Fetch smart highest game number
+    //Fetch the highest game number
     useEffect(() => {
         async function fetchHighestGameNumber() {
             let query = supabase.from("matches").select("id", { count: "exact", head: true });
@@ -149,7 +157,7 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                         return (
                             <div
                                 key={m.id}
-                                onClick={() => router.push(`/match/${m.id}`)}
+                                onClick={() => router.push(`/matches/${m.id}`)}
                                 className={clsx(
                                     "bg-black/40 border rounded-2xl p-4 cursor-pointer transition hover:bg-black/50",
                                     outline(m.player_a_id, m.winner),
