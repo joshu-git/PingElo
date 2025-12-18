@@ -42,7 +42,7 @@ async function isUserAdmin(userId: string): Promise<boolean> {
     return data.is_admin ?? false;
 }
 
-//Helper function that checks the user can create table
+//Helper function that checks the user can create match
 function checkOwnershipOrAdmin(players: any[], userId: string, isAdmin: boolean) {
     //Checks that the user owns at least one of the players
     const owns = players.some(p => p.user_id === userId);
@@ -78,7 +78,7 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
     //Fetch both of the players by their IDs
     const { data: players, error } = await supabase
       .from("players")
-      .select("id, user_id, elo")
+      .select("id, user_id, elo, is_banned")
       .in("id", [playerAId, playerBId]);
 
     //If there IDs are not valid then throw an error
@@ -96,6 +96,11 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
     //Throws an error if these do not exist
     if (!playerA || !playerB) {
       return res.status(400).json({ error: "Players not found" });
+    }
+    
+    //Throws an error is one of the users is banned
+    if((playerA.is_banned ?? false) || (playerB.is_banned ?? false)) {
+      return res.status(400).json({ error: "One of the players is banned" });
     }
 
     //Sets the ratings the the player's elo
