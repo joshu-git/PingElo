@@ -84,6 +84,17 @@ export default function HomePage() {
         />
       </section>
 
+      {/* DONOR THANK YOU */}
+      <section className="bg-black/40 border border-white/10 rounded-2xl p-6 text-center">
+        <p className="text-sm text-gray-300">
+          Many thanks to{" "}
+          <a href="https://collingwoodcollege.com" target="_blank" rel="noopener noreferrer" className="hover:text-purple-300 transition font-medium">
+            Collingwood College
+          </a>{" "}
+          for donating a new net and paddles. Your support has made matches fair and fun!
+        </p>
+      </section>
+
       {/* CTA */}
       <section className="bg-black/40 border border-white/10 rounded-2xl p-10 text-center space-y-4">
         <h2 className="text-2xl font-bold">
