@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
-// Authenticate button
+//Authenticate button
 function AuthButton({ onClick }: { onClick?: () => void }) {
   const [username, setUsername] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
@@ -45,7 +45,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!sessionUserId)
     return (
       <Link href="/account/signin" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition-colors text-white">
+        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-lg font-semibold transition-colors text-white">
           Sign In
         </button>
       </Link>
@@ -54,7 +54,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!username)
     return (
       <Link href="/account/claim" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition-colors text-white">
+        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-lg font-semibold transition-colors text-white">
           Claim
         </button>
       </Link>
@@ -62,14 +62,14 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 
   return (
     <Link href={`/profile/${username}`} onClick={onClick}>
-      <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition-colors text-white">
+      <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-lg font-semibold transition-colors text-white">
         Profile
       </button>
     </Link>
   );
 }
 
-// Header component
+//Header component
 export default function Header() {
   const [open, setOpen] = useState(false);
 
@@ -80,12 +80,12 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-card shadow-md sticky top-0 z-50">
+    <header className="bg-card shadow-md sticky top-0 z-50 md:rounded-none rounded-b-2xl">
       <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo / Brand */}
         <Link
           href="/"
-          className="text-2xl font-bold tracking-wide text-text hover:text-text-subtle transition-colors"
+          className="text-2xl font-bold tracking-wide text-text hover:text-text-subtle transition-colors duration-150"
         >
           PingElo
         </Link>
@@ -116,8 +116,8 @@ export default function Header() {
 
       {/* Mobile Navigation */}
       <nav
-        className={`md:hidden bg-card overflow-hidden transition-max-height duration-300 ease-in-out ${
-          open ? "max-h-96 py-3" : "max-h-0"
+        className={`md:hidden bg-card overflow-hidden transition-[max-height] duration-300 ease-in-out ${
+          open ? "max-h-96 py-3 rounded-b-2xl" : "max-h-0"
         }`}
       >
         <div className="flex flex-col gap-2 px-4">
