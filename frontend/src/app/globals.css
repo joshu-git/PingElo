@@ -61,25 +61,30 @@
 /* Light mode colors (follows system preference) */
 @media (prefers-color-scheme: light) {
   :root {
+    /* Background colors */
     --color-bg: #f1f1f1;
     --color-bg-soft: #e8e8e8;
     --color-bg-muted: #e2e2e2;
     --color-bg-card: rgba(255, 255, 255, 0.85);
     --color-bg-elevated: rgba(255, 255, 255, 0.95);
 
+    /* Text colors */
     --color-text: #18181b;
     --color-text-muted: #6b7280;
     --color-text-subtle: #9ca3af;
     --color-text-inverse: #ffffff;
 
+    /* Accent colors */
     --color-accent: #4f46e5;
     --color-accent-hover: #4338ca;
     --color-accent-soft: rgba(79, 70, 229, 0.14);
 
+    /* Borders */
     --color-border: rgba(0, 0, 0, 0.12);
     --color-border-strong: rgba(0, 0, 0, 0.2);
     --color-divider: rgba(0, 0, 0, 0.08);
 
+    /* Interaction states */
     --color-focus: #4f46e5;
     --color-hover-overlay: rgba(0, 0, 0, 0.04);
     --color-active-overlay: rgba(0, 0, 0, 0.08);
@@ -160,7 +165,7 @@ button:disabled {
   cursor: not-allowed;
 }
 
-/* Cards */
+/* Card styles */
 .bg-card {
   background-color: var(--color-bg-card);
   border-radius: 1rem;
@@ -173,6 +178,7 @@ button:disabled {
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 
+/* Soft card */
 .bg-card-soft {
   background-color: rgba(46, 46, 46, 0.7);
   border-radius: 1rem;
@@ -185,7 +191,31 @@ button:disabled {
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* Scrollbar styling */
+/* Donor card */
+.bg-card-donor {
+  background-color: rgba(36, 36, 36, 0.85);
+  border-radius: 1rem;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+
+.bg-card-donor:hover {
+  background-color: rgba(46, 46, 46, 0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
+}
+
+/* Light mode override for donor cards */
+@media (prefers-color-scheme: light) {
+  .bg-card-donor {
+    background-color: rgba(240, 240, 240, 0.85);
+  }
+
+  .bg-card-donor:hover {
+    background-color: rgba(255, 255, 255, 0.95);
+  }
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -228,7 +258,7 @@ p {
   padding-right: 1rem;
 }
 
-/* Inline error messages */
+/* Inline errors */
 .error {
   color: var(--color-danger);
   font-size: 0.875rem;
@@ -244,7 +274,7 @@ p {
   }
 }
 
-/* Print-friendly defaults */
+/* Print styles */
 @media print {
   body {
     background: white;

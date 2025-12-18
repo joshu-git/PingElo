@@ -35,7 +35,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
     }
 
     loadUser();
-
+    
     const { data: sub } = supabase.auth.onAuthStateChange(() => loadUser());
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -45,7 +45,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!sessionUserId)
     return (
       <Link href="/account/signin" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-lg font-semibold transition-colors text-white">
+        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-none font-semibold transition-colors text-white">
           Sign In
         </button>
       </Link>
@@ -54,7 +54,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!username)
     return (
       <Link href="/account/claim" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-lg font-semibold transition-colors text-white">
+        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-none font-semibold transition-colors text-white">
           Claim
         </button>
       </Link>
@@ -62,7 +62,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 
   return (
     <Link href={`/profile/${username}`} onClick={onClick}>
-      <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-lg font-semibold transition-colors text-white">
+      <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-none font-semibold transition-colors text-white">
         Profile
       </button>
     </Link>
@@ -80,8 +80,8 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-card shadow-md sticky top-0 z-50">
-      <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between md:rounded-none rounded-b-2xl">
+    <header className="bg-card shadow-md sticky top-0 z-50 rounded-none">
+      <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo / Brand */}
         <Link
           href="/"

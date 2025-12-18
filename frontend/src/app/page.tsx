@@ -30,7 +30,7 @@ function QuickStats() {
   );
 }
 
-//Home page
+//Home Page
 export default function HomePage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
@@ -89,13 +89,14 @@ export default function HomePage() {
         <h3 className="text-xl font-semibold text-text mb-4">Special Thanks</h3>
 
         <div className="flex flex-col justify-center items-center gap-6 mt-4 w-full">
-          {/* Single donor */}
-          <div className="bg-card-soft-dark dark:bg-card-soft p-6 rounded-xl flex flex-col items-center space-y-3 transition hover:shadow-lg w-full max-w-lg">
+          {/* Donor card */}
+          <div className="bg-card-donor p-6 rounded-xl flex flex-col items-center space-y-3 transition hover:shadow-lg w-full max-w-xl">
             <span className="text-text font-medium text-center text-lg">
               Collingwood College
             </span>
             <p className="text-text-muted text-sm md:text-base text-center">
-              Donated a new net and paddles. Your support has made matches fair and fun!
+              Donated a new net and paddles.<br />
+              Your support has made matches much more fun!
             </p>
             <a
               href="https://collingwoodcollege.com"
@@ -107,8 +108,7 @@ export default function HomePage() {
             </a>
           </div>
 
-          {/* Future donors */}
-          {/* Duplicate the above div with new content for more donors */}
+          {/* Future donors: duplicate the above div */}
         </div>
       </section>
 
