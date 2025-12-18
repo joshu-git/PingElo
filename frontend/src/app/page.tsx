@@ -85,21 +85,30 @@ export default function HomePage() {
       </section>
 
       {/* DONOR SECTION */}
-      <section className="bg-card-soft border-t-4 border-accent rounded-2xl p-10 md:p-12 text-center space-y-2">
-        <p className="text-sm md:text-base text-text-muted">
-          Many thanks to{" "}
-          <a
-            href="https://collingwoodcollege.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-accent font-medium transition"
-          >
-            Collingwood College
-          </a>{" "}
-          for donating a new net and paddles.<br />
-          Your support has made matches fair and fun!
-        </p>
-      </section>
+      <section className="bg-card p-8 md:p-10 rounded-2xl text-center space-y-4 shadow-sm transition hover:shadow-md">
+        <h3 className="text-xl font-semibold text-text">Special Thanks</h3>
+  
+        <div className="flex flex-col md:flex-row justify-center items-center gap-6 mt-2">
+          {/* Single donor */}
+          <div className="bg-card-soft p-4 rounded-xl flex flex-col items-center space-y-2 transition hover:shadow-lg">
+            <span className="text-text font-medium">Collingwood College</span>
+            <p className="text-text-muted text-sm md:text-base text-center">
+              Donated a new net and paddles. Your support has made matches fair and fun!
+            </p>
+            <a
+              href="https://collingwoodcollege.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:text-accent-hover transition font-medium text-sm"
+            >
+              Visit Website
+            </a>
+          </div>
+
+        {/* Future donors can be added here */}
+      </div>
+    </section>
+
     </main>
   );
 }
