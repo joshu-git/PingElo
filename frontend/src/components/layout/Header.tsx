@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
-//Authenticate button
+// Authenticate button
 function AuthButton({ onClick }: { onClick?: () => void }) {
   const [username, setUsername] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
@@ -36,10 +36,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 
     loadUser();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      loadUser();
-    });
-
+    const { data: sub } = supabase.auth.onAuthStateChange(() => loadUser());
     return () => sub.subscription.unsubscribe();
   }, []);
 
@@ -48,7 +45,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!sessionUserId)
     return (
       <Link href="/account/signin" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition text-white">
+        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition-colors text-white">
           Sign In
         </button>
       </Link>
@@ -57,7 +54,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!username)
     return (
       <Link href="/account/claim" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition text-white">
+        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition-colors text-white">
           Claim
         </button>
       </Link>
@@ -65,14 +62,14 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 
   return (
     <Link href={`/profile/${username}`} onClick={onClick}>
-      <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition text-white">
+      <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition-colors text-white">
         Profile
       </button>
     </Link>
   );
 }
 
-//Header component
+// Header component
 export default function Header() {
   const [open, setOpen] = useState(false);
 
@@ -99,18 +96,17 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-text hover:text-text-subtle transition-colors duration-200"
+              className="text-text hover:text-text-subtle transition-colors duration-150"
             >
               {link.label}
             </Link>
           ))}
-
           <AuthButton />
         </nav>
 
         {/* Mobile Menu Button */}
         <button
-          className="md:hidden p-2 text-text hover:text-text-subtle transition-colors duration-200"
+          className="md:hidden p-2 text-text hover:text-text-subtle transition-colors duration-150"
           onClick={() => setOpen(!open)}
           aria-label={open ? "Close menu" : "Open menu"}
         >
@@ -120,7 +116,7 @@ export default function Header() {
 
       {/* Mobile Navigation */}
       <nav
-        className={`md:hidden bg-card border-t border-border overflow-hidden transition-max-height duration-300 ease-in-out ${
+        className={`md:hidden bg-card overflow-hidden transition-max-height duration-300 ease-in-out ${
           open ? "max-h-96 py-3" : "max-h-0"
         }`}
       >
@@ -129,7 +125,7 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="py-2 text-text hover:text-text-subtle transition-colors duration-200"
+              className="py-2 text-text hover:text-text-subtle transition-colors duration-150"
               onClick={() => setOpen(false)}
             >
               {link.label}
