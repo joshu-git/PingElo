@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 //Feature card
-function Feature({ title, description }: { title: string; description: string; }) {
+function Feature({ title, description }: { title: string; description: string }) {
   return (
     <div className="bg-card p-6 space-y-2 transition hover:shadow-lg hover:-translate-y-1">
       <h3 className="font-semibold text-lg text-text">{title}</h3>
@@ -13,9 +13,9 @@ function Feature({ title, description }: { title: string; description: string; }
 //Quick Stats
 function QuickStats() {
   const stats = [
-    { label: "Matches Tracked", value: 470 },
+    { label: "Matches", value: 470 },
     { label: "Players", value: 17 },
-    { label: "Top 5 Updated Daily", value: "" },
+    { label: "Groups", value: 1 },
   ];
 
   return (
@@ -86,12 +86,14 @@ export default function HomePage() {
 
       {/* DONOR SECTION */}
       <section className="bg-card p-8 md:p-10 rounded-2xl text-center space-y-6 shadow-sm transition hover:shadow-md">
-        <h3 className="text-xl font-semibold text-text">Special Thanks</h3>
+        <h3 className="text-xl font-semibold text-text mb-4">Special Thanks</h3>
 
-        <div className="flex flex-col md:flex-row justify-center items-stretch gap-6 mt-6">
+        <div className="flex flex-col justify-center items-center gap-6 mt-4">
           {/* Single donor */}
-          <div className="bg-card-soft-light dark:bg-card-soft p-5 rounded-xl flex flex-col items-center space-y-2 transition hover:shadow-lg max-w-xs w-full">
-            <span className="text-text font-medium text-center">Collingwood College</span>
+          <div className="bg-card-soft-dark dark:bg-card-soft p-6 rounded-xl flex flex-col items-center space-y-3 transition hover:shadow-lg max-w-md w-full">
+            <span className="text-text font-medium text-center text-lg">
+              Collingwood College
+            </span>
             <p className="text-text-muted text-sm md:text-base text-center">
               Donated a new net and paddles. Your support has made matches fair and fun!
             </p>
@@ -105,7 +107,8 @@ export default function HomePage() {
             </a>
           </div>
 
-          {/* Future donors can be added here */}
+          {/* Future donors */}
+          {/* Duplicate the above div with new content for more donors */}
         </div>
       </section>
 
