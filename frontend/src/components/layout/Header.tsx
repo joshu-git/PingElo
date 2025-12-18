@@ -80,9 +80,9 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-card shadow-md sticky top-0 z-50 w-full md:rounded-none rounded-b-2xl">
-      <div className="flex items-center justify-between px-4 py-4 max-w-screen-xl mx-auto">
-        {/* Logo */}
+    <header className="bg-card shadow-md sticky top-0 z-50">
+      <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between md:rounded-none rounded-b-2xl">
+        {/* Logo / Brand */}
         <Link
           href="/"
           className="text-2xl font-bold tracking-wide text-text hover:text-text-subtle transition-colors duration-150"
