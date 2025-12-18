@@ -113,7 +113,7 @@ export default function HomePage() {
       </section>
 
       {/* DONOR THANK YOU */}
-      <section className="bg-black/40 border border-white/10 rounded-2xl p-8 text-center space y-4">
+      <section className="bg-black/40 border border-white/10 rounded-2xl p-10 text-center">
         <p className="text-sm text-gray-200">
           Many thanks to{" "}
           <a href="https://collingwoodcollege.com" target="_blank" rel="noopener noreferrer" className="hover:text-purple-300 transition font-medium">
