@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-// Feature card
+//Feature card
 function Feature({ title, description }: { title: string; description: string; }) {
   return (
     <div className="bg-card p-6 space-y-2 transition hover:shadow-lg hover:-translate-y-1">
@@ -10,7 +10,7 @@ function Feature({ title, description }: { title: string; description: string; }
   );
 }
 
-// Quick Stats
+//Quick Stats
 function QuickStats() {
   const stats = [
     { label: "Matches Tracked", value: 470 },
@@ -30,7 +30,7 @@ function QuickStats() {
   );
 }
 
-// Home page
+//Home page
 export default function HomePage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
@@ -85,13 +85,13 @@ export default function HomePage() {
       </section>
 
       {/* DONOR SECTION */}
-      <section className="bg-card p-8 md:p-10 rounded-2xl text-center space-y-4 shadow-sm transition hover:shadow-md">
+      <section className="bg-card p-8 md:p-10 rounded-2xl text-center space-y-6 shadow-sm transition hover:shadow-md">
         <h3 className="text-xl font-semibold text-text">Special Thanks</h3>
-  
-        <div className="flex flex-col md:flex-row justify-center items-center gap-6 mt-2">
+
+        <div className="flex flex-col md:flex-row justify-center items-stretch gap-6 mt-6">
           {/* Single donor */}
-          <div className="bg-card-soft p-4 rounded-xl flex flex-col items-center space-y-2 transition hover:shadow-lg">
-            <span className="text-text font-medium">Collingwood College</span>
+          <div className="bg-card-soft-light dark:bg-card-soft p-5 rounded-xl flex flex-col items-center space-y-2 transition hover:shadow-lg max-w-xs w-full">
+            <span className="text-text font-medium text-center">Collingwood College</span>
             <p className="text-text-muted text-sm md:text-base text-center">
               Donated a new net and paddles. Your support has made matches fair and fun!
             </p>
@@ -105,9 +105,9 @@ export default function HomePage() {
             </a>
           </div>
 
-        {/* Future donors can be added here */}
-      </div>
-    </section>
+          {/* Future donors can be added here */}
+        </div>
+      </section>
 
     </main>
   );
