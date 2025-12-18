@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
-//Authenticate button
+//Authentication button
 function AuthButton({ onClick }: { onClick?: () => void }) {
   const [username, setUsername] = useState<string | null>(null);
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
@@ -35,7 +35,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
     }
 
     loadUser();
-    
+
     const { data: sub } = supabase.auth.onAuthStateChange(() => loadUser());
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -45,7 +45,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!sessionUserId)
     return (
       <Link href="/account/signin" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-none font-semibold transition-colors text-white">
+        <button className="px-4 py-2 bg-accent text-white font-semibold rounded-none">
           Sign In
         </button>
       </Link>
@@ -54,7 +54,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!username)
     return (
       <Link href="/account/claim" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-none font-semibold transition-colors text-white">
+        <button className="px-4 py-2 bg-accent text-white font-semibold rounded-none">
           Claim
         </button>
       </Link>
@@ -62,7 +62,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 
   return (
     <Link href={`/profile/${username}`} onClick={onClick}>
-      <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-none font-semibold transition-colors text-white">
+      <button className="px-4 py-2 bg-accent text-white font-semibold rounded-none">
         Profile
       </button>
     </Link>
@@ -80,12 +80,12 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-card shadow-md sticky top-0 z-50 rounded-none">
+    <header className="bg-[rgba(46,46,46,0.8)] shadow-md sticky top-0 z-50 rounded-none">
       <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-        {/* Logo / Brand */}
+        {/* Logo */}
         <Link
           href="/"
-          className="text-2xl font-bold tracking-wide text-text hover:text-text-subtle transition-colors duration-150"
+          className="text-2xl font-bold tracking-wide text-text"
         >
           PingElo
         </Link>
@@ -96,7 +96,7 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-text hover:text-text-subtle transition-colors duration-150"
+              className="text-text"
             >
               {link.label}
             </Link>
@@ -106,7 +106,7 @@ export default function Header() {
 
         {/* Mobile Menu Button */}
         <button
-          className="md:hidden p-2 text-text hover:text-text-subtle transition-colors duration-150"
+          className="md:hidden p-2 text-text"
           onClick={() => setOpen(!open)}
           aria-label={open ? "Close menu" : "Open menu"}
         >
@@ -116,8 +116,8 @@ export default function Header() {
 
       {/* Mobile Navigation */}
       <nav
-        className={`md:hidden bg-card overflow-hidden transition-[max-height] duration-300 ease-in-out ${
-          open ? "max-h-96 py-3 rounded-b-2xl" : "max-h-0"
+        className={`md:hidden bg-[rgba(46,46,46,0.8)] overflow-hidden transition-[max-height] duration-300 ease-in-out ${
+          open ? "max-h-96 py-3" : "max-h-0"
         }`}
       >
         <div className="flex flex-col gap-2 px-4">
@@ -125,7 +125,7 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="py-2 text-text hover:text-text-subtle transition-colors duration-150"
+              className="py-2 text-text"
               onClick={() => setOpen(false)}
             >
               {link.label}
