@@ -88,9 +88,9 @@ export default function HomePage() {
       <section className="bg-card p-8 md:p-10 rounded-2xl text-center space-y-6 shadow-sm transition hover:shadow-md">
         <h3 className="text-xl font-semibold text-text mb-4">Special Thanks</h3>
 
-        <div className="flex flex-col justify-center items-center gap-6 mt-4">
+        <div className="flex flex-col justify-center items-center gap-6 mt-4 w-full">
           {/* Single donor */}
-          <div className="bg-card-soft-dark dark:bg-card-soft p-6 rounded-xl flex flex-col items-center space-y-3 transition hover:shadow-lg max-w-md w-full">
+          <div className="bg-card-soft-dark dark:bg-card-soft p-6 rounded-xl flex flex-col items-center space-y-3 transition hover:shadow-lg w-full max-w-lg">
             <span className="text-text font-medium text-center text-lg">
               Collingwood College
             </span>
