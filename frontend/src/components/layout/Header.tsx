@@ -36,14 +36,16 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 
     loadUser();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(() => loadUser());
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      loadUser();
+    });
 
     return () => sub.subscription.unsubscribe();
   }, []);
 
   if (loading) return null;
 
-  if (!sessionUserId) {
+  if (!sessionUserId)
     return (
       <Link href="/account/signin" onClick={onClick}>
         <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition text-white">
@@ -51,9 +53,8 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
         </button>
       </Link>
     );
-  }
 
-  if (!username) {
+  if (!username)
     return (
       <Link href="/account/claim" onClick={onClick}>
         <button className="px-4 py-2 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition text-white">
@@ -61,7 +62,6 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
         </button>
       </Link>
     );
-  }
 
   return (
     <Link href={`/profile/${username}`} onClick={onClick}>
@@ -72,7 +72,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   );
 }
 
-//Header with responsive navigation
+//Header component
 export default function Header() {
   const [open, setOpen] = useState(false);
 
@@ -83,12 +83,12 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-bg-card backdrop-blur-sm text-text sticky top-0 z-50 shadow-md border-b border-border">
+    <header className="bg-card shadow-md sticky top-0 z-50">
       <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo / Brand */}
         <Link
           href="/"
-          className="text-2xl font-bold tracking-wide hover:text-accent transition-colors"
+          className="text-2xl font-bold tracking-wide text-text hover:text-text-subtle transition-colors"
         >
           PingElo
         </Link>
@@ -99,17 +99,18 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="hover:text-accent transition-colors duration-200"
+              className="text-text hover:text-text-subtle transition-colors duration-200"
             >
               {link.label}
             </Link>
           ))}
+
           <AuthButton />
         </nav>
 
         {/* Mobile Menu Button */}
         <button
-          className="md:hidden p-2 hover:text-accent transition-colors duration-200"
+          className="md:hidden p-2 text-text hover:text-text-subtle transition-colors duration-200"
           onClick={() => setOpen(!open)}
           aria-label={open ? "Close menu" : "Open menu"}
         >
@@ -119,21 +120,23 @@ export default function Header() {
 
       {/* Mobile Navigation */}
       <nav
-        className={`md:hidden bg-bg-card border-t border-border flex flex-col gap-2 px-4 py-3 transition-all duration-200 overflow-hidden ${
-          open ? "max-h-screen" : "max-h-0"
+        className={`md:hidden bg-card border-t border-border overflow-hidden transition-max-height duration-300 ease-in-out ${
+          open ? "max-h-96 py-3" : "max-h-0"
         }`}
       >
-        {navLinks.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className="py-2 hover:text-accent transition-colors duration-200"
-            onClick={() => setOpen(false)}
-          >
-            {link.label}
-          </Link>
-        ))}
-        <AuthButton onClick={() => setOpen(false)} />
+        <div className="flex flex-col gap-2 px-4">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="py-2 text-text hover:text-text-subtle transition-colors duration-200"
+              onClick={() => setOpen(false)}
+            >
+              {link.label}
+            </Link>
+          ))}
+          <AuthButton onClick={() => setOpen(false)} />
+        </div>
       </nav>
     </header>
   );
