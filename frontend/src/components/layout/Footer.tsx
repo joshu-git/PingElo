@@ -24,6 +24,20 @@ export default function Footer() {
         document.documentElement.setAttribute("data-theme", theme);
         localStorage.setItem("theme", theme);
     }, [theme]);
+    
+    //Sync theme across tabs
+    useEffect(() => {
+        const onStorage = (e: StorageEvent) => {
+            if (e.key !== "theme") return;
+            if (e.newValue !== "light" && e.newValue !== "dark") return;
+
+            setTheme(e.newValue);
+            document.documentElement.setAttribute("data-theme", e.newValue);
+        };
+
+        window.addEventListener("storage", onStorage);
+        return () => window.removeEventListener("storage", onStorage);
+    }, []);
 
     const toggleTheme = () => {
         setTheme(prev => (prev === "light" ? "dark" : "light"));
