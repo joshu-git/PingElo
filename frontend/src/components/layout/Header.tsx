@@ -36,7 +36,10 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 
     loadUser();
 
-    const { data: sub } = supabase.auth.onAuthStateChange(() => loadUser());
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+        setTimeout(() => loadUser(), 0);
+    });
+
     return () => sub.subscription.unsubscribe();
   }, []);
 
