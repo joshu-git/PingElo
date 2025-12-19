@@ -16,8 +16,8 @@
   --color-text-inverse: #141414;
 
   /* Accent (blue / purple) */
-  --color-accent: #6366f1;
-  --color-accent-hover: #4f46e5;
+  --color-accent: #2f99f0;
+  --color-accent-hover: #3192f8;
   --color-accent-soft: rgba(99, 102, 241, 0.16);
 
   /* Status colors */
@@ -32,7 +32,7 @@
   --color-divider: rgba(255, 255, 255, 0.08);
 
   /* Interaction states */
-  --color-focus: #6366f1;
+  --color-focus: #2f99f0;
   --color-hover-overlay: rgba(255, 255, 255, 0.04);
   --color-active-overlay: rgba(255, 255, 255, 0.08);
   --opacity-disabled: 0.6;
@@ -75,8 +75,8 @@
     --color-text-inverse: #ffffff;
 
     /* Accent colors */
-    --color-accent: #6366f0;
-    --color-accent-hover: #4338ca;
+    --color-accent: #2f99f0;
+    --color-accent-hover: #3192f8;
     --color-accent-soft: rgba(79, 70, 229, 0.14);
 
     /* Borders */
@@ -85,7 +85,7 @@
     --color-divider: rgba(0, 0, 0, 0.08);
 
     /* Interaction states */
-    --color-focus: #6366f0;
+    --color-focus: #2f99f0;
     --color-hover-overlay: rgba(0, 0, 0, 0.04);
     --color-active-overlay: rgba(0, 0, 0, 0.08);
   }
