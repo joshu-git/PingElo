@@ -47,7 +47,7 @@ export const metadata: Metadata = {
 //RootLayout wraps all pages: includes Header, Footer, and main content
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
-        <html lang="en">
+        <html lang="en" suppressHydrationWarning>
             <head>
                 {/* Set theme BEFORE first paint to avoid flash */}
                 <script
