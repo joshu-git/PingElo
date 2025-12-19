@@ -7,7 +7,7 @@
   --color-bg-soft: #252525;
   --color-bg-muted: #2a2a2a;
   --color-bg-card: #2e2e2e;
-  /* solid for cards/header/footer */
+  /* solid, non-transparent */
   --color-bg-elevated: #363636;
 
   /* Text colors */
@@ -16,14 +16,14 @@
   --color-text-subtle: #9e9e9e;
   --color-text-inverse: #141414;
 
-  /* Accent (blue, screen-accurate) */
-  --color-accent: #2f99f0;
-  --color-accent-hover: #3192f8;
-  --color-accent-soft: rgba(47, 153, 240, 0.18);
-
-  /* Button accent (higher contrast for accessibility) */
+  /* Accent colors (buttons vs links split for contrast) */
   --color-accent-button: #1e7fd6;
-  --color-accent-button-hover: #1a6fc0;
+  --color-accent-button-hover: #1668b8;
+
+  --color-link: #1a6fc0;
+  --color-link-hover: #145ea8;
+
+  --color-accent-soft: rgba(47, 153, 240, 0.18);
 
   /* Status colors */
   --color-success: #22c55e;
@@ -37,7 +37,7 @@
   --color-divider: rgba(255, 255, 255, 0.08);
 
   /* Interaction states */
-  --color-focus: #2f99f0;
+  --color-focus: #1e7fd6;
   --color-hover-overlay: rgba(255, 255, 255, 0.04);
   --color-active-overlay: rgba(255, 255, 255, 0.08);
   --opacity-disabled: 0.6;
@@ -58,12 +58,12 @@
   --line-normal: 1.6;
   --line-loose: 1.8;
 
-  /* Safe area support for mobile devices */
+  /* Safe area support */
   --safe-top: env(safe-area-inset-top);
   --safe-bottom: env(safe-area-inset-bottom);
 }
 
-/* Light mode colors (follows system preference) */
+/* Light mode colors */
 @media (prefers-color-scheme: light) {
   :root {
     /* Background colors */
@@ -80,13 +80,11 @@
     --color-text-inverse: #ffffff;
 
     /* Accent colors */
-    --color-accent: #2f99f0;
-    --color-accent-hover: #3192f8;
-    --color-accent-soft: rgba(47, 153, 240, 0.14);
-
-    /* Button accent */
     --color-accent-button: #1e7fd6;
-    --color-accent-button-hover: #1a6fc0;
+    --color-accent-button-hover: #1668b8;
+
+    --color-link: #1a6fc0;
+    --color-link-hover: #145ea8;
 
     /* Borders */
     --color-border: rgba(0, 0, 0, 0.12);
@@ -94,7 +92,7 @@
     --color-divider: rgba(0, 0, 0, 0.08);
 
     /* Interaction states */
-    --color-focus: #2f99f0;
+    --color-focus: #1e7fd6;
     --color-hover-overlay: rgba(0, 0, 0, 0.04);
     --color-active-overlay: rgba(0, 0, 0, 0.08);
   }
@@ -122,36 +120,33 @@ body {
 
 /* Anchor links */
 a {
-  color: var(--color-accent);
+  color: var(--color-link);
   text-decoration: none;
   transition: color var(--duration-fast) var(--ease-standard);
 }
 
 a:hover {
-  color: var(--color-accent-hover);
-}
-
-/* Header and footer (solid, non-transparent) */
-header,
-footer {
-  background-color: var(--color-bg-card);
+  color: var(--color-link-hover);
 }
 
 /* Form elements */
 input,
 select,
-textarea {
+textarea,
+button {
   font-family: inherit;
   background-color: var(--color-bg-card);
   color: var(--color-text);
-  border-radius: 0.75rem;
-  border: 1px solid var(--color-border);
+  border-radius: 1rem;
+  border: none;
   padding: 0.5rem 0.75rem;
 }
 
+/* Focus states */
 input:focus,
 select:focus,
-textarea:focus {
+textarea:focus,
+button:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
@@ -162,8 +157,6 @@ button {
   font-weight: 600;
   background-color: var(--color-accent-button);
   color: white;
-  border-radius: 9999px;
-  padding: 0.5rem 1rem;
   transition: transform var(--duration-fast),
     background-color var(--duration-fast);
 }
@@ -182,13 +175,18 @@ button:disabled {
 .bg-card {
   background-color: var(--color-bg-card);
   border-radius: 1rem;
-  transition: all var(--duration-fast) var(--ease-standard);
 }
 
-.bg-card:hover {
-  background-color: var(--color-bg-elevated);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+/* Soft card */
+.bg-card-soft {
+  background-color: var(--color-bg-soft);
+  border-radius: 1rem;
+}
+
+/* Donor card */
+.bg-card-donor {
+  background-color: var(--color-bg-muted);
+  border-radius: 1rem;
 }
 
 /* Scrollbar */
@@ -215,14 +213,11 @@ h6 {
   font-weight: 700;
   color: var(--color-text);
   line-height: var(--line-tight);
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
 }
 
 /* Paragraphs */
 p {
   color: var(--color-text-muted);
-  margin-bottom: 1rem;
 }
 
 /* Container utility */
@@ -234,19 +229,11 @@ p {
   padding-right: 1rem;
 }
 
-/* Inline errors */
-.error {
-  color: var(--color-danger);
-  font-size: 0.875rem;
-  margin-top: 0.25rem;
-}
-
-/* Reduce motion for users who prefer it */
+/* Reduce motion */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
     transition: none !important;
-    scroll-behavior: auto !important;
   }
 }
 

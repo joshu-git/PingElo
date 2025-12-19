@@ -1,9 +1,10 @@
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
 //Feature card
 function Feature({ title, description }: { title: string; description: string }) {
   return (
-    <div className="bg-card p-6 space-y-2 transition hover:shadow-lg hover:-translate-y-1">
+    <div className="bg-card p-6 space-y-2">
       <h3 className="font-semibold text-lg text-text">{title}</h3>
       <p className="text-sm text-text-muted">{description}</p>
     </div>
@@ -37,11 +38,11 @@ export default function HomePage() {
 
       {/* HERO */}
       <section className="text-center space-y-4 md:space-y-6">
-        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-text">
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
           Ping Pong Elo Rankings
         </h1>
 
-        <p className="text-lg text-text-muted max-w-2xl mx-auto">
+        <p className="text-lg max-w-2xl mx-auto">
           Track matches, climb the leaderboard, and find out who is the best.
           PingElo uses a competitive Elo system based on point and Elo difference.
         </p>
@@ -50,13 +51,13 @@ export default function HomePage() {
 
         <div className="flex justify-center gap-4 pt-4">
           <Link href="/leaderboard">
-            <button className="px-6 py-3 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition text-white">
+            <button className="px-6 py-3 rounded-xl">
               View Leaderboard
             </button>
           </Link>
 
           <Link href="/matches/submit">
-            <button className="px-6 py-3 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition text-white">
+            <button className="px-6 py-3 rounded-xl">
               Submit A Match
             </button>
           </Link>
@@ -72,29 +73,26 @@ export default function HomePage() {
 
       {/* CTA */}
       <section className="bg-card p-10 text-center space-y-4">
-        <h2 className="text-2xl font-bold text-text">Ready to compete?</h2>
-        <p className="text-text-muted">
-          Sign in, submit matches, and start climbing.
-        </p>
+        <h2 className="text-2xl font-bold">Ready to compete?</h2>
+        <p>Sign in, submit matches, and start climbing.</p>
 
         <Link href="/account/signin">
-          <button className="mt-2 px-6 py-3 bg-accent hover:bg-accent-hover rounded-xl font-semibold transition text-white">
+          <button className="mt-2 px-6 py-3 rounded-xl">
             Sign In
           </button>
         </Link>
       </section>
 
       {/* DONOR SECTION */}
-      <section className="bg-card p-8 md:p-10 rounded-2xl text-center space-y-6 shadow-sm transition hover:shadow-md">
-        <h3 className="text-xl font-semibold text-text mb-4">Special Thanks</h3>
+      <section className="bg-card p-8 md:p-10 text-center space-y-6">
+        <h2 className="text-xl font-semibold">Special Thanks</h2>
 
-        <div className="flex flex-col justify-center items-center gap-6 mt-8 w-full">
-          {/* Donor card */}
-          <div className="bg-card-donor p-6 rounded-xl flex flex-col items-center space-y-3 transition hover:shadow-lg w-full max-w-xl">
-            <span className="text-text font-medium text-center text-lg">
+        <div className="flex flex-col items-center gap-6 mt-6 w-full">
+          <div className="bg-card-donor p-6 rounded-xl flex flex-col items-center space-y-3 w-full max-w-xl">
+            <span className="font-medium text-lg">
               Collingwood College
             </span>
-            <p className="text-text-muted text-sm md:text-base text-center">
+            <p className="text-sm md:text-base text-center">
               Donated a new net and paddles.<br />
               Your support has made matches much more fun!
             </p>
@@ -102,13 +100,11 @@ export default function HomePage() {
               href="https://collingwoodcollege.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent hover:text-accent-hover transition font-medium text-sm"
+              className="font-medium text-sm"
             >
               Visit Website
             </a>
           </div>
-
-          {/* Future donors: duplicate the above div */}
         </div>
       </section>
 
