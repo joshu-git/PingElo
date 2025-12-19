@@ -13,7 +13,7 @@ export default function Footer() {
           href="/"
           className="text-2xl font-bold tracking-wide text-white"
         >
-          PingElo
+          <span>PingElo</span>
         </Link>
 
         {/* Right: Meta */}
