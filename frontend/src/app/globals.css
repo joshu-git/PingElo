@@ -31,6 +31,10 @@
   /* hover for buttons */
   --color-accent-soft: rgba(47, 153, 240, 0.25);
 
+  /* Button text */
+  --color-button-text: #e0e0e0;
+  /* slightly darker than white for contrast */
+
   /* Status colors */
   --color-success: #22c55e;
   --color-warning: #eab308;
@@ -92,6 +96,10 @@
     --color-accent-button: #1e7fd6;
     --color-accent-button-hover: #1470b0;
     --color-accent-soft: rgba(47, 153, 240, 0.25);
+
+    /* Button text */
+    --color-button-text: #ffffff;
+    /* light mode buttons stay pure white */
   }
 }
 
@@ -153,19 +161,28 @@ button {
   cursor: pointer;
   font-weight: 600;
   background-color: var(--color-accent-button);
-  color: #ffffff;
+  color: var(--color-button-text);
   transition: transform var(--duration-fast),
     background-color var(--duration-fast);
 }
 
 button:hover {
   background-color: var(--color-accent-button-hover);
+  color: var(--color-button-text);
   transform: scale(1.02);
 }
 
 button:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
+}
+
+/* Header, Footer, Mobile dropdown solid backgrounds */
+header,
+footer,
+.mobile-dropdown {
+  background-color: var(--color-bg-card);
+  /* opaque */
 }
 
 /* Card styles */
