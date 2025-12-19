@@ -51,13 +51,13 @@ export default function HomePage() {
 
         <div className="flex justify-center gap-4 pt-4">
           <Link href="/leaderboard">
-            <button className="px-6 py-3 rounded-xl">
+            <button className="px-4 py-2 rounded-lg">
               View Leaderboard
             </button>
           </Link>
 
           <Link href="/matches/submit">
-            <button className="px-6 py-3 rounded-xl">
+            <button className="px-4 py-2 rounded-lg">
               Submit A Match
             </button>
           </Link>
@@ -77,7 +77,7 @@ export default function HomePage() {
         <p>Sign in, submit matches, and start climbing.</p>
 
         <Link href="/account/signin">
-          <button className="mt-2 px-6 py-3 rounded-xl">
+          <button className="mt-2 px-4 py-2 rounded-lg">
             Sign In
           </button>
         </Link>

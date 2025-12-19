@@ -48,7 +48,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!sessionUserId)
     return (
       <Link href="/account/signin" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent text-white font-semibold rounded-none">
+        <button className="px-4 py-2 bg-accent-button text-button-text font-semibold rounded-lg">
           Sign In
         </button>
       </Link>
@@ -57,7 +57,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
   if (!username)
     return (
       <Link href="/account/claim" onClick={onClick}>
-        <button className="px-4 py-2 bg-accent text-white font-semibold rounded-none">
+        <button className="px-4 py-2 bg-accent-button text-button-text font-semibold rounded-lg">
           Claim
         </button>
       </Link>
@@ -65,7 +65,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 
   return (
     <Link href={`/profile/${username}`} onClick={onClick}>
-      <button className="px-4 py-2 bg-accent text-white font-semibold rounded-none">
+      <button className="px-4 py-2 bg-accent-button text-button-text font-semibold rounded-lg">
         Profile
       </button>
     </Link>
@@ -83,12 +83,12 @@ export default function Header() {
   ];
 
   return (
-    <header className="bg-[rgba(46,46,46,0.8)] shadow-md sticky top-0 z-50 rounded-none">
+    <header className="bg-card shadow-md sticky top-0 z-50 rounded-none">
       <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo */}
         <Link
           href="/"
-          className="text-2xl font-bold tracking-wide text-text"
+          className="text-2xl font-bold tracking-wide text-text-nav"
         >
           PingElo
         </Link>
@@ -99,7 +99,7 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-text"
+              className="text-text-nav hover:text-accent-hover"
             >
               {link.label}
             </Link>
@@ -109,7 +109,7 @@ export default function Header() {
 
         {/* Mobile Menu Button */}
         <button
-          className="md:hidden p-2 text-text"
+          className="md:hidden p-2 text-text-nav"
           onClick={() => setOpen(!open)}
           aria-label={open ? "Close menu" : "Open menu"}
         >
@@ -119,7 +119,7 @@ export default function Header() {
 
       {/* Mobile Navigation */}
       <nav
-        className={`md:hidden bg-[rgba(46,46,46,0.8)] overflow-hidden transition-[max-height] duration-300 ease-in-out ${
+        className={`md:hidden bg-card overflow-hidden transition-[max-height] duration-300 ease-in-out ${
           open ? "max-h-96 py-3" : "max-h-0"
         }`}
       >
@@ -128,7 +128,7 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="py-2 text-text"
+              className="py-2 text-text-nav hover:text-accent-hover"
               onClick={() => setOpen(false)}
             >
               {link.label}

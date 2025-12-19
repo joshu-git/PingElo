@@ -12,7 +12,7 @@
   --color-bg-card: #2e2e2e;
   /* solid card background */
   --color-bg-elevated: #363636;
-  /* for elevated elements if needed */
+  /* elevated elements */
 
   /* Text colors */
   --color-text: #f5f5f5;
@@ -25,9 +25,9 @@
   --color-text-nav: #ffffff;
   /* nav links / small text for contrast */
 
-  /* Accent colors (same in light/dark for consistency) */
+  /* Accent colors */
   --color-accent: #4da6ff;
-  /* links / small interactive text */
+  /* links / interactive text */
   --color-accent-hover: #66c0ff;
   /* hover state */
   --color-accent-button: #1a6fc0;
@@ -38,7 +38,6 @@
 
   /* Button text */
   --color-button-text: #ffffff;
-  /* full contrast white text */
 
   /* Status colors */
   --color-success: #22c55e;
@@ -81,28 +80,24 @@
 /* Light mode colors */
 @media (prefers-color-scheme: light) {
   :root {
-    /* Background colors */
     --color-bg: #f1f1f1;
     --color-bg-soft: #e8e8e8;
     --color-bg-muted: #e2e2e2;
     --color-bg-card: #ffffff;
     --color-bg-elevated: #ffffff;
 
-    /* Text colors */
     --color-text: #18181b;
     --color-text-muted: #6b7280;
     --color-text-subtle: #9ca3af;
     --color-text-inverse: #ffffff;
     --color-text-nav: #18181b;
 
-    /* Accent colors */
     --color-accent: #1e7fd6;
     --color-accent-hover: #3d8ee0;
     --color-accent-button: #1a6fc0;
     --color-accent-button-hover: #145ea8;
     --color-accent-soft: rgba(26, 111, 192, 0.25);
 
-    /* Button text */
     --color-button-text: #ffffff;
   }
 }
@@ -160,24 +155,25 @@ button:focus-visible {
   outline-offset: 2px;
 }
 
-/* Buttons - polished and accessible */
+/* Buttons - less bulky, fully accessible */
 button {
   cursor: pointer;
   font-weight: 600;
   background-color: var(--color-accent-button);
   color: var(--color-button-text);
-  border-radius: 0.75rem;
-  padding: 0.5rem 1.5rem;
+  border-radius: 0.5rem;
+  /* smaller rounded */
+  padding: 0.5rem 1rem;
+  /* px-4 py-2 */
   transition: transform var(--duration-fast) var(--ease-standard),
     background-color var(--duration-fast) var(--ease-standard);
 }
 
 button:hover {
   background-color: var(--color-accent-button-hover);
-  transform: scale(1.03);
+  transform: scale(1.02);
 }
 
-/* Disabled buttons */
 button:disabled {
   opacity: var(--opacity-disabled);
   cursor: not-allowed;
@@ -188,7 +184,7 @@ header,
 footer,
 .mobile-dropdown {
   background-color: var(--color-bg-card);
-  /* opaque */
+  /* fully opaque */
 }
 
 /* Card styles */

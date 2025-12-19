@@ -2,22 +2,20 @@
 
 import Link from "next/link";
 
-//Footer component
 export default function Footer() {
   return (
-    <footer className="bg-[rgba(46,46,46,0.8)] mt-auto rounded-none">
+    <footer className="bg-card mt-auto rounded-none">
       <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-
         {/* Left: Logo */}
         <Link
           href="/"
-          className="text-2xl font-bold tracking-wide text-text"
+          className="text-2xl font-bold tracking-wide text-text-nav"
         >
           PingElo
         </Link>
 
         {/* Right: Meta */}
-        <div className="flex flex-col items-end text-sm leading-tight">
+        <div className="flex flex-col items-end text-sm leading-tight text-text-nav">
           <div className="text-text-subtle">
             © {new Date().getFullYear()} PingElo
           </div>
@@ -30,7 +28,6 @@ export default function Footer() {
             Open Source
           </a>
         </div>
-
       </div>
     </footer>
   );
