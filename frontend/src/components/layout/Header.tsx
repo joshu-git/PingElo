@@ -48,7 +48,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
     if (!sessionUserId)
         return (
             <Link href="/account/signin" onClick={onClick}>
-                <button className="px-4 py-2 bg-accent-button text-button-text font-semibold rounded-lg">
+                <button className="px-4 py-2 bg-accent-button text-button-text font-semibold rounded-none">
                     Sign In
                 </button>
             </Link>
@@ -57,15 +57,15 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
     if (!username)
         return (
             <Link href="/account/claim" onClick={onClick}>
-                <button className="px-4 py-2 bg-accent-button text-button-text font-semibold rounded-lg">
-                Claim
+                <button className="px-4 py-2 bg-accent-button text-button-text font-semibold rounded-none">
+                    Claim
                 </button>
             </Link>
         );
 
     return (
         <Link href={`/profile/${username}`} onClick={onClick}>
-            <button className="px-4 py-2 bg-accent-button text-button-text font-semibold rounded-lg">
+            <button className="px-4 py-2 bg-accent-button text-button-text font-semibold rounded-none">
                 Profile
             </button>
         </Link>
@@ -84,13 +84,10 @@ export default function Header() {
     ];
 
     return (
-        <header className="bg-card shadow-md sticky top-0 z-50 rounded-none">
+        <header className="bg-card-square shadow-md sticky top-0 z-50 rounded-none">
             <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
                 {/* Logo */}
-                <Link
-                    href="/"
-                    className="text-2xl font-bold tracking-wide text-text-nav"
-                >
+                <Link href="/" className="text-2xl font-bold tracking-wide text-text-nav">
                     PingElo
                 </Link>
 
@@ -120,7 +117,7 @@ export default function Header() {
 
             {/* Mobile Navigation */}
             <nav
-                className={`md:hidden bg-card overflow-hidden transition-[max-height] duration-300 ease-in-out rounded-none ${
+                className={`md:hidden bg-card-square overflow-hidden ${
                     open ? "max-h-96 py-3 pointer-events-auto" : "max-h-0 pointer-events-none"
                 }`}
                 aria-hidden={!open}
