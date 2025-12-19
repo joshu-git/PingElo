@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 function Feature({ title, description }: { title: string; description: string }) {
     return (
         <div className="bg-card p-6 space-y-2 hover-card">
-            <h3 className="font-semibold text-lg text-text">{title}</h3>
+            <h2 className="font-semibold text-lg text-text">{title}</h2>
             <p className="text-sm text-text-muted">{description}</p>
         </div>
     );
