@@ -48,10 +48,7 @@ export default function Footer() {
             <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
                 
                 {/* Left: Logo */}
-                <Link
-                    href="/"
-                    className="text-2xl font-bold tracking-wide text-text"
-                >
+                <Link href="/" className="text-2xl font-bold tracking-wide text-text">
                     PingElo
                 </Link>
 

@@ -87,7 +87,7 @@ export default function Header() {
         <header className="bg-card-square shadow-md sticky top-0 z-50 rounded-none">
             <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
                 {/* Logo */}
-                <Link href="/" className="text-2xl font-bold tracking-wide text-text-nav">
+                <Link href="/" className="text-2xl font-bold tracking-wide text-text">
                     PingElo
                 </Link>
 
