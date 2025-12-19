@@ -34,7 +34,7 @@ function QuickStats() {
 //Home Page
 export default function HomePage() {
   return (
-    <main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
+    <div className="max-w-5xl mx-auto px-4 py-16 space-y-16">
 
       {/* HERO */}
       <section className="text-center space-y-4 md:space-y-6">
@@ -108,6 +108,6 @@ export default function HomePage() {
         </div>
       </section>
 
-    </main>
+    </div>
   );
 }
