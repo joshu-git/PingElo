@@ -4,14 +4,18 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function Footer() {
-    //Lazy initialization of theme
+    //Lazy initialization of theme, checks system preference
     const [theme, setTheme] = useState<"light" | "dark">(() => {
         if (typeof window !== "undefined") {
             const saved = localStorage.getItem("theme");
             if (saved === "light" || saved === "dark") return saved;
+
+            //Detect system preference
+            const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+            return prefersDark ? "dark" : "light";
         }
 
-        //Default
+        //Fallback
         return "dark";
     });
 

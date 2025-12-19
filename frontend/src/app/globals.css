@@ -1,7 +1,8 @@
 @import "tailwindcss";
 
 /* Root variables for dark mode */
-:root {
+:root,
+:root[data-theme="dark"] {
   /* Background colors */
   --color-bg: #1f1f1f;
   --color-bg-soft: #252525;
@@ -65,28 +66,26 @@
 }
 
 /* Light mode colors */
-@media (prefers-color-scheme: light) {
-  :root {
-    --color-bg: #f1f1f1;
-    --color-bg-soft: #e8e8e8;
-    --color-bg-muted: #e2e2e2;
-    --color-bg-card: #ffffff;
-    --color-bg-elevated: #ffffff;
+:root[data-theme="light"] {
+  --color-bg: #f1f1f1;
+  --color-bg-soft: #e8e8e8;
+  --color-bg-muted: #e2e2e2;
+  --color-bg-card: #ffffff;
+  --color-bg-elevated: #ffffff;
 
-    --color-text: #18181b;
-    --color-text-muted: #6b7280;
-    --color-text-subtle: #9ca3af;
-    --color-text-inverse: #ffffff;
-    --color-text-nav: #18181b;
+  --color-text: #18181b;
+  --color-text-muted: #6b7280;
+  --color-text-subtle: #9ca3af;
+  --color-text-inverse: #ffffff;
+  --color-text-nav: #18181b;
 
-    --color-accent: #1e7fd6;
-    --color-accent-hover: #3d8ee0;
-    --color-accent-button: #1a6fc0;
-    --color-accent-button-hover: #145ea8;
-    --color-accent-soft: rgba(26, 111, 192, 0.25);
+  --color-accent: #1e7fd6;
+  --color-accent-hover: #3d8ee0;
+  --color-accent-button: #1a6fc0;
+  --color-accent-button-hover: #145ea8;
+  --color-accent-soft: rgba(26, 111, 192, 0.25);
 
-    --color-button-text: #ffffff;
-  }
+  --color-button-text: #ffffff;
 }
 
 /* Manual theme override support */
