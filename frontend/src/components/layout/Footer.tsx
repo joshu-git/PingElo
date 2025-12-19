@@ -12,6 +12,7 @@ export default function Footer() {
         <Link
           href="/"
           className="text-2xl font-bold tracking-wide text-white hover:underline"
+          style={{ color: "white", textDecoration: "none" }}
         >
           PingElo
         </Link>
@@ -25,7 +26,8 @@ export default function Footer() {
             href="https://github.com/joshu-git/PingElo"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-blue-500 hover:text-blue-600 underline"
+            style={{ color: "#3b82f6", textDecoration: "underline" }}
+            className="hover:text-blue-500"
           >
             Open Source
           </a>
