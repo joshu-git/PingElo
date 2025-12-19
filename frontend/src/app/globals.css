@@ -7,7 +7,6 @@
   --color-bg-soft: #252525;
   --color-bg-muted: #2a2a2a;
   --color-bg-card: #2e2e2e;
-  /* solid, non-transparent */
   --color-bg-elevated: #363636;
 
   /* Text colors */
@@ -16,14 +15,18 @@
   --color-text-subtle: #9e9e9e;
   --color-text-inverse: #141414;
 
-  /* Accent colors (buttons vs links split for contrast) */
-  --color-accent-button: #1e7fd6;
-  --color-accent-button-hover: #1668b8;
-
-  --color-link: #1a6fc0;
-  --color-link-hover: #145ea8;
-
+  /* Accent colors (same for light & dark mode) */
+  --color-accent: #1e7fd6;
+  --color-accent-hover: #1668b8;
   --color-accent-soft: rgba(47, 153, 240, 0.18);
+
+  /* Buttons */
+  --color-accent-button: var(--color-accent);
+  --color-accent-button-hover: var(--color-accent-hover);
+
+  /* Links */
+  --color-link: var(--color-accent);
+  --color-link-hover: var(--color-accent-hover);
 
   /* Status colors */
   --color-success: #22c55e;
@@ -37,7 +40,7 @@
   --color-divider: rgba(255, 255, 255, 0.08);
 
   /* Interaction states */
-  --color-focus: #1e7fd6;
+  --color-focus: var(--color-accent);
   --color-hover-overlay: rgba(255, 255, 255, 0.04);
   --color-active-overlay: rgba(255, 255, 255, 0.08);
   --opacity-disabled: 0.6;
@@ -79,20 +82,24 @@
     --color-text-subtle: #9ca3af;
     --color-text-inverse: #ffffff;
 
-    /* Accent colors */
-    --color-accent-button: #1e7fd6;
-    --color-accent-button-hover: #1668b8;
+    /* Accent colors (same as dark mode) */
+    --color-accent: #1e7fd6;
+    --color-accent-hover: #1668b8;
+    --color-accent-soft: rgba(47, 153, 240, 0.18);
 
-    --color-link: #1a6fc0;
-    --color-link-hover: #145ea8;
+    --color-accent-button: var(--color-accent);
+    --color-accent-button-hover: var(--color-accent-hover);
 
-    /* Borders */
+    --color-link: var(--color-accent);
+    --color-link-hover: var(--color-accent-hover);
+
+    /* Borders and dividers */
     --color-border: rgba(0, 0, 0, 0.12);
     --color-border-strong: rgba(0, 0, 0, 0.2);
     --color-divider: rgba(0, 0, 0, 0.08);
 
     /* Interaction states */
-    --color-focus: #1e7fd6;
+    --color-focus: var(--color-accent);
     --color-hover-overlay: rgba(0, 0, 0, 0.04);
     --color-active-overlay: rgba(0, 0, 0, 0.08);
   }
