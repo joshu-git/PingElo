@@ -7,23 +7,21 @@
   --color-bg-soft: #252525;
   --color-bg-muted: #2a2a2a;
   --color-bg-card: #2e2e2e;
-  /* solid, non-transparent */
+  /* solid for header/footer/cards */
   --color-bg-elevated: #363636;
 
   /* Text colors */
   --color-text: #f5f5f5;
-  --color-text-muted: #bfbfbf;
-  --color-text-subtle: #9e9e9e;
+  --color-text-muted: #c7c7c7;
+  --color-text-subtle: #a3a3a3;
   --color-text-inverse: #141414;
 
-  /* Accent colors (buttons vs links split for contrast) */
-  --color-accent-button: #1e7fd6;
-  --color-accent-button-hover: #1668b8;
+  /* Accent */
+  --color-accent: #2f99f0;
+  --color-accent-hover: #3192f8;
 
-  --color-link: #1a6fc0;
-  --color-link-hover: #145ea8;
-
-  --color-accent-soft: rgba(47, 153, 240, 0.18);
+  /* Accessible accent for buttons */
+  --color-accent-strong: #1e7fd6;
 
   /* Status colors */
   --color-success: #22c55e;
@@ -32,12 +30,12 @@
   --color-info: #38bdf8;
 
   /* Borders and dividers */
-  --color-border: rgba(255, 255, 255, 0.12);
-  --color-border-strong: rgba(255, 255, 255, 0.2);
+  --color-border: rgba(255, 255, 255, 0.14);
+  --color-border-strong: rgba(255, 255, 255, 0.22);
   --color-divider: rgba(255, 255, 255, 0.08);
 
   /* Interaction states */
-  --color-focus: #1e7fd6;
+  --color-focus: #2f99f0;
   --color-hover-overlay: rgba(255, 255, 255, 0.04);
   --color-active-overlay: rgba(255, 255, 255, 0.08);
   --opacity-disabled: 0.6;
@@ -75,24 +73,22 @@
 
     /* Text colors */
     --color-text: #18181b;
-    --color-text-muted: #6b7280;
-    --color-text-subtle: #9ca3af;
+    --color-text-muted: #4b5563;
+    --color-text-subtle: #6b7280;
     --color-text-inverse: #ffffff;
 
-    /* Accent colors */
-    --color-accent-button: #1e7fd6;
-    --color-accent-button-hover: #1668b8;
-
-    --color-link: #1a6fc0;
-    --color-link-hover: #145ea8;
+    /* Accent */
+    --color-accent: #2f99f0;
+    --color-accent-hover: #3192f8;
+    --color-accent-strong: #1e7fd6;
 
     /* Borders */
     --color-border: rgba(0, 0, 0, 0.12);
     --color-border-strong: rgba(0, 0, 0, 0.2);
     --color-divider: rgba(0, 0, 0, 0.08);
 
-    /* Interaction states */
-    --color-focus: #1e7fd6;
+    /* Interaction */
+    --color-focus: #2f99f0;
     --color-hover-overlay: rgba(0, 0, 0, 0.04);
     --color-active-overlay: rgba(0, 0, 0, 0.08);
   }
@@ -118,15 +114,15 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Anchor links */
+/* Anchor links (accessible contrast) */
 a {
-  color: var(--color-link);
-  text-decoration: none;
-  transition: color var(--duration-fast) var(--ease-standard);
+  color: var(--color-accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 a:hover {
-  color: var(--color-link-hover);
+  color: var(--color-accent-hover);
 }
 
 /* Form elements */
@@ -135,34 +131,29 @@ select,
 textarea,
 button {
   font-family: inherit;
-  background-color: var(--color-bg-card);
-  color: var(--color-text);
   border-radius: 1rem;
   border: none;
   padding: 0.5rem 0.75rem;
 }
 
-/* Focus states */
-input:focus,
-select:focus,
-textarea:focus,
-button:focus-visible {
+/* Focus styles */
+:focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
-/* Buttons */
+/* Buttons (AA compliant) */
 button {
   cursor: pointer;
   font-weight: 600;
-  background-color: var(--color-accent-button);
-  color: white;
+  background-color: var(--color-accent-strong);
+  color: #ffffff;
   transition: transform var(--duration-fast),
     background-color var(--duration-fast);
 }
 
 button:hover {
-  background-color: var(--color-accent-button-hover);
+  background-color: var(--color-accent-hover);
   transform: scale(1.02);
 }
 
@@ -175,12 +166,7 @@ button:disabled {
 .bg-card {
   background-color: var(--color-bg-card);
   border-radius: 1rem;
-}
-
-/* Soft card */
-.bg-card-soft {
-  background-color: var(--color-bg-soft);
-  border-radius: 1rem;
+  transition: all var(--duration-fast) var(--ease-standard);
 }
 
 /* Donor card */
@@ -223,10 +209,8 @@ p {
 /* Container utility */
 .container {
   max-width: 1024px;
-  margin-left: auto;
-  margin-right: auto;
-  padding-left: 1rem;
-  padding-right: 1rem;
+  margin-inline: auto;
+  padding-inline: 1rem;
 }
 
 /* Reduce motion */

@@ -1,10 +1,9 @@
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 
 //Feature card
 function Feature({ title, description }: { title: string; description: string }) {
   return (
-    <div className="bg-card p-6 space-y-2">
+    <div className="bg-card p-6 space-y-2 transition hover:shadow-lg hover:-translate-y-1">
       <h3 className="font-semibold text-lg text-text">{title}</h3>
       <p className="text-sm text-text-muted">{description}</p>
     </div>
@@ -35,9 +34,8 @@ function QuickStats() {
 export default function HomePage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
-
       {/* HERO */}
-      <section className="text-center space-y-4 md:space-y-6">
+      <section className="text-center space-y-6">
         <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
           Ping Pong Elo Rankings
         </h1>
@@ -65,7 +63,11 @@ export default function HomePage() {
       </section>
 
       {/* FEATURES */}
-      <section className="grid md:grid-cols-3 gap-6">
+      <section aria-labelledby="features-heading" className="grid md:grid-cols-3 gap-6">
+        <h2 id="features-heading" className="sr-only">
+          Features
+        </h2>
+
         <Feature title="Elo Based Rankings" description="Every match updates player ratings using a fair Elo algorithm." />
         <Feature title="Public Profiles" description="View match history, Elo progression, and stats for every player." />
         <Feature title="Match History" description="Every match is recorded, numbered, and permanently viewable." />
@@ -83,31 +85,25 @@ export default function HomePage() {
         </Link>
       </section>
 
-      {/* DONOR SECTION */}
-      <section className="bg-card p-8 md:p-10 text-center space-y-6">
+      {/* DONORS */}
+      <section className="bg-card p-10 text-center space-y-6">
         <h2 className="text-xl font-semibold">Special Thanks</h2>
 
-        <div className="flex flex-col items-center gap-6 mt-6 w-full">
-          <div className="bg-card-donor p-6 rounded-xl flex flex-col items-center space-y-3 w-full max-w-xl">
-            <span className="font-medium text-lg">
-              Collingwood College
-            </span>
-            <p className="text-sm md:text-base text-center">
-              Donated a new net and paddles.<br />
-              Your support has made matches much more fun!
-            </p>
-            <a
-              href="https://collingwoodcollege.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="font-medium text-sm"
-            >
-              Visit Website
-            </a>
-          </div>
+        <div className="bg-card-donor p-6 rounded-xl space-y-3 max-w-xl mx-auto">
+          <p className="font-medium text-lg">Collingwood College</p>
+          <p className="text-sm">
+            Donated a new net and paddles.<br />
+            Your support has made matches much more fun!
+          </p>
+          <a
+            href="https://collingwoodcollege.com"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Visit Website
+          </a>
         </div>
       </section>
-
     </main>
   );
 }
