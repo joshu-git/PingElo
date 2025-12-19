@@ -11,8 +11,7 @@ export default function Footer() {
         {/* Left: Logo */}
         <Link
           href="/"
-          className="text-2xl font-bold tracking-wide text-white hover:underline"
-          style={{ color: "white", textDecoration: "none" }}
+          className="text-2xl font-bold tracking-wide text-white hover:text-white focus:outline-none focus:ring-2 focus:ring-accent"
         >
           PingElo
         </Link>
@@ -26,8 +25,7 @@ export default function Footer() {
             href="https://github.com/joshu-git/PingElo"
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: "#3b82f6", textDecoration: "underline" }}
-            className="hover:text-blue-500"
+            className="hover:underline focus:outline-none focus:ring-2 focus:ring-accent"
           >
             Open Source
           </a>

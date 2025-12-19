@@ -122,17 +122,6 @@ a:hover {
   color: var(--color-accent-hover);
 }
 
-/* Footer-specific overrides (white links, no hover) */
-footer a {
-  color: white;
-  pointer-events: none;
-  /* disables interactivity */
-}
-
-footer a:hover {
-  color: white;
-}
-
 /* Form elements */
 input,
 select,
