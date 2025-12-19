@@ -5,13 +5,12 @@ import Footer from "@/components/layout/Footer";
 //Handles analytics in vercel
 import { Analytics } from "@vercel/analytics/next";
 
-
 //Handles speed insights in vercel
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
 import type { Metadata } from "next";
 
-//Metadata for SEO and social previes
+//Metadata for SEO and social previews
 export const metadata: Metadata = {
     title: {
         default: "PingElo",
@@ -49,11 +48,36 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
     return (
         <html lang="en">
-            {/* Body is flex column for header + main + footer layout */}
-            <body className="bg-black text-white flex flex-col min-h-screen">
+            <head>
+                {/* Set theme BEFORE first paint to avoid flash */}
+                <script
+                    dangerouslySetInnerHTML={{
+                        __html: `
+(function () {
+    try {
+        const stored = localStorage.getItem("theme");
+        if (stored === "light" || stored === "dark") {
+            document.documentElement.setAttribute("data-theme", stored);
+            return;
+        }
 
-                <Analytics/>
-                <SpeedInsights/>
+        const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        document.documentElement.setAttribute(
+            "data-theme",
+            prefersDark ? "dark" : "light"
+        );
+    } catch (e) {}
+})();
+                        `,
+                    }}
+                />
+            </head>
+
+            {/* Body is flex column for header + main + footer layout */}
+            <body className="flex flex-col min-h-screen">
+
+                <Analytics />
+                <SpeedInsights />
 
                 {/* Header component: contains navigation */}
                 <Header />
