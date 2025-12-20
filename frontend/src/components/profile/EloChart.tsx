@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 export type EloPoint = {
   match: number;
@@ -45,7 +38,7 @@ export function EloChart({ data }: { data: EloPoint[] }) {
         <Line
           type="monotone"
           dataKey="elo"
-          stroke="#a855f7"
+          stroke="#4f46e5"
           strokeWidth={2}
           dot={false}
         />
