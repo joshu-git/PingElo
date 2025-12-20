@@ -131,23 +131,25 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
         return highlightPlayerId === winnerId ? "border-green-500/30" : "border-red-500/30";
     }
 
-    return (
-        <div className="w-full flex justify-center px-4 mt-6">
-            <div className="w-full max-w-lg sm:max-w-xl md:max-w-2xl space-y-4">
+        return (
+        <div className="w-full flex justify-center px-4 mt-12">
+            <div className="w-full max-w-2xl space-y-6">
+
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-                    <h1 className="text-2xl font-bold">
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
                         Matches{highestGameNumber ? ` (${highestGameNumber})` : ""}
                     </h1>
+
                     <Link href="/matches/submit">
-                        <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-xl font-semibold text-white transition">
+                        <button className="px-4 py-2 rounded-lg w-full sm:w-auto">
                             Submit Match
                         </button>
                     </Link>
                 </div>
 
                 {/* Matches */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                     {matches.map((m) => {
                         const aName = players.get(m.player_a1_id) ?? "Unknown";
                         const bName = players.get(m.player_b1_id) ?? "Unknown";
@@ -160,21 +162,24 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                                 key={m.id}
                                 onClick={() => router.push(`/matches/${m.id}`)}
                                 className={clsx(
-                                    "bg-black/40 border rounded-2xl p-4 cursor-pointer transition hover:bg-black/50",
+                                    "bg-card border border-border rounded-xl p-4 sm:p-5 cursor-pointer hover-card transition",
                                     outline(m.player_a1_id, m.winner),
                                     outline(m.player_b1_id, m.winner)
                                 )}
                             >
-                                <div className="flex justify-between items-center gap-6">
-                                    {/* Players + Elo */}
-                                    <div className="flex flex-col gap-1 flex-none min-w-0">
+                                <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
+
+                                    {/* Players */}
+                                    <div className="flex flex-col gap-2 min-w-0 flex-1">
                                         <Link
                                             href={`/profile/${aName}`}
                                             onClick={(e) => e.stopPropagation()}
-                                            className="hover:underline font-medium flex justify-between items-center w-full min-w-0"
+                                            className="flex justify-between items-center hover:underline"
                                         >
-                                            <span className="truncate">{aName} ({aEloAfter})</span>
-                                            <span className="text-gray-400 ml-2 w-12 text-right flex-shrink-0">
+                                            <span className="truncate font-medium">
+                                                {aName} ({aEloAfter})
+                                            </span>
+                                            <span className="text-sm text-text-subtle w-12 text-right">
                                                 {m.elo_change_a > 0 && "+"}{m.elo_change_a}
                                             </span>
                                         </Link>
@@ -182,28 +187,33 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                                         <Link
                                             href={`/profile/${bName}`}
                                             onClick={(e) => e.stopPropagation()}
-                                            className="hover:underline font-medium flex justify-between items-center w-full min-w-0"
+                                            className="flex justify-between items-center hover:underline"
                                         >
-                                            <span className="truncate">{bName} ({bEloAfter})</span>
-                                            <span className="text-gray-400 ml-2 w-12 text-right flex-shrink-0">
+                                            <span className="truncate font-medium">
+                                                {bName} ({bEloAfter})
+                                            </span>
+                                            <span className="text-sm text-text-subtle w-12 text-right">
                                                 {m.elo_change_b > 0 && "+"}{m.elo_change_b}
                                             </span>
                                         </Link>
                                     </div>
 
-                                    {/* Scores */}
-                                    <div className="flex flex-col items-center font-semibold w-12 flex-shrink-0">
+                                    {/* Score */}
+                                    <div className="flex sm:flex-col justify-center items-center gap-2 sm:gap-0 font-semibold text-lg">
                                         <span>{m.score_a}</span>
-                                        <span>{m.score_b}</span>
+                                        <span className="text-text-muted">{m.score_b}</span>
                                     </div>
 
                                     {/* Meta */}
-                                    <div className="text-right text-sm text-gray-400">
-                                        <div className="text-white font-medium">
+                                    <div className="text-sm text-text-subtle text-left sm:text-right">
+                                        <div className="font-medium text-text">
                                             Winner: {players.get(m.winner) ?? "Unknown"}
                                         </div>
-                                        <div>{new Date(m.created_at).toLocaleDateString()}</div>
+                                        <div>
+                                            {new Date(m.created_at).toLocaleDateString()}
+                                        </div>
                                     </div>
+
                                 </div>
                             </div>
                         );
@@ -211,10 +221,15 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                 </div>
 
                 {/* Loader */}
-                <div ref={loaderRef} className="h-10 flex justify-center items-center">
-                    {loading && <span className="text-gray-400">Loading…</span>}
-                    {!hasMore && <span className="text-gray-500 text-sm">No more matches</span>}
+                <div ref={loaderRef} className="h-12 flex justify-center items-center">
+                    {loading && <span className="text-text-muted">Loading…</span>}
+                    {!hasMore && (
+                        <span className="text-text-subtle text-sm">
+                            No more matches
+                        </span>
+                    )}
                 </div>
+
             </div>
         </div>
     );
