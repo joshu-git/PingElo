@@ -6,20 +6,21 @@ import Link from "next/link";
 import clsx from "clsx";
 import { supabase } from "@/lib/supabase";
 
+//Determines how many matches are loaded in
 const PAGE_SIZE = 50;
 
 type MatchRow = {
     id: string;
     created_at: string;
-    player_a_id: string;
-    player_b_id: string;
+    player_a1_id: string;
+    player_b1_id: string;
     score_a: number;
     score_b: number;
-    elo_before_a: number;
-    elo_before_b: number;
+    elo_before_a1: number;
+    elo_before_b1: number;
     elo_change_a: number;
     elo_change_b: number;
-    winner: string; // winner id
+    winner: string;
 };
 
 type Props = {
@@ -42,13 +43,13 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
         async function loadPlayers() {
             const { data } = await supabase
                 .from("players")
-                .select("id, username");
+                .select("id, player_name");
 
             //If there are no players return
             if (!data) return;
             
             //Else map the players
-            setPlayers(new Map(data.map((p) => [p.id, p.username])));
+            setPlayers(new Map(data.map((p) => [p.id, p.player_name])));
         }
 
         //Calls loadPlayers
@@ -64,7 +65,7 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                 query = supabase
                     .from("matches")
                     .select("id", { count: "exact", head: true })
-                    .or(`player_a_id.eq.${highlightPlayerId},player_b_id.eq.${highlightPlayerId}`);
+                    .or(`player_a1_id.eq.${highlightPlayerId},player_b2_id.eq.${highlightPlayerId}`);
             }
 
             const { count, error } = await query;
@@ -86,12 +87,12 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                 `
                 id,
                 created_at,
-                player_a_id,
-                player_b_id,
+                player_a1_id,
+                player_b1_id,
                 score_a,
                 score_b,
-                elo_before_a,
-                elo_before_b,
+                elo_before_a1,
+                elo_before_b1,
                 elo_change_a,
                 elo_change_b,
                 winner
@@ -148,11 +149,11 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                 {/* Matches */}
                 <div className="space-y-3">
                     {matches.map((m) => {
-                        const aName = players.get(m.player_a_id) ?? "Unknown";
-                        const bName = players.get(m.player_b_id) ?? "Unknown";
+                        const aName = players.get(m.player_a1_id) ?? "Unknown";
+                        const bName = players.get(m.player_b1_id) ?? "Unknown";
 
-                        const aEloAfter = m.elo_before_a + m.elo_change_a;
-                        const bEloAfter = m.elo_before_b + m.elo_change_b;
+                        const aEloAfter = m.elo_before_a1 + m.elo_change_a;
+                        const bEloAfter = m.elo_before_b1 + m.elo_change_b;
 
                         return (
                             <div
@@ -160,8 +161,8 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                                 onClick={() => router.push(`/matches/${m.id}`)}
                                 className={clsx(
                                     "bg-black/40 border rounded-2xl p-4 cursor-pointer transition hover:bg-black/50",
-                                    outline(m.player_a_id, m.winner),
-                                    outline(m.player_b_id, m.winner)
+                                    outline(m.player_a1_id, m.winner),
+                                    outline(m.player_b1_id, m.winner)
                                 )}
                             >
                                 <div className="flex justify-between items-center gap-6">
