@@ -1,6 +1,5 @@
 "use client";
 
-import MatchTable from "@/components/matches/MatchTable";
 import AdminMatchActions from "./AdminMatchActions";
 import { supabase } from "@/lib/supabase";
 
@@ -59,11 +58,7 @@ export default function AdminDashboard() {
                 </button>
             </div>
 
-            <MatchTable
-                renderActions={(id) => (
-                    <AdminMatchActions matchId={id} />
-                )}
-            />
+            
         </div>
     );
 }

@@ -5,9 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
-import { EloChart } from "@/components/matches/EloChart";
+import { EloChart } from "@/components/profile/EloChart";
 import ProfileStats from "./ProfileStats";
-import ProfileMatchList from "./ProfileMatchList";
 
 import type { MatchRow } from "@/types/matches";
 import type { PlayerRow } from "@/types/players";
@@ -157,7 +156,6 @@ export default function ProfileView() {
         <EloChart data={eloHistory} />
       </div>
 
-      <ProfileMatchList matches={matches} />
     </div>
   );
 }
