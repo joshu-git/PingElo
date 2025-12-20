@@ -1,6 +1,6 @@
-import MatchForm from "@/components/matches/MatchForm";
+import SubmitMatch from "@/components/matches/SubmitMatch";
 
-//Display MatchForm component
-export default function MatchPage() {
-  return <MatchForm />;
+//Display SubmitMatch component
+export default function SubmitMatchPage() {
+  return <SubmitMatch />;
 }
