@@ -14,7 +14,7 @@ type MatchResult = {
     winner: "A" | "B";
 };
 
-export default function MatchForm() {
+export default function SubmitMatch() {
     const [players, setPlayers] = useState<PlayerRow[]>([]);
 
     const [playerAId, setPlayerAId] = useState("");
