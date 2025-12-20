@@ -20,7 +20,7 @@ type MatchRow = {
     elo_before_b1: number;
     elo_change_a: number;
     elo_change_b: number;
-    winner: string;
+    winner1: string;
 };
 
 type Props = {
@@ -95,7 +95,7 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                 elo_before_b1,
                 elo_change_a,
                 elo_change_b,
-                winner
+                winner1
             `
             )
             .order("created_at", { ascending: false })
@@ -163,8 +163,8 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                                 onClick={() => router.push(`/matches/${m.id}`)}
                                 className={clsx(
                                     "bg-card border border-border rounded-xl p-4 sm:p-5 cursor-pointer hover-card transition",
-                                    outline(m.player_a1_id, m.winner),
-                                    outline(m.player_b1_id, m.winner)
+                                    outline(m.player_a1_id, m.winner1),
+                                    outline(m.player_b1_id, m.winner1)
                                 )}
                             >
                                 <div className="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between">
@@ -207,7 +207,7 @@ export default function Matches({ variant = "global", highlightPlayerId }: Props
                                     {/* Meta */}
                                     <div className="text-sm text-text-subtle text-left sm:text-right">
                                         <div className="font-medium text-text">
-                                            Winner: {players.get(m.winner) ?? "Unknown"}
+                                            Winner: {players.get(m.winner1) ?? "Unknown"}
                                         </div>
                                         <div>
                                             {new Date(m.created_at).toLocaleDateString()}
