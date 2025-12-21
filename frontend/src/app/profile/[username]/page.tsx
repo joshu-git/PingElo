@@ -1,6 +1,6 @@
-import ProfileView from "@/components/profile/ProfileView";
+import Profile from "@/components/profile/Profile";
 
-//Displays the ProfileView component
-export default function PlayerProfilePage() {
-    return <ProfileView />;
+//Displays the Profile component
+export default function ProfilePage() {
+	return <Profile />;
 }
