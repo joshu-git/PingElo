@@ -30,7 +30,7 @@ export default function Profile() {
 			const { data: playerData } = await supabase
 				.from("players")
 				.select("*")
-				.eq("account_name", username)
+				.eq("player_name", username)
 				.single();
 
 			if (!playerData) {
@@ -122,7 +122,7 @@ export default function Profile() {
 		<div className="max-w-5xl mx-auto mt-10 px-4 space-y-8">
 			{/* Header */}
 			<div className="flex justify-between items-center">
-				<h1 className="text-4xl font-bold">{player.username}</h1>
+				<h1 className="text-4xl font-bold">{player.player_name}</h1>
 
 				{isAdmin && (
 					<Link

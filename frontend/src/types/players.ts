@@ -1,5 +1,5 @@
 export interface PlayerRow {
-  id: string;
-  username: string;
-  elo : number;
+	id: string;
+	player_name: string;
+	elo: number;
 }
