@@ -42,7 +42,7 @@ export interface GroupsRow {
 }
 
 //manager_reports
-export interface ManagerReport {
+export interface ManagerReportRow {
 	id: string;
 	reported_player_id?: string | null;
 	reported_by: string;
@@ -98,7 +98,7 @@ export interface PlayerBanRow {
 }
 
 //players
-export interface Player {
+export interface PlayerRow {
 	id: string;
 	player_name: string;
 	singles_elo: number;
