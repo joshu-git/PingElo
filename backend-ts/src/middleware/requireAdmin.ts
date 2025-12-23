@@ -24,6 +24,7 @@ export async function requireAdmin(
 			.eq("id", req.user!.id)
 			.single();
 
+		//If the user is not an admin then throw an error
 		if (adminError || !admin?.is_admin) {
 			return res.status(403).json({ error: "Admin required" });
 		}
@@ -35,8 +36,8 @@ export async function requireAdmin(
 			.eq("id", req.user!.id)
 			.single();
 
-		//If the user is not an admin then throw an error
-		if (groupError || !admin?.is_admin) {
+		//If the user is not in a group then throw an error
+		if (groupError || !group?.group_id) {
 			return res.status(403).json({ error: "Group required" });
 		}
 
