@@ -58,7 +58,7 @@ export interface ManagerReportRow {
 export type MatchType = "singles" | "doubles";
 
 //matches
-export interface MatchRow {
+export interface MatchesRow {
 	id: string;
 	player_a1_id: string;
 	player_b1_id: string;
@@ -98,7 +98,7 @@ export interface PlayerBanRow {
 }
 
 //players
-export interface PlayerRow {
+export interface PlayersRow {
 	id: string;
 	player_name: string;
 	singles_elo: number;
@@ -129,7 +129,7 @@ export interface TournamentSignupRow {
 }
 
 //tournaments
-export interface TournamentRow {
+export interface TournamentsRow {
 	id: string;
 	tournament_name: string;
 	created_by: string;
