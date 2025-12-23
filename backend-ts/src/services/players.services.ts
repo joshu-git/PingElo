@@ -1,6 +1,8 @@
 //For using supabase calls
 import { supabase } from "../libs/supabase.js";
 
+import { PlayersRow } from "../types/database.js";
+
 //For generating claim codes
 import { v4 as uuidv4 } from "uuid";
 
@@ -15,7 +17,7 @@ export async function createPlayer(playerName: string, group_id: string) {
 		.insert({
 			player_name: playerName,
 			claim_code: claim_code,
-			groud_id: group_id,
+			group_id: group_id,
 		})
 		.select()
 		.single();
