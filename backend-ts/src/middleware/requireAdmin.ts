@@ -33,7 +33,7 @@ export async function requireAdmin(
 		const { data: group, error: groupError } = await supabase
 			.from("players")
 			.select("group_id")
-			.eq("id", req.user!.id)
+			.eq("account_id", req.user!.id)
 			.single();
 
 		//If the user is not in a group then throw an error
