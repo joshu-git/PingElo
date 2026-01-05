@@ -1,106 +1,182 @@
-//For using supabase calls
-import { supabase } from "../libs/supabase.js"
+import { supabase } from "../libs/supabase.js";
 
-//For calculating elo post match
-import { calculateElo, EloCalculationResult } from "./elo.services.js";
+//elo config
+const BASE_K = 50;
+const IDEAL_POINTS = 7;
 
-//Defines the return type
-export interface MatchWithElo {
-  match: any;
-  eloData: EloCalculationResult;
+function expectedScore(rA: number, rB: number) {
+	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
 
-
-// Returns the next match number
-export async function getNextMatchNumber(): Promise<number> {
-  const { data, error } = await supabase
-    .from("matches")
-    .select("match_number")
-    .order("match_number", { ascending: false })
-    .limit(1)
-    .single();
-
-  if (error) {
-    console.error("Failed to fetch highest match number:", error);
-    throw new Error(error.message);
-  }
-
-  // If there are no matches yet, start from 1
-  const highest = data?.match_number ?? 0;
-  return highest + 1;
+function effectiveK(
+	scoreA: number,
+	scoreB: number,
+	gamePoints: number,
+	isTournament: boolean
+) {
+	if (isTournament) return BASE_K;
+	const diff = Math.abs(scoreA - scoreB) / gamePoints;
+	const length = gamePoints / IDEAL_POINTS;
+	return BASE_K * diff * length;
 }
 
+function calculateElo(
+	rA: number,
+	rB: number,
+	scoreA: number,
+	scoreB: number,
+	gamePoints: number,
+	isTournament: boolean
+) {
+	const winner = scoreA > scoreB ? "A" : "B";
+	const actualA = winner === "A" ? 1 : 0;
+	const expectedA = expectedScore(rA, rB);
+	const k = effectiveK(scoreA, scoreB, gamePoints, isTournament);
+	const deltaA = Math.round(k * (actualA - expectedA));
 
-//Allows the creation of matches
-export async function createMatch(
-    userId: string,
-    playerAId: string,
-    playerBId: string,
-    scoreA: number,
-    scoreB: number,
-    gamePoints: number,
-    ratingA: number,
-    ratingB: number
-): Promise<MatchWithElo> {
-    
-    //Calls elo service to get new data
-    const eloData = calculateElo({
-        ratingA,
-        ratingB,
-        scoreA,
-        scoreB,
-        gamePoints
-    });
+	return {
+		winner,
+		eloChangeA: deltaA,
+		eloChangeB: -deltaA,
+	};
+}
 
-    //Translate the winner into their ID
-    const winnerId =
-        eloData.winner === "A" ? playerAId : playerBId;
+//match number
+async function getNextMatchNumber() {
+	const { data } = await supabase
+		.from("matches")
+		.select("match_number")
+		.order("match_number", { ascending: false })
+		.limit(1)
+		.single();
 
-    const matchNumber = await getNextMatchNumber()
+	return (data?.match_number ?? 0) + 1;
+}
 
-    //Insert match into database. Validation has been done
-    const { data: match, error } = await supabase
-        .from("matches")
-        .insert({
-            player_a_id: playerAId,
-            player_b_id: playerBId,
-            score_a: scoreA,
-            score_b: scoreB,
-            game_points: gamePoints,
-            created_by: userId,
-            winner: winnerId,
-            match_number: matchNumber,
-            elo_change_a: eloData.eloChangeA,
-            elo_change_b: eloData.eloChangeB,
-            elo_before_a: ratingA,
-            elo_before_b: ratingB
-        })
-        .select()
-        .single();
+//singles
+export async function createSinglesMatch(
+	userId: string,
+	playerAId: string,
+	playerBId: string,
+	scoreA: number,
+	scoreB: number,
+	gamePoints: number,
+	ratingA: number,
+	ratingB: number,
+	tournamentId?: string | null
+) {
+	const elo = calculateElo(
+		ratingA,
+		ratingB,
+		scoreA,
+		scoreB,
+		gamePoints,
+		Boolean(tournamentId)
+	);
 
-    //If there is a creation error then throw an error
-    if (error || !match) {
-        throw new Error(error?.message || "Failed to create match");
-    }
+	const matchNumber = await getNextMatchNumber();
+	const winnerId = elo.winner === "A" ? playerAId : playerBId;
 
-    //Update player ratings in players table with new elo
-    const { error: updateAError } = await supabase
-        .from("players")
-        .update({ elo: eloData.newRatingA })
-        .eq("id", playerAId);
+	const { data: match } = await supabase
+		.from("matches")
+		.insert({
+			player_a1_id: playerAId,
+			player_b1_id: playerBId,
+			score_a: scoreA,
+			score_b: scoreB,
+			game_points: gamePoints,
+			created_by: userId,
+			winner1: winnerId,
+			match_number: matchNumber,
+			match_type: "singles",
+			elo_change_a: elo.eloChangeA,
+			elo_change_b: elo.eloChangeB,
+			elo_before_a1: ratingA,
+			elo_before_b1: ratingB,
+			tournament_id: tournamentId ?? null,
+		})
+		.select()
+		.single();
 
-    const { error: updateBError } = await supabase
-        .from("players")
-        .update({ elo: eloData.newRatingB })
-        .eq("id", playerBId);
+	await supabase
+		.from("players")
+		.update({ singles_elo: ratingA + elo.eloChangeA })
+		.eq("id", playerAId);
 
-    //If there is an update error then throw an error
-    if (updateAError || updateBError) {
-        throw new Error(
-            updateAError?.message || updateBError?.message || "Failed to update Elo"
-        );
-    }
+	await supabase
+		.from("players")
+		.update({ singles_elo: ratingB + elo.eloChangeB })
+		.eq("id", playerBId);
 
-    //Returns the match and elo data to the route
-    return { match, eloData };
+	return { match, eloData: elo };
+}
+
+//doubles
+export async function createDoublesMatch(
+	userId: string,
+	a1: any,
+	a2: any,
+	b1: any,
+	b2: any,
+	scoreA: number,
+	scoreB: number,
+	gamePoints: number,
+	tournamentId?: string | null
+) {
+	const teamARating = (a1.doubles_elo + a2.doubles_elo) / 2;
+	const teamBRating = (b1.doubles_elo + b2.doubles_elo) / 2;
+
+	const elo = calculateElo(
+		teamARating,
+		teamBRating,
+		scoreA,
+		scoreB,
+		gamePoints,
+		Boolean(tournamentId)
+	);
+
+	const matchNumber = await getNextMatchNumber();
+	const winners = elo.winner === "A" ? [a1.id, a2.id] : [b1.id, b2.id];
+
+	const { data: match } = await supabase
+		.from("matches")
+		.insert({
+			player_a1_id: a1.id,
+			player_a2_id: a2.id,
+			player_b1_id: b1.id,
+			player_b2_id: b2.id,
+			score_a: scoreA,
+			score_b: scoreB,
+			game_points: gamePoints,
+			created_by: userId,
+			winner1: winners[0],
+			winner2: winners[1],
+			match_number: matchNumber,
+			match_type: "doubles",
+			elo_change_a: elo.eloChangeA,
+			elo_change_b: elo.eloChangeB,
+			elo_before_a1: a1.doubles_elo,
+			elo_before_a2: a2.doubles_elo,
+			elo_before_b1: b1.doubles_elo,
+			elo_before_b2: b2.doubles_elo,
+			tournament_id: tournamentId ?? null,
+		})
+		.select()
+		.single();
+
+	for (const p of [a1, a2]) {
+		await supabase
+			.from("players")
+			.update({ doubles_elo: p.doubles_elo + elo.eloChangeA })
+			.eq("id", p.id);
+	}
+
+	for (const p of [b1, b2]) {
+		await supabase
+			.from("players")
+			.update({ doubles_elo: p.doubles_elo + elo.eloChangeB })
+			.eq("id", p.id);
+	}
+
+	return { match, eloData: elo };
 }
