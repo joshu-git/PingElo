@@ -113,11 +113,6 @@ export default function SubmitMatch() {
 			return;
 		}
 
-		if (!tournamentId) {
-			alert("Please select a tournament.");
-			return;
-		}
-
 		setLoading(true);
 		setCanSubmit(false);
 
