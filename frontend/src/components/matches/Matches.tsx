@@ -6,16 +6,13 @@ import Link from "next/link";
 import clsx from "clsx";
 import { supabase } from "@/lib/supabase";
 
-// Determines how many matches are loaded in
-const PAGE_SIZE = 50;
-
 type MatchRow = {
 	id: string;
 	created_at: string;
 	player_a1_id: string;
-	player_a2_id?: string | null;
+	player_a2_id?: string;
 	player_b1_id: string;
-	player_b2_id?: string | null;
+	player_b2_id?: string;
 	score_a: number;
 	score_b: number;
 	elo_before_a1: number;
@@ -26,29 +23,23 @@ type MatchRow = {
 	elo_change_b: number;
 	winner1: string;
 	winner2?: string;
+	match_type: "singles" | "doubles";
 	tournament_id?: string | null;
 };
 
-type Props = {
-	variant?: "global" | "profile" | "admin";
-	highlightPlayerId?: string;
+type Group = {
+	id: string;
+	group_name: string;
 };
 
-export default function Matches({
-	variant = "global",
-	highlightPlayerId,
-}: Props) {
+export default function Matches() {
 	const router = useRouter();
 	const loaderRef = useRef<HTMLDivElement | null>(null);
 
 	const [matches, setMatches] = useState<MatchRow[]>([]);
 	const [players, setPlayers] = useState<Map<string, string>>(new Map());
-	const [tournaments, setTournaments] = useState<Map<string, string>>(
-		new Map()
-	);
-	const [loading, setLoading] = useState(false);
-	const [hasMore, setHasMore] = useState(true);
-	const [page, setPage] = useState(0);
+	const [groups, setGroups] = useState<Group[]>([]);
+	const [groupMap, setGroupMap] = useState<Map<string, string>>(new Map());
 
 	const [matchType, setMatchType] = useState<"singles" | "doubles">(
 		"singles"
@@ -57,74 +48,91 @@ export default function Matches({
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
 
-	/* ----------------------------------------
-	 * Load all players and tournaments
-	 * ---------------------------------------- */
+	const [page, setPage] = useState(0);
+	const [hasMore, setHasMore] = useState(true);
+	const [loading, setLoading] = useState(false);
+
+	const PAGE_SIZE = 50;
+
+	/* ---------------------------
+	 * Load all players + groups
+	 * --------------------------- */
 	useEffect(() => {
-		async function loadMeta() {
-			const [playersData, tournamentsData, session] = await Promise.all([
-				supabase.from("players").select("id, player_name, group_id"),
-				supabase.from("tournaments").select("id, tournament_name"),
-				supabase.auth.getSession(),
-			]);
+		const loadMeta = async () => {
+			const [{ data: playerData }, { data: groupData }, sessionRes] =
+				await Promise.all([
+					supabase
+						.from("players")
+						.select("id, player_name, group_id"),
+					supabase.from("groups").select("*").order("group_name"),
+					supabase.auth.getSession(),
+				]);
 
-			if (playersData.data) {
+			if (playerData)
 				setPlayers(
-					new Map(playersData.data.map((p) => [p.id, p.player_name]))
+					new Map(playerData.map((p) => [p.id, p.player_name]))
 				);
-
-				// Safe check for session
-				const userId = session.data.session?.user?.id;
-				if (userId) {
-					const me = playersData.data.find((p) => p.id === userId);
-					if (me?.group_id) setMyGroupId(me.group_id);
-				}
-			}
-
-			if (tournamentsData.data) {
-				setTournaments(
-					new Map(
-						tournamentsData.data.map((t) => [
-							t.id,
-							t.tournament_name,
-						])
-					)
+			if (groupData) {
+				setGroups(groupData);
+				setGroupMap(
+					new Map(groupData.map((g) => [g.id, g.group_name]))
 				);
 			}
-		}
+
+			const session = sessionRes.data.session;
+			if (session) {
+				const me = playerData?.find((p) => p.id === session.user.id);
+				if (me?.group_id) setMyGroupId(me.group_id);
+			}
+		};
 
 		loadMeta();
 	}, []);
 
-	/* ----------------------------------------
+	/* ---------------------------
 	 * Load matches (paginated)
-	 * ---------------------------------------- */
-	const loadMore = useCallback(
-		async (reset = false) => {
-			if (loading || !hasMore) return;
+	 * --------------------------- */
+	const loadMatches = useCallback(
+		async (reset: boolean) => {
+			if (loading) return;
 			setLoading(true);
 
 			const currentPage = reset ? 0 : page;
 			let query = supabase
 				.from("matches")
-				.select("*")
+				.select(
+					`
+					id,
+					created_at,
+					player_a1_id,
+					player_a2_id,
+					player_b1_id,
+					player_b2_id,
+					score_a,
+					score_b,
+					elo_before_a1,
+					elo_before_a2,
+					elo_before_b1,
+					elo_before_b2,
+					elo_change_a,
+					elo_change_b,
+					winner1,
+					winner2,
+					match_type,
+					tournament_id
+				`
+				)
+				.eq("match_type", matchType)
 				.order("created_at", { ascending: false })
 				.range(
 					currentPage * PAGE_SIZE,
 					currentPage * PAGE_SIZE + PAGE_SIZE - 1
 				);
 
-			// Filter for profile
-			if (variant === "profile" && highlightPlayerId) {
-				query = query.or(
-					`player_a1_id.eq.${highlightPlayerId},player_a2_id.eq.${highlightPlayerId},player_b1_id.eq.${highlightPlayerId},player_b2_id.eq.${highlightPlayerId}`
-				);
-			}
-
-			// Filter for group scope
 			if (scope === "group" && groupId) {
-				// You might need to join players table for group filtering in supabase
-				// For simplicity, we load all and filter client-side
+				query = query.or(
+					`player_a1_id.in.(select id from players where group_id='${groupId}'),player_b1_id.in.(select id from players where group_id='${groupId}')`
+				);
 			}
 
 			const { data, error } = await query;
@@ -132,239 +140,281 @@ export default function Matches({
 				setMatches((prev) => (reset ? data : [...prev, ...data]));
 				setHasMore(data.length === PAGE_SIZE);
 				if (reset) setPage(1);
-				else setPage((p) => p + 1);
-			} else if (error) {
-				console.error(error);
 			}
-
 			setLoading(false);
 		},
-		[loading, page, hasMore, variant, highlightPlayerId, scope, groupId]
+		[matchType, scope, groupId, page, loading]
 	);
 
-	/* Reload on filter or matchType change */
 	useEffect(() => {
-		const reload = async () => {
-			await loadMore(true);
-		};
-		reload();
-	}, [matchType, scope, groupId, loadMore]);
+		loadMatches(true);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [matchType, scope, groupId]);
 
-	/* Infinite scroll */
+	/* ---------------------------
+	 * Infinite scroll
+	 * --------------------------- */
 	useEffect(() => {
+		if (!hasMore || loading) return;
 		const el = loaderRef.current;
 		if (!el) return;
+
 		const observer = new IntersectionObserver(
-			([entry]) => entry.isIntersecting && loadMore(),
+			([entry]) => entry.isIntersecting && loadMatches(false),
 			{ threshold: 1 }
 		);
+
 		observer.observe(el);
 		return () => observer.disconnect();
-	}, [loadMore]);
+	}, [hasMore, loading, loadMatches]);
 
-	/* ----------------------------------------
-	 * UI helpers
-	 * ---------------------------------------- */
-	function outline(playerId: string, winnerId: string) {
-		if (variant !== "profile" || !highlightPlayerId)
-			return "border-white/10";
-		if (highlightPlayerId !== playerId) return "border-white/10";
-		return highlightPlayerId === winnerId
-			? "border-green-500/30"
-			: "border-red-500/30";
-	}
+	/* ---------------------------
+	 * Helper: Elo After
+	 * --------------------------- */
+	const eloAfter = (before?: number, change?: number) =>
+		before !== undefined && change !== undefined
+			? before + change
+			: undefined;
 
-	const getPlayerName = (id?: string | null) =>
-		id ? players.get(id) ?? "Unknown" : "—";
-	const getTournamentName = (id?: string | null) =>
-		id ? tournaments.get(id) ?? "Unknown Tournament" : null;
-
-	/* ----------------------------------------
+	/* ---------------------------
 	 * Render
-	 * ---------------------------------------- */
+	 * --------------------------- */
 	return (
-		<div className="w-full flex justify-center px-4 mt-12">
-			<div className="w-full max-w-2xl space-y-6">
-				{/* Header + Filters */}
-				<div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-					<h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-						Matches
-					</h1>
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			{/* HERO */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+					Matches
+				</h1>
+				<p className="text-lg max-w-2xl mx-auto text-text-muted">
+					See all submitted matches with Elo changes and tournament
+					info.
+				</p>
+			</section>
 
-					<div className="flex flex-wrap gap-2">
-						{/* Match type */}
-						<button
-							className={clsx(
-								"px-4 py-2 rounded-lg",
-								matchType === "singles" &&
-									"font-semibold underline"
-							)}
-							onClick={() => setMatchType("singles")}
-						>
-							Singles
-						</button>
-						<button
-							className={clsx(
-								"px-4 py-2 rounded-lg",
-								matchType === "doubles" &&
-									"font-semibold underline"
-							)}
-							onClick={() => setMatchType("doubles")}
-						>
-							Doubles
-						</button>
-
-						{/* Scope / group */}
-						<select
-							value={groupId ?? ""}
-							onChange={(e) => {
-								setScope("group");
-								setGroupId(e.target.value || null);
-							}}
-							className="px-4 py-2 rounded-lg border border-border bg-transparent text-text"
-						>
-							<option value="">Select Group</option>
-							{/* Populate with groups if loaded */}
-						</select>
-
-						<button
-							disabled={!myGroupId}
-							onClick={() => {
-								setScope("group");
-								setGroupId(myGroupId);
-							}}
-							className="px-4 py-2 rounded-lg disabled:opacity-50"
-						>
-							My Group
-						</button>
-
-						<button
-							onClick={() => {
-								setScope("global");
-								setGroupId(null);
-							}}
-							className="px-4 py-2 rounded-lg"
-						>
-							Global
-						</button>
-					</div>
-
+			{/* FILTERS */}
+			<div className="flex flex-col gap-2 sm:gap-4">
+				<div className="flex flex-wrap justify-center gap-2">
+					<button
+						onClick={() => setMatchType("singles")}
+						className={clsx(
+							"px-4 py-2 rounded-lg",
+							matchType === "singles" && "font-semibold underline"
+						)}
+					>
+						Singles
+					</button>
+					<button
+						onClick={() => setMatchType("doubles")}
+						className={clsx(
+							"px-4 py-2 rounded-lg",
+							matchType === "doubles" && "font-semibold underline"
+						)}
+					>
+						Doubles
+					</button>
 					<Link href="/matches/submit">
-						<button className="px-4 py-2 rounded-lg w-full sm:w-auto">
+						<button className="px-4 py-2 rounded-lg">
 							Submit Match
 						</button>
 					</Link>
 				</div>
 
-				{/* Matches */}
-				<div className="space-y-4">
-					{matches.map((m) => {
-						const a1 = getPlayerName(m.player_a1_id);
-						const a2 =
-							matchType === "doubles"
-								? getPlayerName(m.player_a2_id)
-								: null;
-						const b1 = getPlayerName(m.player_b1_id);
-						const b2 =
-							matchType === "doubles"
-								? getPlayerName(m.player_b2_id)
-								: null;
+				<div className="flex flex-wrap justify-center gap-2">
+					<select
+						value={groupId ?? ""}
+						onChange={(e) => {
+							setScope("group");
+							setGroupId(e.target.value || null);
+						}}
+						className="px-4 py-2 rounded-lg border border-border bg-transparent text-text"
+					>
+						<option value="">Select Group</option>
+						{groups.map((g) => (
+							<option key={g.id} value={g.id}>
+								{g.group_name}
+							</option>
+						))}
+					</select>
+					<button
+						disabled={!myGroupId}
+						onClick={() => {
+							setScope("group");
+							setGroupId(myGroupId);
+						}}
+						className="px-4 py-2 rounded-lg disabled:opacity-50"
+					>
+						My Group
+					</button>
+					<button
+						onClick={() => {
+							setScope("global");
+							setGroupId(null);
+						}}
+						className="px-4 py-2 rounded-lg"
+					>
+						Global
+					</button>
+				</div>
+			</div>
 
-						const aEloAfter = m.elo_before_a1 + m.elo_change_a;
-						const bEloAfter = m.elo_before_b1 + m.elo_change_b;
+			{/* MATCH LIST */}
+			<div className="space-y-6">
+				{matches.map((m) => {
+					const teamA = [m.player_a1_id, m.player_a2_id].filter(
+						Boolean
+					) as string[];
+					const teamB = [m.player_b1_id, m.player_b2_id].filter(
+						Boolean
+					) as string[];
 
-						const tournamentName = getTournamentName(
-							m.tournament_id
-						);
+					const teamAElo = [
+						eloAfter(m.elo_before_a1, m.elo_change_a),
+						eloAfter(m.elo_before_a2, m.elo_change_a),
+					].filter(Boolean);
 
-						return (
-							<div
-								key={m.id}
-								onClick={() => router.push(`/matches/${m.id}`)}
-								className={clsx(
-									"bg-card p-5 rounded-xl cursor-pointer hover-card transition",
-									outline(m.player_a1_id, m.winner1),
-									outline(m.player_b1_id, m.winner1)
-								)}
-							>
-								<div className="flex flex-col sm:flex-row gap-5 sm:items-center sm:justify-between">
-									{/* Players + Elo */}
-									<div className="flex flex-col gap-2 flex-1 min-w-0">
-										{/* Team A */}
-										<div className="flex justify-between items-center">
-											<span className="font-medium truncate">
-												{a1} {a2 ? `& ${a2}` : ""}
-												{tournamentName && (
-													<span className="text-xs text-text-subtle ml-2">
-														({tournamentName})
-													</span>
-												)}
-											</span>
-											<span className="text-sm text-text-subtle w-14 text-right">
+					const teamBElo = [
+						eloAfter(m.elo_before_b1, m.elo_change_b),
+						eloAfter(m.elo_before_b2, m.elo_change_b),
+					].filter(Boolean);
+
+					const tournamentName = m.tournament_id
+						? groupMap.get(m.tournament_id)
+						: null;
+
+					return (
+						<div
+							key={m.id}
+							onClick={() => router.push(`/matches/${m.id}`)}
+							className="bg-card p-5 rounded-xl hover-card transition cursor-pointer"
+						>
+							<div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4">
+								{/* Teams */}
+								<div className="flex flex-col gap-2 flex-1 min-w-0">
+									{/* Team A */}
+									<div className="flex justify-between items-center">
+										<div className="flex flex-wrap gap-2">
+											{teamA.map((p, idx) => (
+												<Link
+													key={p}
+													href={`/profile/${
+														players.get(p) ??
+														"Unknown"
+													}`}
+													onClick={(e) =>
+														e.stopPropagation()
+													}
+													className="font-medium hover:underline"
+												>
+													{players.get(p) ??
+														"Unknown"}
+													{teamAElo[idx] !==
+														undefined && (
+														<span className="ml-1 text-text-subtle font-normal">
+															({teamAElo[idx]})
+														</span>
+													)}
+												</Link>
+											))}
+										</div>
+										<div className="flex items-center gap-2 text-text-subtle text-sm min-w-max">
+											<span
+												className={
+													m.elo_change_a > 0
+														? "text-green-500"
+														: "text-red-500"
+												}
+											>
 												{m.elo_change_a > 0 && "+"}
 												{m.elo_change_a}
 											</span>
-										</div>
-
-										{/* Team B */}
-										<div className="flex justify-between items-center">
-											<span className="font-medium truncate">
-												{b1} {b2 ? `& ${b2}` : ""}
+											<span className="font-semibold">
+												{m.score_a}
 											</span>
-											<span className="text-sm text-text-subtle w-14 text-right">
+										</div>
+									</div>
+
+									{/* Team B */}
+									<div className="flex justify-between items-center">
+										<div className="flex flex-wrap gap-2">
+											{teamB.map((p, idx) => (
+												<Link
+													key={p}
+													href={`/profile/${
+														players.get(p) ??
+														"Unknown"
+													}`}
+													onClick={(e) =>
+														e.stopPropagation()
+													}
+													className="font-medium hover:underline"
+												>
+													{players.get(p) ??
+														"Unknown"}
+													{teamBElo[idx] !==
+														undefined && (
+														<span className="ml-1 text-text-subtle font-normal">
+															({teamBElo[idx]})
+														</span>
+													)}
+												</Link>
+											))}
+										</div>
+										<div className="flex items-center gap-2 text-text-subtle text-sm min-w-max">
+											<span
+												className={
+													m.elo_change_b > 0
+														? "text-green-500"
+														: "text-red-500"
+												}
+											>
 												{m.elo_change_b > 0 && "+"}
 												{m.elo_change_b}
 											</span>
-										</div>
-									</div>
-
-									{/* Scores */}
-									<div className="flex sm:flex-col justify-center items-center gap-3 font-semibold text-lg">
-										<span>{m.score_a}</span>
-										<span className="text-text-muted">
-											{m.score_b}
-										</span>
-									</div>
-
-									{/* Meta */}
-									<div className="text-sm text-text-subtle text-left sm:text-right">
-										<div className="font-medium text-text">
-											Winner:{" "}
-											{matchType === "singles"
-												? getPlayerName(m.winner1)
-												: `${getPlayerName(
-														m.winner1
-												  )} & ${getPlayerName(
-														m.winner2
-												  )}`}
-										</div>
-										<div>
-											{new Date(
-												m.created_at
-											).toLocaleDateString()}
+											<span className="font-semibold">
+												{m.score_b}
+											</span>
 										</div>
 									</div>
 								</div>
-							</div>
-						);
-					})}
 
-					{/* Loader */}
-					<div
-						ref={loaderRef}
-						className="h-12 flex justify-center items-center"
-					>
-						{loading && (
-							<span className="text-text-muted">Loading…</span>
-						)}
-						{!hasMore && !loading && (
-							<span className="text-text-subtle text-sm">
-								No more matches
-							</span>
-						)}
-					</div>
-				</div>
+								{/* Meta info */}
+								<div className="flex flex-col text-sm text-text-subtle gap-1 min-w-max">
+									<span>
+										Winner:{" "}
+										{teamA.includes(m.winner1)
+											? "Team A"
+											: "Team B"}
+									</span>
+									<span>
+										{new Date(
+											m.created_at
+										).toLocaleDateString()}
+									</span>
+									{tournamentName && (
+										<span>
+											Tournament: {tournamentName}
+										</span>
+									)}
+								</div>
+							</div>
+						</div>
+					);
+				})}
 			</div>
-		</div>
+
+			{/* Loader */}
+			<div
+				ref={loaderRef}
+				className="h-12 flex justify-center items-center"
+			>
+				{loading && <span className="text-text-muted">Loading…</span>}
+				{!hasMore && !loading && (
+					<span className="text-text-subtle text-sm">
+						No more matches
+					</span>
+				)}
+			</div>
+		</main>
 	);
 }
