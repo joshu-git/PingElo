@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { PlayersRow, TournamentsRow } from "@/types/database";
 
-/* =======================
-   Elo preview (MATCHES BACKEND)
-======================= */
+/* =====================
+   Elo logic (MATCHES BACKEND)
+===================== */
 
 const BASE_K = 50;
 const IDEAL_POINTS = 7;
@@ -27,7 +26,7 @@ function effectiveK(
 	return BASE_K * diff * length;
 }
 
-function calculateEloPreview(
+function calculateElo(
 	rA: number,
 	rB: number,
 	scoreA: number,
@@ -51,13 +50,29 @@ function calculateEloPreview(
 	};
 }
 
-/* =======================
+/* =====================
+   Types
+===================== */
+
+type Player = {
+	id: string;
+	player_name: string;
+	singles_elo: number;
+	doubles_elo: number;
+};
+
+type Tournament = {
+	id: string;
+	tournament_name: string;
+};
+
+/* =====================
    Component
-======================= */
+===================== */
 
 export default function SubmitMatch() {
-	const [players, setPlayers] = useState<PlayersRow[]>([]);
-	const [tournaments, setTournaments] = useState<TournamentsRow[]>([]);
+	const [players, setPlayers] = useState<Player[]>([]);
+	const [tournaments, setTournaments] = useState<Tournament[]>([]);
 
 	const [isDoubles, setIsDoubles] = useState(false);
 
@@ -68,14 +83,15 @@ export default function SubmitMatch() {
 
 	const [scoreA, setScoreA] = useState(0);
 	const [scoreB, setScoreB] = useState(0);
+
 	const [tournamentId, setTournamentId] = useState<string | null>(null);
 
 	const [loading, setLoading] = useState(false);
 	const [canSubmit, setCanSubmit] = useState(true);
 
-	/* =======================
-	   Load players + active tournaments
-	======================= */
+	/* =====================
+	   Load data
+	===================== */
 
 	useEffect(() => {
 		supabase
@@ -97,9 +113,9 @@ export default function SubmitMatch() {
 			});
 	}, []);
 
-	/* =======================
+	/* =====================
 	   Elo preview
-	======================= */
+	===================== */
 
 	const eloPreview = useMemo(() => {
 		if (!a1 || !b1) return null;
@@ -109,7 +125,7 @@ export default function SubmitMatch() {
 		if (!pA1 || !pB1) return null;
 
 		if (!isDoubles) {
-			return calculateEloPreview(
+			return calculateElo(
 				pA1.singles_elo,
 				pB1.singles_elo,
 				scoreA,
@@ -127,18 +143,18 @@ export default function SubmitMatch() {
 		const teamA = (pA1.doubles_elo + pA2.doubles_elo) / 2;
 		const teamB = (pB1.doubles_elo + pB2.doubles_elo) / 2;
 
-		return calculateEloPreview(
+		return calculateElo(
 			teamA,
 			teamB,
 			scoreA,
 			scoreB,
 			Boolean(tournamentId)
 		);
-	}, [a1, a2, b1, b2, scoreA, scoreB, isDoubles, tournamentId, players]);
+	}, [players, a1, a2, b1, b2, scoreA, scoreB, isDoubles, tournamentId]);
 
-	/* =======================
+	/* =====================
 	   Submit
-	======================= */
+	===================== */
 
 	async function submitMatch(e: React.FormEvent) {
 		e.preventDefault();
@@ -186,7 +202,8 @@ export default function SubmitMatch() {
 				throw new Error(msg);
 			}
 
-			alert("Match submitted!");
+			alert("Match submitted successfully");
+
 			setScoreA(0);
 			setScoreB(0);
 			setA1("");
@@ -194,169 +211,184 @@ export default function SubmitMatch() {
 			setB1("");
 			setB2("");
 		} catch (err) {
-			alert(err instanceof Error ? err.message : "Submit failed");
+			alert(
+				err instanceof Error ? err.message : "Failed to submit match"
+			);
 		} finally {
 			setLoading(false);
 		}
 	}
 
-	/* =======================
+	/* =====================
 	   UI
-	======================= */
+	===================== */
 
 	return (
-		<div className="max-w-4xl mx-auto px-4 py-16 space-y-10">
-			<section className="text-center space-y-3">
-				<h1 className="text-4xl font-extrabold tracking-tight">
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
+			{/* HERO */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 					Submit Match
 				</h1>
-				<p className="text-text-muted">
-					Singles or doubles — Elo updates instantly.
+				<p className="text-lg max-w-2xl mx-auto">
+					Record a match and preview Elo changes before submitting.
 				</p>
 			</section>
 
-			<form
-				onSubmit={submitMatch}
-				className="bg-card p-6 sm:p-8 rounded-2xl space-y-6 hover-card"
-			>
-				{/* Mode toggle */}
-				<div className="flex justify-center gap-2">
-					<button
-						type="button"
-						onClick={() => setIsDoubles(false)}
-						className={`px-4 py-2 rounded-lg ${
-							!isDoubles ? "bg-primary text-white" : ""
-						}`}
-					>
-						Singles
-					</button>
-					<button
-						type="button"
-						onClick={() => setIsDoubles(true)}
-						className={`px-4 py-2 rounded-lg ${
-							isDoubles ? "bg-primary text-white" : ""
-						}`}
-					>
-						Doubles
-					</button>
-				</div>
-
-				{/* Tournament */}
-				<select
-					value={tournamentId ?? ""}
-					onChange={(e) => setTournamentId(e.target.value || null)}
-					className="w-full rounded-lg px-3 py-2"
-				>
-					<option value="">Casual match</option>
-					{tournaments.map((t) => (
-						<option key={t.id} value={t.id}>
-							{t.tournament_name}
-						</option>
-					))}
-				</select>
-
-				{/* Teams */}
-				<div className="grid grid-cols-2 gap-6">
-					<div className="space-y-2">
-						<h3 className="font-semibold">Team A</h3>
-						<select
-							value={a1}
-							onChange={(e) => setA1(e.target.value)}
+			{/* FORM */}
+			<section className="max-w-2xl mx-auto space-y-8">
+				<form onSubmit={submitMatch} className="space-y-6">
+					{/* Mode toggle */}
+					<div className="flex justify-center gap-2">
+						<button
+							type="button"
+							onClick={() => setIsDoubles(false)}
+							className={`px-4 py-2 rounded-lg ${
+								!isDoubles ? "font-semibold" : "text-text-muted"
+							}`}
 						>
-							<option value="">Player A1</option>
-							{players.map((p) => (
-								<option key={p.id} value={p.id}>
-									{p.player_name}
-								</option>
-							))}
-						</select>
-						{isDoubles && (
+							Singles
+						</button>
+						<button
+							type="button"
+							onClick={() => setIsDoubles(true)}
+							className={`px-4 py-2 rounded-lg ${
+								isDoubles ? "font-semibold" : "text-text-muted"
+							}`}
+						>
+							Doubles
+						</button>
+					</div>
+
+					{/* Tournament */}
+					<select
+						value={tournamentId ?? ""}
+						onChange={(e) =>
+							setTournamentId(e.target.value || null)
+						}
+						className="w-full rounded-lg px-4 py-3 bg-card border border-border"
+					>
+						<option value="">Casual match</option>
+						{tournaments.map((t) => (
+							<option key={t.id} value={t.id}>
+								{t.tournament_name}
+							</option>
+						))}
+					</select>
+
+					{/* Teams */}
+					<div className="grid grid-cols-2 gap-6">
+						<div className="space-y-2">
+							<label className="font-medium">Team A</label>
 							<select
-								value={a2}
-								onChange={(e) => setA2(e.target.value)}
+								value={a1}
+								onChange={(e) => setA1(e.target.value)}
 							>
-								<option value="">Player A2</option>
+								<option value="">Player A1</option>
 								{players.map((p) => (
 									<option key={p.id} value={p.id}>
 										{p.player_name}
 									</option>
 								))}
 							</select>
-						)}
-					</div>
+							{isDoubles && (
+								<select
+									value={a2}
+									onChange={(e) => setA2(e.target.value)}
+								>
+									<option value="">Player A2</option>
+									{players.map((p) => (
+										<option key={p.id} value={p.id}>
+											{p.player_name}
+										</option>
+									))}
+								</select>
+							)}
+						</div>
 
-					<div className="space-y-2">
-						<h3 className="font-semibold text-right">Team B</h3>
-						<select
-							value={b1}
-							onChange={(e) => setB1(e.target.value)}
-						>
-							<option value="">Player B1</option>
-							{players.map((p) => (
-								<option key={p.id} value={p.id}>
-									{p.player_name}
-								</option>
-							))}
-						</select>
-						{isDoubles && (
+						<div className="space-y-2">
+							<label className="font-medium">Team B</label>
 							<select
-								value={b2}
-								onChange={(e) => setB2(e.target.value)}
+								value={b1}
+								onChange={(e) => setB1(e.target.value)}
 							>
-								<option value="">Player B2</option>
+								<option value="">Player B1</option>
 								{players.map((p) => (
 									<option key={p.id} value={p.id}>
 										{p.player_name}
 									</option>
 								))}
 							</select>
-						)}
+							{isDoubles && (
+								<select
+									value={b2}
+									onChange={(e) => setB2(e.target.value)}
+								>
+									<option value="">Player B2</option>
+									{players.map((p) => (
+										<option key={p.id} value={p.id}>
+											{p.player_name}
+										</option>
+									))}
+								</select>
+							)}
+						</div>
 					</div>
-				</div>
 
-				{/* Scores */}
-				<div className="grid grid-cols-2 gap-4">
-					<input
-						type="number"
-						min={0}
-						value={scoreA}
-						onChange={(e) => setScoreA(+e.target.value)}
-						placeholder="Score A"
-					/>
-					<input
-						type="number"
-						min={0}
-						value={scoreB}
-						onChange={(e) => setScoreB(+e.target.value)}
-						placeholder="Score B"
-					/>
-				</div>
-
-				{/* Elo preview */}
-				{eloPreview && (
-					<div className="text-sm text-text-muted text-center">
-						{eloPreview.winner === "A" ? "Team A" : "Team B"} wins ·{" "}
-						<span className="font-medium">
-							{eloPreview.eloChangeA > 0 ? "+" : ""}
-							{eloPreview.eloChangeA}
-						</span>{" "}
-						Elo
+					{/* Scores */}
+					<div className="grid grid-cols-2 gap-4">
+						<input
+							type="number"
+							min={0}
+							value={scoreA}
+							onChange={(e) => setScoreA(+e.target.value)}
+							placeholder="Score A"
+						/>
+						<input
+							type="number"
+							min={0}
+							value={scoreB}
+							onChange={(e) => setScoreB(+e.target.value)}
+							placeholder="Score B"
+						/>
 					</div>
-				)}
 
-				<button
-					disabled={loading || !canSubmit}
-					className="w-full py-3 rounded-lg font-semibold"
-				>
-					{loading ? "Submitting..." : "Submit Match"}
-				</button>
+					{/* Elo preview */}
+					{eloPreview && (
+						<div className="text-sm text-text-muted text-center space-y-1">
+							<p>
+								Team A:{" "}
+								<span className="font-medium">
+									{eloPreview.eloChangeA > 0 ? "+" : ""}
+									{eloPreview.eloChangeA}
+								</span>
+							</p>
+							<p>
+								Team B:{" "}
+								<span className="font-medium">
+									{eloPreview.eloChangeB > 0 ? "+" : ""}
+									{eloPreview.eloChangeB}
+								</span>
+							</p>
+						</div>
+					)}
 
-				{!canSubmit && (
-					<p className="text-xs text-center text-red-500">
-						Please wait 5 seconds before submitting again
-					</p>
-				)}
-			</form>
-		</div>
+					<button
+						type="submit"
+						disabled={loading || !canSubmit}
+						className="w-full px-4 py-3 rounded-lg"
+					>
+						{loading ? "Submitting…" : "Submit Match"}
+					</button>
+
+					{!canSubmit && (
+						<p className="text-xs text-center text-text-muted">
+							Please wait 5 seconds before submitting another
+							match.
+						</p>
+					)}
+				</form>
+			</section>
+		</main>
 	);
 }
