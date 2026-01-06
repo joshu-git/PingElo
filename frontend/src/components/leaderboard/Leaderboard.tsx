@@ -144,10 +144,10 @@ export default function Leaderboard() {
 			{/* CONTROLS */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 				{/* Match type */}
-				<div className="flex flex-col sm:flex-row gap-2">
+				<div className="flex flex-wrap justify-center gap-2">
 					<button
 						onClick={() => setMatchType("singles")}
-						className={`px-4 py-2 rounded-lg w-full sm:w-auto ${
+						className={`px-4 py-2 rounded-lg ${
 							matchType === "singles"
 								? "font-semibold underline"
 								: ""
@@ -158,7 +158,7 @@ export default function Leaderboard() {
 
 					<button
 						onClick={() => setMatchType("doubles")}
-						className={`px-4 py-2 rounded-lg w-full sm:w-auto ${
+						className={`px-4 py-2 rounded-lg ${
 							matchType === "doubles"
 								? "font-semibold underline"
 								: ""
@@ -169,16 +169,21 @@ export default function Leaderboard() {
 				</div>
 
 				{/* Scope / group */}
-				<div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+				<div className="flex flex-wrap justify-center gap-2">
 					<select
 						value={groupId ?? ""}
 						onChange={(e) => {
 							setScope("group");
 							setGroupId(e.target.value || null);
 						}}
-						className="px-4 py-2 rounded-lg border border-border bg-transparent w-full sm:w-auto"
+						className="
+			px-4 py-2 rounded-lg
+			border border-border
+			bg-transparent
+			text-text
+		"
 					>
-						<option value="">Select group…</option>
+						<option value="">Select Group</option>
 						{groups.map((g) => (
 							<option key={g.id} value={g.id}>
 								{g.group_name}
@@ -192,9 +197,9 @@ export default function Leaderboard() {
 							setScope("group");
 							setGroupId(myGroupId);
 						}}
-						className="px-4 py-2 rounded-lg w-full sm:w-auto disabled:opacity-50"
+						className="px-4 py-2 rounded-lg disabled:opacity-50"
 					>
-						My group
+						My Group
 					</button>
 
 					<button
@@ -202,7 +207,7 @@ export default function Leaderboard() {
 							setScope("global");
 							setGroupId(null);
 						}}
-						className="px-4 py-2 rounded-lg w-full sm:w-auto"
+						className="px-4 py-2 rounded-lg"
 					>
 						Global
 					</button>
