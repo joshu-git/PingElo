@@ -142,11 +142,12 @@ export default function Leaderboard() {
 			</section>
 
 			{/* CONTROLS */}
-			<section className="flex flex-col md:flex-row gap-4 justify-between items-center">
-				<div className="flex gap-2">
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				{/* Match type */}
+				<div className="flex flex-col sm:flex-row gap-2">
 					<button
 						onClick={() => setMatchType("singles")}
-						className={`px-4 py-2 rounded-lg ${
+						className={`px-4 py-2 rounded-lg w-full sm:w-auto ${
 							matchType === "singles"
 								? "font-semibold underline"
 								: ""
@@ -157,7 +158,7 @@ export default function Leaderboard() {
 
 					<button
 						onClick={() => setMatchType("doubles")}
-						className={`px-4 py-2 rounded-lg ${
+						className={`px-4 py-2 rounded-lg w-full sm:w-auto ${
 							matchType === "doubles"
 								? "font-semibold underline"
 								: ""
@@ -167,16 +168,17 @@ export default function Leaderboard() {
 					</button>
 				</div>
 
-				<div className="flex gap-2 items-center">
+				{/* Scope / group */}
+				<div className="flex flex-col sm:flex-row gap-2 sm:items-center">
 					<select
 						value={groupId ?? ""}
 						onChange={(e) => {
 							setScope("group");
 							setGroupId(e.target.value || null);
 						}}
-						className="px-4 py-2 rounded-lg border border-border bg-transparent"
+						className="px-4 py-2 rounded-lg border border-border bg-transparent w-full sm:w-auto"
 					>
-						<option value="">Select Group</option>
+						<option value="">Select group…</option>
 						{groups.map((g) => (
 							<option key={g.id} value={g.id}>
 								{g.group_name}
@@ -190,9 +192,9 @@ export default function Leaderboard() {
 							setScope("group");
 							setGroupId(myGroupId);
 						}}
-						className="px-4 py-2 rounded-lg disabled:opacity-50"
+						className="px-4 py-2 rounded-lg w-full sm:w-auto disabled:opacity-50"
 					>
-						My Group
+						My group
 					</button>
 
 					<button
@@ -200,12 +202,12 @@ export default function Leaderboard() {
 							setScope("global");
 							setGroupId(null);
 						}}
-						className="px-4 py-2 rounded-lg"
+						className="px-4 py-2 rounded-lg w-full sm:w-auto"
 					>
 						Global
 					</button>
 				</div>
-			</section>
+			</div>
 
 			{/* LEADERBOARD */}
 			<section className="space-y-2">
