@@ -145,7 +145,7 @@ export default function SubmitMatch() {
 			}
 
 			const res = await fetch(
-				`${process.env.NEXT_PUBLIC_BACKEND_URL}/matches/submit`,
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/matches/submit/singles`,
 				{
 					method: "POST",
 					headers: {
