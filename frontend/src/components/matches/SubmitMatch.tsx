@@ -14,13 +14,7 @@ function expectedScore(rA: number, rB: number) {
 	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
 
-function effectiveK(
-	scoreA: number,
-	scoreB: number,
-	gamePoints: number,
-	isTournament: boolean
-) {
-	if (isTournament) return BASE_K; // BASE_K used for casual calculation in frontend
+function effectiveK(scoreA: number, scoreB: number, gamePoints: number) {
 	const diff = Math.abs(scoreA - scoreB) / gamePoints;
 	const length = gamePoints / IDEAL_POINTS;
 	return BASE_K * diff * length;
@@ -35,7 +29,7 @@ function calculateElo(
 ) {
 	const winner = scoreA > scoreB ? "A" : "B";
 
-	// ✅ Tournament: guaranteed ±25
+	//Tournament: guaranteed ± 25
 	if (isTournament) {
 		return {
 			winner,
@@ -47,7 +41,7 @@ function calculateElo(
 	// Casual match: normal Elo calculation
 	const actualA = winner === "A" ? 1 : 0;
 	const expectedA = expectedScore(rA, rB);
-	const k = effectiveK(scoreA, scoreB, Math.max(scoreA, scoreB), false);
+	const k = effectiveK(scoreA, scoreB, Math.max(scoreA, scoreB));
 	const deltaA = Math.round(k * (actualA - expectedA));
 
 	return {
