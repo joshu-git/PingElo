@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 /* =====================
-   Elo logic (MATCHES BACKEND)
+   Elo logic
 ===================== */
 
 const BASE_K = 50;
@@ -73,7 +73,6 @@ type Tournament = {
 export default function SubmitMatch() {
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [tournaments, setTournaments] = useState<Tournament[]>([]);
-
 	const [isDoubles, setIsDoubles] = useState(false);
 
 	const [a1, setA1] = useState("");
@@ -85,9 +84,11 @@ export default function SubmitMatch() {
 	const [scoreB, setScoreB] = useState(0);
 
 	const [tournamentId, setTournamentId] = useState<string | null>(null);
-
 	const [loading, setLoading] = useState(false);
 	const [canSubmit, setCanSubmit] = useState(true);
+
+	const fieldClass =
+		"w-full rounded-lg px-4 py-3 bg-card border border-border";
 
 	/* =====================
 	   Load data
@@ -114,11 +115,39 @@ export default function SubmitMatch() {
 	}, []);
 
 	/* =====================
+	   Validation
+	===================== */
+
+	const selectedPlayers = useMemo(
+		() => new Set([a1, a2, b1, b2].filter(Boolean)),
+		[a1, a2, b1, b2]
+	);
+
+	const allPlayersSelected = isDoubles ? a1 && a2 && b1 && b2 : a1 && b1;
+
+	const noDuplicates =
+		selectedPlayers.size === [a1, a2, b1, b2].filter(Boolean).length;
+
+	const scoreDiffValid = Math.abs(scoreA - scoreB) === 2;
+
+	const formValid = allPlayersSelected && noDuplicates && scoreDiffValid;
+
+	let validationMessage = "";
+
+	if (!allPlayersSelected) {
+		validationMessage = "Please select all players.";
+	} else if (!noDuplicates) {
+		validationMessage = "Each player can only be selected once.";
+	} else if (!scoreDiffValid) {
+		validationMessage = "The winning team must win by exactly 2 points.";
+	}
+
+	/* =====================
 	   Elo preview
 	===================== */
 
 	const eloPreview = useMemo(() => {
-		if (!a1 || !b1) return null;
+		if (!formValid) return null;
 
 		const pA1 = players.find((p) => p.id === a1);
 		const pB1 = players.find((p) => p.id === b1);
@@ -134,8 +163,6 @@ export default function SubmitMatch() {
 			);
 		}
 
-		if (!a2 || !b2) return null;
-
 		const pA2 = players.find((p) => p.id === a2);
 		const pB2 = players.find((p) => p.id === b2);
 		if (!pA2 || !pB2) return null;
@@ -150,7 +177,18 @@ export default function SubmitMatch() {
 			scoreB,
 			Boolean(tournamentId)
 		);
-	}, [players, a1, a2, b1, b2, scoreA, scoreB, isDoubles, tournamentId]);
+	}, [
+		players,
+		a1,
+		a2,
+		b1,
+		b2,
+		scoreA,
+		scoreB,
+		isDoubles,
+		tournamentId,
+		formValid,
+	]);
 
 	/* =====================
 	   Submit
@@ -158,7 +196,7 @@ export default function SubmitMatch() {
 
 	async function submitMatch(e: React.FormEvent) {
 		e.preventDefault();
-		if (!canSubmit || loading) return;
+		if (!formValid || !canSubmit || loading) return;
 
 		setLoading(true);
 		setCanSubmit(false);
@@ -185,35 +223,23 @@ export default function SubmitMatch() {
 				body.player_b2_id = b2;
 			}
 
-			const res = await fetch(
-				`${process.env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${session.data.session.access_token}`,
-					},
-					body: JSON.stringify(body),
-				}
-			);
-
-			if (!res.ok) {
-				const msg = await res.text();
-				throw new Error(msg);
-			}
+			await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${session.data.session.access_token}`,
+				},
+				body: JSON.stringify(body),
+			});
 
 			alert("Match submitted successfully");
 
-			setScoreA(0);
-			setScoreB(0);
 			setA1("");
 			setA2("");
 			setB1("");
 			setB2("");
-		} catch (err) {
-			alert(
-				err instanceof Error ? err.message : "Failed to submit match"
-			);
+			setScoreA(0);
+			setScoreB(0);
 		} finally {
 			setLoading(false);
 		}
@@ -225,121 +251,74 @@ export default function SubmitMatch() {
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
-			{/* HERO */}
-			<section className="text-center space-y-4">
-				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-					Submit Match
-				</h1>
-				<p className="text-lg max-w-2xl mx-auto">
-					Record a match and preview Elo changes before submitting.
-				</p>
-			</section>
-
-			{/* FORM */}
-			<section className="max-w-2xl mx-auto space-y-8">
+			<section className="max-w-2xl mx-auto">
 				<form onSubmit={submitMatch} className="space-y-6">
-					{/* Mode toggle */}
-					<div className="flex justify-center gap-2">
-						<button
-							type="button"
-							onClick={() => setIsDoubles(false)}
-							className={`px-4 py-2 rounded-lg ${
-								!isDoubles ? "font-semibold" : "text-text-muted"
-							}`}
-						>
-							Singles
-						</button>
-						<button
-							type="button"
-							onClick={() => setIsDoubles(true)}
-							className={`px-4 py-2 rounded-lg ${
-								isDoubles ? "font-semibold" : "text-text-muted"
-							}`}
-						>
-							Doubles
-						</button>
-					</div>
-
-					{/* Tournament */}
-					<select
-						value={tournamentId ?? ""}
-						onChange={(e) =>
-							setTournamentId(e.target.value || null)
-						}
-						className="w-full rounded-lg px-4 py-3 bg-card border border-border"
-					>
-						<option value="">Casual match</option>
-						{tournaments.map((t) => (
-							<option key={t.id} value={t.id}>
-								{t.tournament_name}
-							</option>
-						))}
-					</select>
-
-					{/* Teams */}
 					<div className="grid grid-cols-2 gap-6">
-						<div className="space-y-2">
-							<label className="font-medium">Team A</label>
-							<select
-								value={a1}
-								onChange={(e) => setA1(e.target.value)}
-							>
-								<option value="">Player A1</option>
-								{players.map((p) => (
-									<option key={p.id} value={p.id}>
-										{p.player_name}
-									</option>
-								))}
-							</select>
-							{isDoubles && (
-								<select
-									value={a2}
-									onChange={(e) => setA2(e.target.value)}
-								>
-									<option value="">Player A2</option>
-									{players.map((p) => (
-										<option key={p.id} value={p.id}>
-											{p.player_name}
-										</option>
-									))}
-								</select>
-							)}
-						</div>
+						{["A", "B"].map((team) => (
+							<div key={team} className="flex flex-col gap-2">
+								<label className="font-medium">
+									Team {team}
+								</label>
 
-						<div className="space-y-2">
-							<label className="font-medium">Team B</label>
-							<select
-								value={b1}
-								onChange={(e) => setB1(e.target.value)}
-							>
-								<option value="">Player B1</option>
-								{players.map((p) => (
-									<option key={p.id} value={p.id}>
-										{p.player_name}
-									</option>
-								))}
-							</select>
-							{isDoubles && (
-								<select
-									value={b2}
-									onChange={(e) => setB2(e.target.value)}
-								>
-									<option value="">Player B2</option>
-									{players.map((p) => (
-										<option key={p.id} value={p.id}>
-											{p.player_name}
-										</option>
-									))}
-								</select>
-							)}
-						</div>
+								{(isDoubles ? ["1", "2"] : ["1"]).map(
+									(slot) => {
+										const value =
+											team === "A"
+												? slot === "1"
+													? a1
+													: a2
+												: slot === "1"
+												? b1
+												: b2;
+
+										const setter =
+											team === "A"
+												? slot === "1"
+													? setA1
+													: setA2
+												: slot === "1"
+												? setB1
+												: setB2;
+
+										return (
+											<select
+												key={slot}
+												className={fieldClass}
+												value={value}
+												onChange={(e) =>
+													setter(e.target.value)
+												}
+											>
+												<option value="">
+													Player {team}
+													{slot}
+												</option>
+												{players.map((p) => (
+													<option
+														key={p.id}
+														value={p.id}
+														disabled={
+															selectedPlayers.has(
+																p.id
+															) && p.id !== value
+														}
+													>
+														{p.player_name}
+													</option>
+												))}
+											</select>
+										);
+									}
+								)}
+							</div>
+						))}
 					</div>
 
-					{/* Scores */}
 					<div className="grid grid-cols-2 gap-4">
 						<input
 							type="number"
 							min={0}
+							className={fieldClass}
 							value={scoreA}
 							onChange={(e) => setScoreA(+e.target.value)}
 							placeholder="Score A"
@@ -347,39 +326,26 @@ export default function SubmitMatch() {
 						<input
 							type="number"
 							min={0}
+							className={fieldClass}
 							value={scoreB}
 							onChange={(e) => setScoreB(+e.target.value)}
 							placeholder="Score B"
 						/>
 					</div>
 
-					{/* Elo preview */}
-					{eloPreview && (
-						<div className="text-sm text-text-muted text-center space-y-1">
-							<p>
-								Team A:{" "}
-								<span className="font-medium">
-									{eloPreview.eloChangeA > 0 ? "+" : ""}
-									{eloPreview.eloChangeA}
-								</span>
-							</p>
-							<p>
-								Team B:{" "}
-								<span className="font-medium">
-									{eloPreview.eloChangeB > 0 ? "+" : ""}
-									{eloPreview.eloChangeB}
-								</span>
-							</p>
-						</div>
-					)}
-
 					<button
 						type="submit"
-						disabled={loading || !canSubmit}
+						disabled={!formValid || loading || !canSubmit}
 						className="w-full px-4 py-3 rounded-lg"
 					>
-						{loading ? "Submitting…" : "Submit Match"}
+						Submit Match
 					</button>
+
+					{!formValid && (
+						<p className="text-xs text-center text-text-muted">
+							{validationMessage}
+						</p>
+					)}
 
 					{!canSubmit && (
 						<p className="text-xs text-center text-text-muted">
