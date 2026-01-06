@@ -16,6 +16,8 @@ export default function Leaderboard() {
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
 
+	const groupMap = new Map(groups.map((g) => [g.id, g.group_name]));
+
 	const [page, setPage] = useState(0);
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
@@ -146,18 +148,19 @@ export default function Leaderboard() {
 						onClick={() => setMatchType("singles")}
 						className={`px-4 py-2 rounded-lg ${
 							matchType === "singles"
-								? "bg-primary text-white"
-								: "bg-card"
+								? "font-semibold underline"
+								: ""
 						}`}
 					>
 						Singles
 					</button>
+
 					<button
 						onClick={() => setMatchType("doubles")}
 						className={`px-4 py-2 rounded-lg ${
 							matchType === "doubles"
-								? "bg-primary text-white"
-								: "bg-card"
+								? "font-semibold underline"
+								: ""
 						}`}
 					>
 						Doubles
@@ -171,9 +174,9 @@ export default function Leaderboard() {
 							setScope("group");
 							setGroupId(e.target.value || null);
 						}}
-						className="px-4 py-2 rounded-lg bg-card border border-border"
+						className="px-4 py-2 rounded-lg border border-border bg-transparent"
 					>
-						<option value="">Select group…</option>
+						<option value="">Select Group</option>
 						{groups.map((g) => (
 							<option key={g.id} value={g.id}>
 								{g.group_name}
@@ -187,9 +190,9 @@ export default function Leaderboard() {
 							setScope("group");
 							setGroupId(myGroupId);
 						}}
-						className="px-4 py-2 rounded-lg bg-card disabled:opacity-50"
+						className="px-4 py-2 rounded-lg disabled:opacity-50"
 					>
-						My group
+						My Group
 					</button>
 
 					<button
@@ -197,7 +200,7 @@ export default function Leaderboard() {
 							setScope("global");
 							setGroupId(null);
 						}}
-						className="px-4 py-2 rounded-lg bg-card"
+						className="px-4 py-2 rounded-lg"
 					>
 						Global
 					</button>
@@ -229,7 +232,7 @@ export default function Leaderboard() {
 								</Link>
 								{p.group_id && (
 									<p className="text-sm text-text-muted">
-										Group member
+										{groupMap.get(p.group_id)} · Member
 									</p>
 								)}
 							</div>
