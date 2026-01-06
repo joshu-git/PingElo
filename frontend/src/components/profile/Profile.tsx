@@ -8,10 +8,10 @@ import Link from "next/link";
 import { EloChart } from "@/components/profile/EloChart";
 import ProfileStats from "./ProfileStats";
 
-import type { MatchRow } from "@/types/matches";
-import type { PlayerRow } from "@/types/players";
+import type { MatchesRow } from "@/types/database";
+import type { PlayersRow } from "@/types/database";
 
-type MatchWithNames = MatchRow & {
+type MatchWithNames = MatchesRow & {
 	playerAName: string;
 	playerBName: string;
 };
@@ -20,7 +20,7 @@ export default function Profile() {
 	const { username } = useParams<{ username: string }>();
 	const router = useRouter();
 
-	const [player, setPlayer] = useState<PlayerRow | null>(null);
+	const [player, setPlayer] = useState<PlayersRow | null>(null);
 	const [matches, setMatches] = useState<MatchWithNames[]>([]);
 	const [isAdmin, setIsAdmin] = useState(false);
 
@@ -99,8 +99,8 @@ export default function Profile() {
 
 		return matches
 			.map((m) => {
-				const isA = m.player_a_id === player.id;
-				const before = isA ? m.elo_before_a : m.elo_before_b;
+				const isA = m.player_a1_id === player.id;
+				const before = isA ? m.elo_before_a1 : m.elo_before_b1;
 				const change = isA ? m.elo_change_a : m.elo_change_b;
 
 				if (before == null || change == null) return null;
