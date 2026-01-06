@@ -5,121 +5,149 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-//Function for signing in
 export default function SignIn() {
-    const router = useRouter();
+	const router = useRouter();
 
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [loading, setLoading] = useState(false);
 
-    //Uses the sign in information
-    async function signIn(e: React.FormEvent) {
-        e.preventDefault();
-        setLoading(true);
+	async function signIn(e: React.FormEvent) {
+		e.preventDefault();
+		setLoading(true);
 
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-        
-        //If there is an error then stop loading and show error
-        if (error) {
-            setLoading(false);
-            alert(error.message);
-            return;
-        }
+		const { data, error } = await supabase.auth.signInWithPassword({
+			email,
+			password,
+		});
 
-        //User is authenticated
-        const userId = data.user.id;
+		if (error) {
+			setLoading(false);
+			alert(error.message);
+			return;
+		}
 
-        //Look up linked player
-        const { data: player } = await supabase
-            .from("players")
-            .select("username")
-            .eq("user_id", userId)
-            .maybeSingle();
+		const userId = data.user.id;
 
-        setLoading(false);
+		const { data: player } = await supabase
+			.from("players")
+			.select("player_name")
+			.eq("account_id", userId)
+			.maybeSingle();
 
-        //Redirect based on player existence
-        if (player && player.username) {
-            router.push(`/profile/${player.username}`);
-        } else {
-            router.push("/account/claim");
-        }
-    }
+		setLoading(false);
 
-    //Displays sign in information
-    return (
-        <div className="w-full flex justify-center mt-10">
-            <form
-                onSubmit={signIn}
-                className="
-                    w-full 
-                    max-w-md 
-                    sm:max-w-lg
-                    md:max-w-xl
-                    bg-black/40 
-                    border border-white/10 
-                    rounded-xl 
-                    p-6 
-                    flex flex-col gap-4 
-                    shadow-lg
-                "
-            >
-                <h1 className="text-2xl font-bold text-center mb-1">
-                    Sign In
-                </h1>
+		if (player && player.player_name) {
+			router.push(`/profile/${player.player_name}`);
+		} else {
+			router.push("/account/claim");
+		}
+	}
 
-                <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="bg-black/60 border border-white/20 rounded-lg p-3"
-                    required
-                />
+	return (
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
+			{/* HERO */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+					Sign in to PingElo
+				</h1>
+				<p className="text-lg max-w-2xl mx-auto">
+					Continue competing in tournaments and groups for elo.
+				</p>
+			</section>
 
-                <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="bg-black/60 border border-white/20 rounded-lg p-3"
-                    required
-                />
+			{/* FORM */}
+			<section className="max-w-2xl mx-auto space-y-8">
+				<form
+					onSubmit={signIn}
+					aria-busy={loading}
+					className="space-y-6"
+				>
+					<div className="space-y-2">
+						<label
+							htmlFor="email"
+							className="block text-sm font-medium"
+						>
+							Email address
+						</label>
+						<input
+							id="email"
+							type="email"
+							autoComplete="email"
+							required
+							value={email}
+							onChange={(e) => setEmail(e.target.value)}
+							className="
+								w-full rounded-lg px-4 py-3
+								bg-card border border-border
+								text-text placeholder:text-text-muted
+								focus-visible:outline-none
+								focus-visible:ring-2
+								focus-visible:ring-border
+							"
+							placeholder="you@example.com"
+						/>
+					</div>
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="
-                        w-full py-3 bg-purple-600 
-                        hover:bg-purple-700 
-                        rounded-lg font-semibold 
-                        transition
-                    "
-                >
-                    {loading ? "Signing In..." : "Sign In"}
-                </button>
+					<div className="space-y-2">
+						<label
+							htmlFor="password"
+							className="block text-sm font-medium"
+						>
+							Password
+						</label>
+						<input
+							id="password"
+							type="password"
+							autoComplete="current-password"
+							required
+							value={password}
+							onChange={(e) => setPassword(e.target.value)}
+							className="
+								w-full rounded-lg px-4 py-3
+								bg-card border border-border
+								text-text placeholder:text-text-muted
+								focus-visible:outline-none
+								focus-visible:ring-2
+								focus-visible:ring-border
+							"
+							placeholder="••••••••"
+						/>
+					</div>
 
-                <div className="text-center text-sm text-white/70 mt-2">
-                    Need an account?
-                </div>
+					{/* Forgot password */}
+					<div className="w-full flex justify-center">
+						<Link
+							href="/account/recover"
+							className="text-sm text-text-muted hover:underline"
+						>
+							Forgot your password?
+						</Link>
+					</div>
 
-                <Link
-                    href="/account/signup"
-                    className="
-                        w-full text-center py-2 
-                        border border-white/20 
-                        rounded-lg 
-                        hover:bg-white/10 
-                        transition
-                    "
-                >
-                    Sign Up
-                </Link>
-            </form>
-        </div>
-    );
+					<button
+						type="submit"
+						disabled={loading}
+						className="
+							w-full px-4 py-3 rounded-lg
+							disabled:opacity-60
+							disabled:cursor-not-allowed
+						"
+					>
+						{loading ? "Signing in…" : "Sign In"}
+					</button>
+				</form>
+
+				{/* SECONDARY CTA */}
+				<div className="text-center space-y-3">
+					<p className="text-sm text-text-muted">New to PingElo?</p>
+					<Link href="/account/signup">
+						<button className="px-4 py-2 rounded-lg">
+							Create an account
+						</button>
+					</Link>
+				</div>
+			</section>
+		</main>
+	);
 }
