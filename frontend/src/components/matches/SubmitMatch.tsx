@@ -115,13 +115,22 @@ export default function SubmitMatch() {
 	}, []);
 
 	/* =====================
+	   Helper: available players
+	===================== */
+
+	function availablePlayers(currentValue: string) {
+		const selected = new Set([a1, a2, b1, b2].filter(Boolean));
+		selected.delete(currentValue);
+		return players.filter((p) => !selected.has(p.id));
+	}
+
+	/* =====================
 	   Validation
 	===================== */
 
 	const validationErrors = useMemo(() => {
 		const errors: string[] = [];
 
-		// Player selection
 		if (!a1 || !b1) {
 			errors.push("Please select Player A1 and Player B1.");
 		}
@@ -130,15 +139,14 @@ export default function SubmitMatch() {
 			errors.push("Please select Player A2 and Player B2.");
 		}
 
-		// Duplicate players
 		const selected = [a1, a2, b1, b2].filter(Boolean);
 		if (new Set(selected).size !== selected.length) {
 			errors.push("Each player can only be selected once.");
 		}
 
-		// Score validation (win by exactly 2)
-		if (Math.abs(scoreA - scoreB) !== 2) {
-			errors.push("A match must be won by exactly 2 points.");
+		// ✅ Win by at least 2
+		if (Math.abs(scoreA - scoreB) < 2) {
+			errors.push("A match must be won by at least 2 points.");
 		}
 
 		return errors;
@@ -260,7 +268,6 @@ export default function SubmitMatch() {
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
-			{/* HERO */}
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 					Submit Match
@@ -272,45 +279,6 @@ export default function SubmitMatch() {
 
 			<section className="max-w-2xl mx-auto space-y-8">
 				<form onSubmit={submitMatch} className="space-y-6">
-					{/* Mode toggle */}
-					<div className="flex justify-center gap-2">
-						<button
-							type="button"
-							onClick={() => setIsDoubles(false)}
-							className={`px-4 py-2 rounded-lg ${
-								!isDoubles ? "font-semibold" : "text-text-muted"
-							}`}
-						>
-							Singles
-						</button>
-						<button
-							type="button"
-							onClick={() => setIsDoubles(true)}
-							className={`px-4 py-2 rounded-lg ${
-								isDoubles ? "font-semibold" : "text-text-muted"
-							}`}
-						>
-							Doubles
-						</button>
-					</div>
-
-					{/* Tournament */}
-					<select
-						className={fieldClass}
-						value={tournamentId ?? ""}
-						onChange={(e) =>
-							setTournamentId(e.target.value || null)
-						}
-					>
-						<option value="">Casual match</option>
-						{tournaments.map((t) => (
-							<option key={t.id} value={t.id}>
-								{t.tournament_name}
-							</option>
-						))}
-					</select>
-
-					{/* Teams */}
 					<div className="grid grid-cols-2 gap-6">
 						<div className="space-y-2">
 							<label className="font-medium">Team A</label>
@@ -320,7 +288,7 @@ export default function SubmitMatch() {
 								onChange={(e) => setA1(e.target.value)}
 							>
 								<option value="">Player A1</option>
-								{players.map((p) => (
+								{availablePlayers(a1).map((p) => (
 									<option key={p.id} value={p.id}>
 										{p.player_name}
 									</option>
@@ -333,7 +301,7 @@ export default function SubmitMatch() {
 									onChange={(e) => setA2(e.target.value)}
 								>
 									<option value="">Player A2</option>
-									{players.map((p) => (
+									{availablePlayers(a2).map((p) => (
 										<option key={p.id} value={p.id}>
 											{p.player_name}
 										</option>
@@ -350,7 +318,7 @@ export default function SubmitMatch() {
 								onChange={(e) => setB1(e.target.value)}
 							>
 								<option value="">Player B1</option>
-								{players.map((p) => (
+								{availablePlayers(b1).map((p) => (
 									<option key={p.id} value={p.id}>
 										{p.player_name}
 									</option>
@@ -363,7 +331,7 @@ export default function SubmitMatch() {
 									onChange={(e) => setB2(e.target.value)}
 								>
 									<option value="">Player B2</option>
-									{players.map((p) => (
+									{availablePlayers(b2).map((p) => (
 										<option key={p.id} value={p.id}>
 											{p.player_name}
 										</option>
@@ -373,7 +341,6 @@ export default function SubmitMatch() {
 						</div>
 					</div>
 
-					{/* Scores */}
 					<div className="grid grid-cols-2 gap-4">
 						<input
 							type="number"
@@ -393,26 +360,6 @@ export default function SubmitMatch() {
 						/>
 					</div>
 
-					{/* Elo preview */}
-					{eloPreview && (
-						<div className="text-sm text-text-muted text-center space-y-1">
-							<p>
-								Team A:{" "}
-								<span className="font-medium">
-									{eloPreview.eloChangeA > 0 ? "+" : ""}
-									{eloPreview.eloChangeA}
-								</span>
-							</p>
-							<p>
-								Team B:{" "}
-								<span className="font-medium">
-									{eloPreview.eloChangeB > 0 ? "+" : ""}
-									{eloPreview.eloChangeB}
-								</span>
-							</p>
-						</div>
-					)}
-
 					<button
 						type="submit"
 						disabled={!formValid || loading || !canSubmit}
@@ -421,7 +368,6 @@ export default function SubmitMatch() {
 						{loading ? "Submitting…" : "Submit Match"}
 					</button>
 
-					{/* Validation errors */}
 					{validationErrors.map((err) => (
 						<p
 							key={err}
@@ -431,7 +377,6 @@ export default function SubmitMatch() {
 						</p>
 					))}
 
-					{/* Cooldown */}
 					{!canSubmit && (
 						<p className="text-xs text-center text-text-muted">
 							Please wait 5 seconds before submitting another
