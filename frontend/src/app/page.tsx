@@ -44,13 +44,12 @@ export default function HomePage() {
 			{/* HERO */}
 			<section className="text-center space-y-4 md:space-y-6">
 				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-					Ping Pong Elo Rankings
+					Ping Pong Rankings
 				</h1>
 
 				<p className="text-lg max-w-2xl mx-auto">
 					Track matches, climb the leaderboard, and find out who is
-					the best. Fair and competitive Elo rating based on point and
-					Elo difference.
+					the best. Fair and competitive Elo rating.
 				</p>
 
 				<QuickStats />
