@@ -118,29 +118,33 @@ export default function SubmitMatch() {
 	   Validation
 	===================== */
 
-	const selectedPlayers = useMemo(
-		() => new Set([a1, a2, b1, b2].filter(Boolean)),
-		[a1, a2, b1, b2]
-	);
+	const validationErrors = useMemo(() => {
+		const errors: string[] = [];
 
-	const allPlayersSelected = isDoubles ? a1 && a2 && b1 && b2 : a1 && b1;
+		// Player selection
+		if (!a1 || !b1) {
+			errors.push("Please select Player A1 and Player B1.");
+		}
 
-	const noDuplicates =
-		selectedPlayers.size === [a1, a2, b1, b2].filter(Boolean).length;
+		if (isDoubles && (!a2 || !b2)) {
+			errors.push("Please select Player A2 and Player B2.");
+		}
 
-	const scoreDiffValid = Math.abs(scoreA - scoreB) === 2;
+		// Duplicate players
+		const selected = [a1, a2, b1, b2].filter(Boolean);
+		if (new Set(selected).size !== selected.length) {
+			errors.push("Each player can only be selected once.");
+		}
 
-	const formValid = allPlayersSelected && noDuplicates && scoreDiffValid;
+		// Score validation (win by exactly 2)
+		if (Math.abs(scoreA - scoreB) !== 2) {
+			errors.push("A match must be won by exactly 2 points.");
+		}
 
-	let validationMessage = "";
+		return errors;
+	}, [a1, a2, b1, b2, scoreA, scoreB, isDoubles]);
 
-	if (!allPlayersSelected) {
-		validationMessage = "Please select all players.";
-	} else if (!noDuplicates) {
-		validationMessage = "Each player can only be selected once.";
-	} else if (!scoreDiffValid) {
-		validationMessage = "The winning team must win by exactly 2 points.";
-	}
+	const formValid = validationErrors.length === 0;
 
 	/* =====================
 	   Elo preview
@@ -223,23 +227,28 @@ export default function SubmitMatch() {
 				body.player_b2_id = b2;
 			}
 
-			await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`, {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${session.data.session.access_token}`,
-				},
-				body: JSON.stringify(body),
-			});
+			const res = await fetch(
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.data.session.access_token}`,
+					},
+					body: JSON.stringify(body),
+				}
+			);
+
+			if (!res.ok) throw new Error(await res.text());
 
 			alert("Match submitted successfully");
 
+			setScoreA(0);
+			setScoreB(0);
 			setA1("");
 			setA2("");
 			setB1("");
 			setB2("");
-			setScoreA(0);
-			setScoreB(0);
 		} finally {
 			setLoading(false);
 		}
@@ -251,69 +260,120 @@ export default function SubmitMatch() {
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
-			<section className="max-w-2xl mx-auto">
+			{/* HERO */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+					Submit Match
+				</h1>
+				<p className="text-lg max-w-2xl mx-auto">
+					Record a match and preview Elo changes before submitting.
+				</p>
+			</section>
+
+			<section className="max-w-2xl mx-auto space-y-8">
 				<form onSubmit={submitMatch} className="space-y-6">
-					<div className="grid grid-cols-2 gap-6">
-						{["A", "B"].map((team) => (
-							<div key={team} className="flex flex-col gap-2">
-								<label className="font-medium">
-									Team {team}
-								</label>
-
-								{(isDoubles ? ["1", "2"] : ["1"]).map(
-									(slot) => {
-										const value =
-											team === "A"
-												? slot === "1"
-													? a1
-													: a2
-												: slot === "1"
-												? b1
-												: b2;
-
-										const setter =
-											team === "A"
-												? slot === "1"
-													? setA1
-													: setA2
-												: slot === "1"
-												? setB1
-												: setB2;
-
-										return (
-											<select
-												key={slot}
-												className={fieldClass}
-												value={value}
-												onChange={(e) =>
-													setter(e.target.value)
-												}
-											>
-												<option value="">
-													Player {team}
-													{slot}
-												</option>
-												{players.map((p) => (
-													<option
-														key={p.id}
-														value={p.id}
-														disabled={
-															selectedPlayers.has(
-																p.id
-															) && p.id !== value
-														}
-													>
-														{p.player_name}
-													</option>
-												))}
-											</select>
-										);
-									}
-								)}
-							</div>
-						))}
+					{/* Mode toggle */}
+					<div className="flex justify-center gap-2">
+						<button
+							type="button"
+							onClick={() => setIsDoubles(false)}
+							className={`px-4 py-2 rounded-lg ${
+								!isDoubles ? "font-semibold" : "text-text-muted"
+							}`}
+						>
+							Singles
+						</button>
+						<button
+							type="button"
+							onClick={() => setIsDoubles(true)}
+							className={`px-4 py-2 rounded-lg ${
+								isDoubles ? "font-semibold" : "text-text-muted"
+							}`}
+						>
+							Doubles
+						</button>
 					</div>
 
+					{/* Tournament */}
+					<select
+						className={fieldClass}
+						value={tournamentId ?? ""}
+						onChange={(e) =>
+							setTournamentId(e.target.value || null)
+						}
+					>
+						<option value="">Casual match</option>
+						{tournaments.map((t) => (
+							<option key={t.id} value={t.id}>
+								{t.tournament_name}
+							</option>
+						))}
+					</select>
+
+					{/* Teams */}
+					<div className="grid grid-cols-2 gap-6">
+						<div className="space-y-2">
+							<label className="font-medium">Team A</label>
+							<select
+								className={fieldClass}
+								value={a1}
+								onChange={(e) => setA1(e.target.value)}
+							>
+								<option value="">Player A1</option>
+								{players.map((p) => (
+									<option key={p.id} value={p.id}>
+										{p.player_name}
+									</option>
+								))}
+							</select>
+							{isDoubles && (
+								<select
+									className={fieldClass}
+									value={a2}
+									onChange={(e) => setA2(e.target.value)}
+								>
+									<option value="">Player A2</option>
+									{players.map((p) => (
+										<option key={p.id} value={p.id}>
+											{p.player_name}
+										</option>
+									))}
+								</select>
+							)}
+						</div>
+
+						<div className="space-y-2">
+							<label className="font-medium">Team B</label>
+							<select
+								className={fieldClass}
+								value={b1}
+								onChange={(e) => setB1(e.target.value)}
+							>
+								<option value="">Player B1</option>
+								{players.map((p) => (
+									<option key={p.id} value={p.id}>
+										{p.player_name}
+									</option>
+								))}
+							</select>
+							{isDoubles && (
+								<select
+									className={fieldClass}
+									value={b2}
+									onChange={(e) => setB2(e.target.value)}
+								>
+									<option value="">Player B2</option>
+									{players.map((p) => (
+										<option key={p.id} value={p.id}>
+											{p.player_name}
+										</option>
+									))}
+								</select>
+							)}
+						</div>
+					</div>
+
+					{/* Scores */}
 					<div className="grid grid-cols-2 gap-4">
 						<input
 							type="number"
@@ -333,20 +393,45 @@ export default function SubmitMatch() {
 						/>
 					</div>
 
+					{/* Elo preview */}
+					{eloPreview && (
+						<div className="text-sm text-text-muted text-center space-y-1">
+							<p>
+								Team A:{" "}
+								<span className="font-medium">
+									{eloPreview.eloChangeA > 0 ? "+" : ""}
+									{eloPreview.eloChangeA}
+								</span>
+							</p>
+							<p>
+								Team B:{" "}
+								<span className="font-medium">
+									{eloPreview.eloChangeB > 0 ? "+" : ""}
+									{eloPreview.eloChangeB}
+								</span>
+							</p>
+						</div>
+					)}
+
 					<button
 						type="submit"
 						disabled={!formValid || loading || !canSubmit}
 						className="w-full px-4 py-3 rounded-lg"
 					>
-						Submit Match
+						{loading ? "Submitting…" : "Submit Match"}
 					</button>
 
-					{!formValid && (
-						<p className="text-xs text-center text-text-muted">
-							{validationMessage}
+					{/* Validation errors */}
+					{validationErrors.map((err) => (
+						<p
+							key={err}
+							className="text-xs text-center text-text-muted"
+						>
+							{err}
 						</p>
-					)}
+					))}
 
+					{/* Cooldown */}
 					{!canSubmit && (
 						<p className="text-xs text-center text-text-muted">
 							Please wait 5 seconds before submitting another
