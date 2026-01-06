@@ -1,15 +1,11 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import {
-	PlayersRow,
-	MatchesRow,
-	MatchType,
-	TournamentsRow,
-} from "@/types/database";
+import { PlayersRow, TournamentsRow } from "@/types/database";
 
-// Elo calculation (from backend logic)
+/* ---------------- Elo Preview (frontend only) ---------------- */
+
 function calculateElo(
 	ratingA: number,
 	ratingB: number,
@@ -19,54 +15,49 @@ function calculateElo(
 	const BASE_K = 50;
 	const IDEAL_POINTS = 7;
 
-	const winner: "A" | "B" = scoreA > scoreB ? "A" : "B";
-	const actualA = winner === "A" ? 1 : 0;
+	if (scoreA === scoreB) return null;
 
+	const actualA = scoreA > scoreB ? 1 : 0;
 	const expectedA = 1 / (1 + Math.pow(10, (ratingB - ratingA) / 400));
-	const expectedB = 1 - expectedA;
 
 	const gamePoints = Math.max(scoreA, scoreB);
 	const lengthFactor = gamePoints / IDEAL_POINTS;
 	const scoreDiffFactor = Math.abs(scoreA - scoreB) / gamePoints;
 	const effectiveK = BASE_K * lengthFactor * scoreDiffFactor;
 
-	const eloChangeA = Math.round(effectiveK * (actualA - expectedA));
-	const eloChangeB = -eloChangeA;
+	const deltaA = Math.round(effectiveK * (actualA - expectedA));
 
 	return {
-		winner,
-		eloChangeA,
-		eloChangeB,
-		newRatingA: ratingA + eloChangeA,
-		newRatingB: ratingB + eloChangeB,
+		winner: actualA === 1 ? "A" : "B",
+		eloChangeA: deltaA,
+		eloChangeB: -deltaA,
+		newRatingA: ratingA + deltaA,
+		newRatingB: ratingB - deltaA,
 	};
 }
+
+/* ---------------- Component ---------------- */
 
 export default function SubmitMatch() {
 	const [players, setPlayers] = useState<PlayersRow[]>([]);
 	const [tournaments, setTournaments] = useState<TournamentsRow[]>([]);
 
-	const [matchType, setMatchType] = useState<MatchType>("singles");
+	const [isDoubles, setIsDoubles] = useState(false);
+
 	const [playerA1, setPlayerA1] = useState("");
 	const [playerA2, setPlayerA2] = useState("");
 	const [playerB1, setPlayerB1] = useState("");
 	const [playerB2, setPlayerB2] = useState("");
-	const [scoreA, setScoreA] = useState(0);
-	const [scoreB, setScoreB] = useState(0);
-	const [tournamentId, setTournamentId] = useState<string | null>(null);
 
-	const [eloPreview, setEloPreview] = useState<{
-		winner: "A" | "B";
-		eloChangeA: number;
-		eloChangeB: number;
-		newRatingA: number;
-		newRatingB: number;
-	} | null>(null);
+	const [scoreA, setScoreA] = useState<number>(0);
+	const [scoreB, setScoreB] = useState<number>(0);
+	const [tournamentId, setTournamentId] = useState<string | null>(null);
 
 	const [loading, setLoading] = useState(false);
 	const [canSubmit, setCanSubmit] = useState(true);
 
-	// Fetch players and active tournaments
+	/* ---------------- Fetch data ---------------- */
+
 	useEffect(() => {
 		supabase
 			.from("players")
@@ -75,242 +66,206 @@ export default function SubmitMatch() {
 				if (data) setPlayers(data);
 			});
 
+		const now = new Date().toISOString();
 		supabase
 			.from("tournaments")
 			.select("*")
-			.gt("start_date", new Date().toISOString())
-			.or(`end_date.gte.${new Date().toISOString()}`)
+			.lte("start_date", now)
+			.gte("end_date", now)
 			.then(({ data }) => {
-				if (data) setTournaments(data);
-				if (data && data.length > 0) setTournamentId(data[0].id);
+				if (data) {
+					setTournaments(data);
+					setTournamentId(data[0]?.id ?? null);
+				}
 			});
 	}, []);
 
-	// Calculate Elo preview
-	useEffect(() => {
-		const pA = players.find((p) => p.id === playerA1);
-		const pB = players.find((p) => p.id === playerB1);
-		if (!pA || !pB) return;
+	/* ---------------- Elo preview ---------------- */
 
-		const ratingA =
-			matchType === "singles" ? pA.singles_elo : pA.doubles_elo;
-		const ratingB =
-			matchType === "singles" ? pB.singles_elo : pB.doubles_elo;
+	const eloPreview = useMemo(() => {
+		const a = players.find((p) => p.id === playerA1);
+		const b = players.find((p) => p.id === playerB1);
+		if (!a || !b) return null;
 
-		setEloPreview(calculateElo(ratingA, ratingB, scoreA, scoreB));
-	}, [playerA1, playerB1, scoreA, scoreB, matchType, players]);
+		const ratingA = isDoubles ? a.doubles_elo : a.singles_elo;
+		const ratingB = isDoubles ? b.doubles_elo : b.singles_elo;
+
+		return calculateElo(ratingA, ratingB, scoreA, scoreB);
+	}, [players, playerA1, playerB1, scoreA, scoreB, isDoubles]);
+
+	/* ---------------- Submit ---------------- */
 
 	async function submitMatch(e: React.FormEvent) {
 		e.preventDefault();
-		if (!canSubmit) return;
+		if (!canSubmit || loading) return;
 
-		if (
-			!playerA1 ||
-			!playerB1 ||
-			(matchType === "doubles" && (!playerA2 || !playerB2))
-		) {
-			alert("Please select all required players.");
-			return;
-		}
+		if (!playerA1 || !playerB1) return alert("Select all players");
+		if (isDoubles && (!playerA2 || !playerB2))
+			return alert("Select all players");
 
 		setLoading(true);
 		setCanSubmit(false);
-
-		setTimeout(() => setCanSubmit(true), 5000); // 5s cooldown
+		setTimeout(() => setCanSubmit(true), 5000);
 
 		try {
 			const session = await supabase.auth.getSession();
-			if (!session.data.session) throw new Error("Not logged in");
+			if (!session.data.session) throw new Error("Not authenticated");
 
-			const payload: Partial<MatchesRow> & { match_type: MatchType } = {
-				match_type: matchType,
+			const endpoint = isDoubles ? "doubles" : "singles";
+
+			const body = {
 				player_a1_id: playerA1,
+				player_a2_id: isDoubles ? playerA2 : undefined,
 				player_b1_id: playerB1,
+				player_b2_id: isDoubles ? playerB2 : undefined,
 				score_a: scoreA,
 				score_b: scoreB,
 				tournament_id: tournamentId,
-				elo_before_a1:
-					players.find((p) => p.id === playerA1)?.singles_elo ?? 1000,
-				elo_before_b1:
-					players.find((p) => p.id === playerB1)?.singles_elo ?? 1000,
 			};
 
-			if (matchType === "doubles") {
-				payload.player_a2_id = playerA2;
-				payload.player_b2_id = playerB2;
-				payload.elo_before_a2 =
-					players.find((p) => p.id === playerA2)?.doubles_elo ?? 1000;
-				payload.elo_before_b2 =
-					players.find((p) => p.id === playerB2)?.doubles_elo ?? 1000;
-			}
-
 			const res = await fetch(
-				`${process.env.NEXT_PUBLIC_BACKEND_URL}/matches/submit/singles`,
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/matches/submit/${endpoint}`,
 				{
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
 						Authorization: `Bearer ${session.data.session.access_token}`,
 					},
-					body: JSON.stringify(payload),
+					body: JSON.stringify(body),
 				}
 			);
 
 			if (!res.ok) {
-				const text = await res.text();
-				throw new Error(text || "Failed to submit match");
+				const json = await res.json();
+				throw new Error(json.error ?? "Submission failed");
 			}
 
-			const json = await res.json();
-			alert("Match submitted successfully!");
+			alert("Match submitted!");
 			setScoreA(0);
 			setScoreB(0);
 			setPlayerA1("");
-			setPlayerB1("");
 			setPlayerA2("");
+			setPlayerB1("");
 			setPlayerB2("");
-		} catch (err: unknown) {
-			let message = "Failed to submit match";
-			if (err instanceof Error) message = err.message;
-			alert(message);
+		} catch (err) {
+			if (err instanceof Error) alert(err.message);
 		} finally {
 			setLoading(false);
 		}
 	}
 
+	/* ---------------- UI ---------------- */
+
 	return (
-		<div className="max-w-5xl mx-auto px-4 py-16 space-y-16">
-			<section className="text-center space-y-4">
-				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+		<div className="max-w-4xl mx-auto px-4 py-16 space-y-12">
+			<header className="text-center space-y-2">
+				<h1 className="text-4xl font-extrabold tracking-tight">
 					Submit Match
 				</h1>
-				<p className="text-lg max-w-2xl mx-auto">
-					Submit a match and see Elo preview before submitting.
+				<p className="text-white/60">
+					Preview Elo changes before submitting
 				</p>
-			</section>
+			</header>
 
 			<form
 				onSubmit={submitMatch}
-				className="bg-black/40 border border-white/10 rounded-2xl p-6 sm:p-8 flex flex-col gap-6 max-w-2xl mx-auto shadow-xl"
+				className="bg-white/5 border border-white/10 rounded-2xl p-6 space-y-6"
 			>
-				{/* Match type toggle */}
-				<div className="flex justify-center gap-4">
+				{/* Match type */}
+				<div className="flex justify-center gap-2">
 					<button
 						type="button"
-						className={`px-4 py-2 rounded-xl ${
-							matchType === "singles"
+						onClick={() => setIsDoubles(false)}
+						className={`px-4 py-2 rounded-xl text-sm font-medium ${
+							!isDoubles
 								? "bg-purple-600 text-white"
-								: "bg-gray-800 text-gray-300"
+								: "bg-white/5 text-white/60"
 						}`}
-						onClick={() => setMatchType("singles")}
 					>
 						Singles
 					</button>
 					<button
 						type="button"
-						className={`px-4 py-2 rounded-xl ${
-							matchType === "doubles"
+						onClick={() => setIsDoubles(true)}
+						className={`px-4 py-2 rounded-xl text-sm font-medium ${
+							isDoubles
 								? "bg-purple-600 text-white"
-								: "bg-gray-800 text-gray-300"
+								: "bg-white/5 text-white/60"
 						}`}
-						onClick={() => setMatchType("doubles")}
 					>
 						Doubles
 					</button>
 				</div>
 
-				{/* Tournament selector */}
-				<div>
-					<label className="block text-sm font-medium text-gray-300 mb-1">
-						Tournament
-					</label>
-					<select
-						value={tournamentId ?? ""}
-						onChange={(e) => setTournamentId(e.target.value)}
-						className="w-full p-3 rounded-xl bg-black/60 border border-white/20 text-white"
-					>
-						{tournaments.map((t) => (
-							<option key={t.id} value={t.id}>
-								{t.tournament_name}
-							</option>
-						))}
-					</select>
-				</div>
-
 				{/* Players */}
-				<div className="grid grid-cols-2 gap-4">
-					<div>
-						<label className="block text-sm font-medium text-gray-300">
-							Player A1
-						</label>
+				<div className="grid grid-cols-2 gap-6">
+					{/* Team A */}
+					<div className="space-y-3">
+						<p className="text-sm font-semibold text-white/70">
+							Team A
+						</p>
 						<select
 							value={playerA1}
 							onChange={(e) => setPlayerA1(e.target.value)}
-							className="w-full p-3 rounded-xl bg-black/60 border border-white/20 text-white"
+							className="w-full input"
 						>
-							<option value="">Select Player</option>
+							<option value="">Player A1</option>
 							{players.map((p) => (
 								<option key={p.id} value={p.id}>
 									{p.player_name}
 								</option>
 							))}
 						</select>
-					</div>
-					{matchType === "doubles" && (
-						<div>
-							<label className="block text-sm font-medium text-gray-300">
-								Player A2
-							</label>
+
+						{isDoubles && (
 							<select
 								value={playerA2}
 								onChange={(e) => setPlayerA2(e.target.value)}
-								className="w-full p-3 rounded-xl bg-black/60 border border-white/20 text-white"
+								className="w-full input"
 							>
-								<option value="">Select Player</option>
+								<option value="">Player A2</option>
 								{players.map((p) => (
 									<option key={p.id} value={p.id}>
 										{p.player_name}
 									</option>
 								))}
 							</select>
-						</div>
-					)}
-					<div>
-						<label className="block text-sm font-medium text-gray-300">
-							Player B1
-						</label>
+						)}
+					</div>
+
+					{/* Team B */}
+					<div className="space-y-3">
+						<p className="text-sm font-semibold text-white/70">
+							Team B
+						</p>
 						<select
 							value={playerB1}
 							onChange={(e) => setPlayerB1(e.target.value)}
-							className="w-full p-3 rounded-xl bg-black/60 border border-white/20 text-white"
+							className="w-full input"
 						>
-							<option value="">Select Player</option>
+							<option value="">Player B1</option>
 							{players.map((p) => (
 								<option key={p.id} value={p.id}>
 									{p.player_name}
 								</option>
 							))}
 						</select>
-					</div>
-					{matchType === "doubles" && (
-						<div>
-							<label className="block text-sm font-medium text-gray-300">
-								Player B2
-							</label>
+
+						{isDoubles && (
 							<select
 								value={playerB2}
 								onChange={(e) => setPlayerB2(e.target.value)}
-								className="w-full p-3 rounded-xl bg-black/60 border border-white/20 text-white"
+								className="w-full input"
 							>
-								<option value="">Select Player</option>
+								<option value="">Player B2</option>
 								{players.map((p) => (
 									<option key={p.id} value={p.id}>
 										{p.player_name}
 									</option>
 								))}
 							</select>
-						</div>
-					)}
+						)}
+					</div>
 				</div>
 
 				{/* Scores */}
@@ -319,52 +274,51 @@ export default function SubmitMatch() {
 						type="number"
 						min={0}
 						value={scoreA}
-						onChange={(e) => setScoreA(Number(e.target.value))}
+						onChange={(e) => setScoreA(+e.target.value)}
+						className="input"
 						placeholder="Score A"
-						className="p-3 rounded-xl bg-black/60 border border-white/20 text-white"
 					/>
 					<input
 						type="number"
 						min={0}
 						value={scoreB}
-						onChange={(e) => setScoreB(Number(e.target.value))}
+						onChange={(e) => setScoreB(+e.target.value)}
+						className="input"
 						placeholder="Score B"
-						className="p-3 rounded-xl bg-black/60 border border-white/20 text-white"
 					/>
 				</div>
 
 				{/* Elo preview */}
 				{eloPreview && (
-					<div className="border-t border-white/20 pt-4 text-white">
+					<div className="text-sm text-white/70 border-t border-white/10 pt-4">
 						<p>
 							Winner:{" "}
-							<strong>
-								{eloPreview.winner === "A"
-									? "Player A"
-									: "Player B"}
+							<strong className="text-white">
+								Team {eloPreview.winner}
 							</strong>
 						</p>
 						<p>
-							Player A: {eloPreview.eloChangeA > 0 && "+"}
-							{eloPreview.eloChangeA} → {eloPreview.newRatingA}
+							Team A: {eloPreview.eloChangeA > 0 && "+"}
+							{eloPreview.eloChangeA}
 						</p>
 						<p>
-							Player B: {eloPreview.eloChangeB > 0 && "+"}
-							{eloPreview.eloChangeB} → {eloPreview.newRatingB}
+							Team B: {eloPreview.eloChangeB > 0 && "+"}
+							{eloPreview.eloChangeB}
 						</p>
 					</div>
 				)}
 
 				<button
 					type="submit"
-					disabled={loading || !canSubmit}
-					className="w-full py-3 bg-purple-600 hover:bg-purple-700 rounded-xl text-white font-semibold"
+					disabled={!canSubmit || loading}
+					className="w-full bg-purple-600 hover:bg-purple-700 transition rounded-xl py-3 font-semibold"
 				>
 					{loading ? "Submitting..." : "Submit Match"}
 				</button>
+
 				{!canSubmit && (
-					<p className="text-xs text-red-400 mt-1">
-						Please wait 5 seconds before submitting another match.
+					<p className="text-xs text-red-400 text-center">
+						Please wait 5 seconds before submitting again
 					</p>
 				)}
 			</form>
