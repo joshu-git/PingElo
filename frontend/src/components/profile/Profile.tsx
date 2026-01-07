@@ -200,9 +200,38 @@ export default function Profile() {
 				</p>
 			</section>
 
+			{/* STATS */}
+			<section className="grid grid-cols-3 gap-4 text-center">
+				<Stat label="Wins" value={stats.wins} />
+				<Stat label="Losses" value={stats.losses} />
+				<Stat label="Win Rate" value={`${stats.rate}%`} />
+			</section>
+
 			{/* CONTROLS */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				<div className="flex flex-wrap justify-center gap-2">
+				<div className="flex flex-wrap justify-center gap-2 order-2 sm:order-1">
+					{[7, 30].map((d) => (
+						<button
+							key={d}
+							onClick={() => setRange(d)}
+							className={`px-4 py-2 rounded-lg ${
+								range === d ? "font-semibold underline" : ""
+							}`}
+						>
+							Last {d} days
+						</button>
+					))}
+					<button
+						onClick={() => setRange(null)}
+						className={`px-4 py-2 rounded-lg ${
+							range === null ? "font-semibold underline" : ""
+						}`}
+					>
+						All time
+					</button>
+				</div>
+
+				<div className="flex flex-wrap justify-center gap-2 order-1 sm:order-2">
 					<button
 						onClick={() => setMatchType("singles")}
 						className={`px-4 py-2 rounded-lg ${
@@ -225,36 +254,7 @@ export default function Profile() {
 					</button>
 					<button className="px-4 py-2 rounded-lg">Report</button>
 				</div>
-
-				<div className="flex flex-wrap justify-center gap-2">
-					{[7, 30].map((d) => (
-						<button
-							key={d}
-							onClick={() => setRange(d)}
-							className={`px-4 py-2 rounded-lg ${
-								range === d ? "font-semibold underline" : ""
-							}`}
-						>
-							Last {d} days
-						</button>
-					))}
-					<button
-						onClick={() => setRange(null)}
-						className={`px-4 py-2 rounded-lg ${
-							range === null ? "font-semibold underline" : ""
-						}`}
-					>
-						All time
-					</button>
-				</div>
 			</div>
-
-			{/* STATS */}
-			<section className="grid grid-cols-3 gap-4 text-center">
-				<Stat label="Wins" value={stats.wins} />
-				<Stat label="Losses" value={stats.losses} />
-				<Stat label="Win Rate" value={`${stats.rate}%`} />
-			</section>
 
 			{/* ELO CHART */}
 			<section>
