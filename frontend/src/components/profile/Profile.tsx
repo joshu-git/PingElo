@@ -130,14 +130,21 @@ export default function Profile() {
 	if (!player) return null;
 
 	return (
-		<main className="max-w-[900px] mx-auto px-4 py-16 space-y-8">
-			{/* ---------- HERO ---------- */}
-			<section className="bg-card p-6 rounded-xl text-center space-y-4">
-				<h1 className="text-5xl font-extrabold">
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			{/* ---------- HERO (Home-style) ---------- */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 					{player.player_name}
 				</h1>
+				<p className="text-text-muted">
+					Public player profile and match history
+				</p>
+			</section>
 
-				<div className="flex flex-wrap justify-center gap-2">
+			{/* ---------- CONTROLS (Leaderboard-style) ---------- */}
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				{/* Match type */}
+				<div className="flex justify-center gap-2">
 					<button
 						onClick={() => setMatchType("singles")}
 						className={`px-4 py-2 rounded-lg ${
@@ -148,7 +155,6 @@ export default function Profile() {
 					>
 						Singles
 					</button>
-
 					<button
 						onClick={() => setMatchType("doubles")}
 						className={`px-4 py-2 rounded-lg ${
@@ -159,26 +165,42 @@ export default function Profile() {
 					>
 						Doubles
 					</button>
+				</div>
 
+				{/* Range filter (for Elo) */}
+				<div className="flex justify-center gap-2">
+					{[7, 30].map((d) => (
+						<button
+							key={d}
+							onClick={() => setRange(d)}
+							className={`px-3 py-1.5 rounded-lg text-sm ${
+								range === d ? "font-semibold underline" : ""
+							}`}
+						>
+							Last {d} days
+						</button>
+					))}
 					<button
-						onClick={() => alert("Report feature coming soon")}
-						className="px-4 py-2 rounded-lg border border-border hover:bg-card transition"
+						onClick={() => setRange(null)}
+						className={`px-3 py-1.5 rounded-lg text-sm ${
+							range === null ? "font-semibold underline" : ""
+						}`}
 					>
-						Report Player
+						All time
 					</button>
 				</div>
-			</section>
+			</div>
 
 			{/* ---------- STATS ---------- */}
-			<section className="grid grid-cols-3 gap-4">
+			<section className="grid grid-cols-3 gap-4 text-center">
 				<Stat label="Wins" value={stats.wins} />
 				<Stat label="Losses" value={stats.losses} />
 				<Stat label="Win Ratio" value={stats.ratio} />
 			</section>
 
 			{/* ---------- ELO CHART ---------- */}
-			<section className="bg-card p-6 rounded-xl">
-				<h2 className="text-xl font-semibold mb-4">
+			<section className="space-y-4">
+				<h2 className="text-xl font-semibold">
 					{matchType === "singles" ? "Singles" : "Doubles"} Elo
 					Progression
 				</h2>
@@ -219,8 +241,7 @@ export default function Profile() {
 			</section>
 
 			{/* ---------- MATCH HISTORY ---------- */}
-			<section className="-mt-2">
-				<h2 className="text-xl font-semibold mb-4">Match History</h2>
+			<section className="space-y-6">
 				<Matches profilePlayerId={player.id} />
 			</section>
 		</main>
@@ -229,7 +250,7 @@ export default function Profile() {
 
 function Stat({ label, value }: { label: string; value: number | string }) {
 	return (
-		<div className="bg-card p-4 rounded-xl text-center hover-card">
+		<div className="bg-card p-4 rounded-xl">
 			<p className="text-sm text-text-muted">{label}</p>
 			<p className="text-2xl font-bold">{value}</p>
 		</div>
