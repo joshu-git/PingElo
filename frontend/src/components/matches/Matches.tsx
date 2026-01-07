@@ -50,7 +50,6 @@ export default function Matches({
 }) {
 	const router = useRouter();
 
-	/* -------------------- State -------------------- */
 	const [matches, setMatches] = useState<MatchRow[]>([]);
 	const [players, setPlayers] = useState<Map<string, PlayerRow>>(new Map());
 	const [groups, setGroups] = useState<GroupRow[]>([]);
@@ -64,12 +63,14 @@ export default function Matches({
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
 
-	/* -------------------- Meta load -------------------- */
+	/* -------------------- Load meta -------------------- */
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: playerData }, { data: groupData }, session] =
 				await Promise.all([
-					supabase.from("players").select("id, player_name"),
+					supabase
+						.from("players")
+						.select("id, player_name, group_id"),
 					supabase.from("groups").select("*").order("group_name"),
 					supabase.auth.getSession(),
 				]);
@@ -81,16 +82,6 @@ export default function Matches({
 			}
 
 			if (groupData) setGroups(groupData as GroupRow[]);
-
-			if (session.data.session) {
-				const { data: me } = await supabase
-					.from("players")
-					.select("group_id")
-					.eq("account_id", session.data.session.user.id)
-					.maybeSingle();
-
-				if (me?.group_id) setMyGroupId(me.group_id);
-			}
 		};
 
 		loadMeta();
@@ -188,6 +179,7 @@ export default function Matches({
 
 			{/* CONTROLS */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				{/* Match type + Submit */}
 				<div className="flex flex-wrap justify-center gap-2">
 					<button
 						onClick={() => setMatchType("singles")}
@@ -216,6 +208,7 @@ export default function Matches({
 					</Link>
 				</div>
 
+				{/* Scope */}
 				<div className="flex flex-wrap justify-center gap-2">
 					<select
 						value={groupId ?? ""}
@@ -283,19 +276,19 @@ export default function Matches({
 						before?: number | null;
 					}[];
 
-					const accentA =
-						profilePlayerId && teamAWon
+					const accentA = profilePlayerId
+						? teamAWon &&
+						  teamA.some((p) => p.id === profilePlayerId)
 							? "text-emerald-400"
-							: profilePlayerId
-							? "text-red-400"
-							: "";
+							: "text-red-400"
+						: "";
 
-					const accentB =
-						profilePlayerId && !teamAWon
+					const accentB = profilePlayerId
+						? !teamAWon &&
+						  teamB.some((p) => p.id === profilePlayerId)
 							? "text-emerald-400"
-							: profilePlayerId
-							? "text-red-400"
-							: "";
+							: "text-red-400"
+						: "";
 
 					return (
 						<div
@@ -307,27 +300,24 @@ export default function Matches({
 								<div className="flex-1 space-y-3">
 									{/* TEAM A */}
 									<div
-										className={`flex justify-between ${accentA}`}
+										className={`flex justify-between items-center ${accentA}`}
 									>
-										<div className="flex gap-1 max-w-[60%] sm:max-w-[70%] truncate">
+										<div className="flex gap-1 whitespace-nowrap text-[clamp(0.75rem,2.5vw,1rem)]">
 											{teamA.map((p, i) => (
-												<span
-													key={p.id}
-													className="truncate"
-												>
+												<span key={p.id}>
 													<Link
 														href={`/profile/${
 															players.get(p.id)
 																?.player_name
 														}`}
-														className="hover:underline truncate"
+														className="hover:underline"
 													>
 														{
 															players.get(p.id)
 																?.player_name
 														}
 													</Link>{" "}
-													<span className="text-sm text-text-subtle">
+													<span className="text-[clamp(0.65rem,2vw,0.85rem)] text-text-subtle">
 														(
 														{eloAfter(
 															p.before,
@@ -341,6 +331,7 @@ export default function Matches({
 												</span>
 											))}
 										</div>
+
 										<div className="flex items-center gap-2 shrink-0">
 											<span className="text-sm text-text-muted">
 												{m.elo_change_a >= 0 && "+"}
@@ -354,27 +345,24 @@ export default function Matches({
 
 									{/* TEAM B */}
 									<div
-										className={`flex justify-between ${accentB}`}
+										className={`flex justify-between items-center ${accentB}`}
 									>
-										<div className="flex gap-1 max-w-[60%] sm:max-w-[70%] truncate">
+										<div className="flex gap-1 whitespace-nowrap text-[clamp(0.75rem,2.5vw,1rem)]">
 											{teamB.map((p, i) => (
-												<span
-													key={p.id}
-													className="truncate"
-												>
+												<span key={p.id}>
 													<Link
 														href={`/profile/${
 															players.get(p.id)
 																?.player_name
 														}`}
-														className="hover:underline truncate"
+														className="hover:underline"
 													>
 														{
 															players.get(p.id)
 																?.player_name
 														}
 													</Link>{" "}
-													<span className="text-sm text-text-subtle">
+													<span className="text-[clamp(0.65rem,2vw,0.85rem)] text-text-subtle">
 														(
 														{eloAfter(
 															p.before,
@@ -388,6 +376,7 @@ export default function Matches({
 												</span>
 											))}
 										</div>
+
 										<div className="flex items-center gap-2 shrink-0">
 											<span className="text-sm text-text-muted">
 												{m.elo_change_b >= 0 && "+"}
