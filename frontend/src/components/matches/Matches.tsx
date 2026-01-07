@@ -78,25 +78,20 @@ export default function Matches({
 					supabase.auth.getSession(),
 				]);
 
-			if (playerData) {
+			if (playerData)
 				setPlayers(
 					new Map((playerData as PlayerRow[]).map((p) => [p.id, p]))
 				);
-			}
-
 			if (groupData) setGroups(groupData as GroupRow[]);
-
 			if (session.data.session) {
 				const { data: me } = await supabase
 					.from("players")
 					.select("group_id")
 					.eq("account_id", session.data.session.user.id)
 					.maybeSingle();
-
 				if (me?.group_id) setMyGroupId(me.group_id);
 			}
 		};
-
 		loadMeta();
 	}, []);
 
@@ -130,7 +125,6 @@ export default function Matches({
 					.from("players")
 					.select("id")
 					.eq("group_id", groupId);
-
 				const ids = (groupPlayers ?? []).map((p) => p.id);
 				if (ids.length) {
 					query = query.or(
@@ -155,11 +149,10 @@ export default function Matches({
 		[page, matchType, scope, groupId, profilePlayerId]
 	);
 
-	/* -------------------- Effect: load matches safely -------------------- */
+	/* -------------------- Initial load -------------------- */
 	useEffect(() => {
-		const fetch = async () => {
-			await loadMatches(true);
-		};
+		// Run in async wrapper to avoid synchronous setState warning
+		const fetch = async () => await loadMatches(true);
 		fetch();
 	}, [matchType, scope, groupId, profilePlayerId, loadMatches]);
 
@@ -343,13 +336,7 @@ export default function Matches({
 								<div className="flex-1 space-y-3">
 									{/* TEAM A */}
 									<div
-										className={`flex justify-between items-center ${
-											profilePlayerId
-												? ""
-												: teamAWon
-												? "text-emerald-400"
-												: "text-red-400"
-										}`}
+										className={`flex justify-between items-center`}
 									>
 										<div
 											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
@@ -398,13 +385,7 @@ export default function Matches({
 
 									{/* TEAM B */}
 									<div
-										className={`flex justify-between items-center ${
-											profilePlayerId
-												? ""
-												: !teamAWon
-												? "text-emerald-400"
-												: "text-red-400"
-										}`}
+										className={`flex justify-between items-center`}
 									>
 										<div
 											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
