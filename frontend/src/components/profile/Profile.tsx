@@ -105,7 +105,7 @@ export default function Profile() {
 		return {
 			wins,
 			losses,
-			rate: wins + losses > 0 ? Math.round(wins / losses) : 0,
+			rate: losses > 0 ? Number((wins / losses).toFixed(2)) : wins,
 		};
 	}, [filteredMatches, player]);
 
@@ -185,15 +185,15 @@ export default function Profile() {
 	if (!player) return null;
 
 	return (
-		<main className="max-w-5xl mx-auto px-4 py-16 space-y-10">
+		<main className="max-w-5xl mx-auto px-4 py-10 space-y-6">
 			{/* HERO */}
 			<section className="text-center space-y-3">
 				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 					{player.player_name}
 				</h1>
 				<p className="text-text-muted">
-					Singles Elo {player.singles_elo} · {groupName ?? "No Group"}{" "}
-					· Doubles Elo {player.doubles_elo}
+					Singles: {player.singles_elo} · {groupName ?? "No Group"} ·
+					Doubles: {player.doubles_elo}
 				</p>
 			</section>
 
@@ -201,7 +201,7 @@ export default function Profile() {
 			<section className="grid grid-cols-3 gap-4 text-center">
 				<Stat label="Wins" value={stats.wins} />
 				<Stat label="Losses" value={stats.losses} />
-				<Stat label="W / L" value={`${stats.rate}%`} />
+				<Stat label="W / L" value={`${stats.rate}`} />
 			</section>
 
 			{/* CONTROLS */}
@@ -253,26 +253,6 @@ export default function Profile() {
 						All Time
 					</button>
 				</div>
-			</div>
-
-			<div className="flex flex-wrap justify-center gap-2 order-1 sm:order-2">
-				<button
-					onClick={() => setMatchType("singles")}
-					className={`px-4 py-2 rounded-lg ${
-						matchType === "singles" ? "font-semibold underline" : ""
-					}`}
-				>
-					Singles
-				</button>
-				<button
-					onClick={() => setMatchType("doubles")}
-					className={`px-4 py-2 rounded-lg ${
-						matchType === "doubles" ? "font-semibold underline" : ""
-					}`}
-				>
-					Doubles
-				</button>
-				<button className="px-4 py-2 rounded-lg">Report</button>
 			</div>
 
 			{/* ELO CHART */}
