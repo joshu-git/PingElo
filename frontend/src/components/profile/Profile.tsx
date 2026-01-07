@@ -14,7 +14,6 @@ import {
 } from "recharts";
 import type { MatchType, MatchesRow, PlayersRow } from "@/types/database";
 
-/* -------------------- Profile -------------------- */
 export default function Profile() {
 	const { username } = useParams<{ username: string }>();
 	const router = useRouter();
@@ -22,8 +21,7 @@ export default function Profile() {
 	const [player, setPlayer] = useState<PlayersRow | null>(null);
 	const [matches, setMatches] = useState<MatchesRow[]>([]);
 	const [matchType, setMatchType] = useState<MatchType>("singles");
-	const [range, setRange] = useState<number | null>(null); // 7, 30, or null
-	const [loading, setLoading] = useState(true);
+	const [range, setRange] = useState<number | null>(null);
 
 	/* ---------- Load player ---------- */
 	useEffect(() => {
@@ -50,8 +48,6 @@ export default function Profile() {
 		if (!player) return;
 
 		const loadMatches = async () => {
-			setLoading(true);
-
 			const { data } = await supabase
 				.from("matches")
 				.select("*")
@@ -62,7 +58,6 @@ export default function Profile() {
 				.order("created_at", { ascending: true });
 
 			setMatches((data ?? []) as MatchesRow[]);
-			setLoading(false);
 		};
 
 		loadMatches();
@@ -89,21 +84,12 @@ export default function Profile() {
 		};
 	}, [matches, player]);
 
-	/* ---------- Elo history using match timestamps ---------- */
+	/* ---------- Elo history ---------- */
 	const eloHistory = useMemo(() => {
 		if (!player || !matches.length) return [];
 
-		// Reference timestamp: latest match
-		const latest = new Date(
-			matches[matches.length - 1].created_at
-		).getTime();
-		const cutoff = range ? latest - range * 24 * 60 * 60 * 1000 : 0;
-
 		return matches
 			.map((m) => {
-				const matchTime = new Date(m.created_at).getTime();
-				if (range && matchTime < cutoff) return null;
-
 				let before: number | null = null;
 				let change: number | null = null;
 
@@ -129,9 +115,8 @@ export default function Profile() {
 				};
 			})
 			.filter(Boolean) as { day: string; elo: number }[];
-	}, [matches, player, range]);
+	}, [matches, player]);
 
-	/* ---------- Y-axis domain ---------- */
 	const yDomain = useMemo(() => {
 		if (!eloHistory.length) return [0, 2500];
 		const elos = eloHistory.map((e) => e.elo);
@@ -145,44 +130,36 @@ export default function Profile() {
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
-			{/* Header */}
-			<section className="flex justify-between items-center">
-				<h1 className="text-4xl font-extrabold">
+			{/* ---------- Header ---------- */}
+			<section className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold">
 					{player.player_name}
 				</h1>
 				<button
-					className="px-4 py-2 rounded-xl border border-border text-sm"
+					className="px-4 py-2 rounded-lg border border-border hover:bg-card hover:text-text transition"
 					onClick={() => alert("Report feature coming soon")}
 				>
 					Report Player
 				</button>
 			</section>
 
-			{/* Match type + range */}
+			{/* ---------- Match Type + Range ---------- */}
 			<section className="flex flex-wrap items-center gap-4">
 				<div className="flex gap-2">
-					<button
-						onClick={() => setMatchType("singles")}
-						className={`px-4 py-2 rounded-lg ${
-							matchType === "singles"
-								? "font-semibold underline"
-								: ""
-						}`}
-					>
-						Singles
-					</button>
-					<button
-						onClick={() => setMatchType("doubles")}
-						className={`px-4 py-2 rounded-lg ${
-							matchType === "doubles"
-								? "font-semibold underline"
-								: ""
-						}`}
-					>
-						Doubles
-					</button>
+					{["singles", "doubles"].map((type) => (
+						<button
+							key={type}
+							onClick={() => setMatchType(type as MatchType)}
+							className={`px-4 py-2 rounded-lg ${
+								matchType === type
+									? "font-semibold underline"
+									: ""
+							}`}
+						>
+							{type[0].toUpperCase() + type.slice(1)}
+						</button>
+					))}
 				</div>
-
 				<div className="flex gap-2">
 					{[7, 30].map((d) => (
 						<button
@@ -201,26 +178,26 @@ export default function Profile() {
 							range === null ? "font-semibold underline" : ""
 						}`}
 					>
-						All time
+						All Time
 					</button>
 				</div>
 			</section>
 
-			{/* Stats */}
-			<section className="grid grid-cols-3 gap-4 text-center">
+			{/* ---------- Stats ---------- */}
+			<section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
 				<Stat label="Wins" value={stats.wins} />
 				<Stat label="Losses" value={stats.losses} />
 				<Stat label="Win Ratio" value={stats.ratio} />
 			</section>
 
-			{/* Elo Chart */}
-			<section className="bg-black/40 rounded-2xl p-6">
+			{/* ---------- Elo Chart ---------- */}
+			<section className="bg-card p-6 rounded-xl">
 				<h2 className="text-xl font-semibold mb-4">
-					{matchType === "singles" ? "Singles Elo" : "Doubles Elo"}{" "}
-					Over Time
+					{matchType === "singles" ? "Singles" : "Doubles"} Elo Over
+					Time
 				</h2>
 				{eloHistory.length === 0 ? (
-					<p className="text-gray-400 text-sm">
+					<p className="text-text-muted text-sm">
 						No Elo history available.
 					</p>
 				) : (
@@ -254,8 +231,8 @@ export default function Profile() {
 				)}
 			</section>
 
-			{/* Match History */}
-			<section>
+			{/* ---------- Match History ---------- */}
+			<section className="space-y-6">
 				<Matches profilePlayerId={player.id} />
 			</section>
 		</main>
@@ -264,8 +241,8 @@ export default function Profile() {
 
 function Stat({ label, value }: { label: string; value: number | string }) {
 	return (
-		<div className="bg-black/40 rounded-xl p-4">
-			<p className="text-sm text-gray-400">{label}</p>
+		<div className="bg-card p-4 rounded-xl text-center hover-card transition">
+			<p className="text-sm text-text-muted">{label}</p>
 			<p className="text-2xl font-bold">{value}</p>
 		</div>
 	);
