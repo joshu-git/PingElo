@@ -13,102 +13,69 @@ import {
 	Tooltip,
 	ResponsiveContainer,
 } from "recharts";
+import type { MatchType, MatchesRow, PlayersRow } from "@/types/database";
 
 /* ------------------------------------------------------------------
- * Types (kept local so this is fully self‑contained)
- * ------------------------------------------------------------------ */
-type PlayerRow = {
-	id: string;
-	player_name: string;
-	singles_elo: number;
-	doubles_elo: number;
-	group_id?: string | null;
-};
-
-type MatchRow = {
-	id: string;
-	match_number: number;
-	match_type: "singles" | "doubles";
-
-	player_a1_id: string;
-	player_b1_id: string;
-
-	score_a: number;
-	score_b: number;
-
-	elo_before_a1: number | null;
-	elo_before_b1: number | null;
-	elo_change_a: number | null;
-	elo_change_b: number | null;
-
-	winner1?: string | null;
-};
-
-/* ------------------------------------------------------------------
- * Profile page – single component, clean data flow
+ * Profile page – single component, schema-aligned
  * ------------------------------------------------------------------ */
 export default function Profile() {
 	const { username } = useParams<{ username: string }>();
 	const router = useRouter();
 
-	const [player, setPlayer] = useState<PlayerRow | null>(null);
-	const [matches, setMatches] = useState<MatchRow[]>([]);
-	const [isAdmin, setIsAdmin] = useState(false);
+	const [player, setPlayer] = useState<PlayersRow | null>(null);
+	const [matches, setMatches] = useState<MatchesRow[]>([]);
+	const [matchType, setMatchType] = useState<MatchType>("singles");
 	const [loading, setLoading] = useState(true);
 
 	/* ------------------------------------------------------------------
-	 * Load player + matches + admin status
+	 * Load player
 	 * ------------------------------------------------------------------ */
 	useEffect(() => {
-		const load = async () => {
-			setLoading(true);
-
-			// 1. Player by username (this was broken before in your app)
-			const { data: playerData } = await supabase
+		const loadPlayer = async () => {
+			const { data } = await supabase
 				.from("players")
 				.select("*")
 				.eq("player_name", username)
 				.single();
 
-			if (!playerData) {
+			if (!data) {
 				router.push("/");
 				return;
 			}
 
-			setPlayer(playerData as PlayerRow);
-
-			// 2. Matches involving this player (singles only for Elo graph)
-			const { data: matchData } = await supabase
-				.from("matches")
-				.select("*")
-				.eq("match_type", "singles")
-				.or(
-					`player_a1_id.eq.${playerData.id},player_b1_id.eq.${playerData.id}`
-				)
-				.order("match_number", { ascending: true });
-
-			setMatches((matchData ?? []) as MatchRow[]);
-
-			// 3. Admin check
-			const session = await supabase.auth.getSession();
-			if (session.data.session) {
-				const { data } = await supabase
-					.from("profiles")
-					.select("is_admin")
-					.eq("id", session.data.session.user.id)
-					.single();
-
-				setIsAdmin(Boolean(data?.is_admin));
-			}
-
-			setLoading(false);
+			setPlayer(data);
 		};
 
-		load();
+		loadPlayer();
 	}, [username, router]);
 
 	/* ------------------------------------------------------------------
-	 * Stats (merged ProfileStats)
+	 * Load matches (reacts to singles / doubles toggle)
+	 * ------------------------------------------------------------------ */
+	useEffect(() => {
+		if (!player) return;
+
+		const loadMatches = async () => {
+			setLoading(true);
+
+			const { data } = await supabase
+				.from("matches")
+				.select("*")
+				.eq("match_type", matchType)
+				.or(
+					`player_a1_id.eq.${player.id},player_a2_id.eq.${player.id},player_b1_id.eq.${player.id},player_b2_id.eq.${player.id}`
+				)
+				.order("match_number", { ascending: true });
+
+			setMatches((data ?? []) as MatchesRow[]);
+			setLoading(false);
+		};
+
+		loadMatches();
+	}, [player, matchType]);
+
+	/* ------------------------------------------------------------------
+	 * Stats (reacts to matchType)
 	 * ------------------------------------------------------------------ */
 	const stats = useMemo(() => {
 		if (!player) return { wins: 0, losses: 0, ratio: "0.00" };
@@ -117,8 +84,10 @@ export default function Profile() {
 		let losses = 0;
 
 		for (const m of matches) {
-			if (!m.winner1) continue;
-			if (m.winner1 === player.id) wins++;
+			const winners = [m.winner1, m.winner2].filter(Boolean);
+			if (!winners.length) continue;
+
+			if (winners.includes(player.id)) wins++;
 			else losses++;
 		}
 
@@ -130,16 +99,32 @@ export default function Profile() {
 	}, [matches, player]);
 
 	/* ------------------------------------------------------------------
-	 * Elo history (merged EloChart logic)
+	 * Elo history (reacts to matchType)
 	 * ------------------------------------------------------------------ */
 	const eloHistory = useMemo(() => {
 		if (!player) return [] as { match: number; elo: number }[];
 
 		return matches
 			.map((m) => {
-				const isA = m.player_a1_id === player.id;
-				const before = isA ? m.elo_before_a1 : m.elo_before_b1;
-				const change = isA ? m.elo_change_a : m.elo_change_b;
+				const isA1 = m.player_a1_id === player.id;
+				const isA2 = m.player_a2_id === player.id;
+
+				let before: number | null = null;
+				let change: number | null = null;
+
+				if (isA1) {
+					before = m.elo_before_a1;
+					change = m.elo_change_a;
+				} else if (isA2) {
+					before = m.elo_before_a2 ?? null;
+					change = m.elo_change_a;
+				} else if (m.player_b1_id === player.id) {
+					before = m.elo_before_b1;
+					change = m.elo_change_b;
+				} else if (m.player_b2_id === player.id) {
+					before = m.elo_before_b2 ?? null;
+					change = m.elo_change_b;
+				}
 
 				if (before == null || change == null) return null;
 
@@ -151,7 +136,7 @@ export default function Profile() {
 			.filter(Boolean) as { match: number; elo: number }[];
 	}, [matches, player]);
 
-	if (loading || !player) return null;
+	if (!player) return null;
 
 	/* ------------------------------------------------------------------
 	 * Render
@@ -163,14 +148,32 @@ export default function Profile() {
 				<h1 className="text-4xl font-extrabold">
 					{player.player_name}
 				</h1>
-				{isAdmin && (
-					<Link
-						href="/admin"
-						className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
-					>
-						Admin Dashboard
-					</Link>
-				)}
+				<button
+					className="px-4 py-2 rounded-xl border border-border text-sm"
+					onClick={() => alert("Report feature coming soon")}
+				>
+					Report Player
+				</button>
+			</section>
+
+			{/* MATCH TYPE TOGGLE */}
+			<section className="flex gap-4">
+				<button
+					onClick={() => setMatchType("singles")}
+					className={`px-4 py-2 rounded-lg ${
+						matchType === "singles" ? "font-semibold underline" : ""
+					}`}
+				>
+					Singles
+				</button>
+				<button
+					onClick={() => setMatchType("doubles")}
+					className={`px-4 py-2 rounded-lg ${
+						matchType === "doubles" ? "font-semibold underline" : ""
+					}`}
+				>
+					Doubles
+				</button>
 			</section>
 
 			{/* STATS */}
@@ -182,7 +185,10 @@ export default function Profile() {
 
 			{/* ELO CHART */}
 			<section className="bg-black/40 rounded-2xl p-6">
-				<h2 className="text-xl font-semibold mb-4">Elo Over Time</h2>
+				<h2 className="text-xl font-semibold mb-4">
+					{matchType === "singles" ? "Singles Elo" : "Doubles Elo"}{" "}
+					Over Time
+				</h2>
 
 				{eloHistory.length === 0 ? (
 					<p className="text-gray-400 text-sm">
@@ -226,7 +232,7 @@ export default function Profile() {
 }
 
 /* ------------------------------------------------------------------
- * Small local stat component
+ * Local stat tile
  * ------------------------------------------------------------------ */
 function Stat({ label, value }: { label: string; value: number | string }) {
 	return (
