@@ -11,12 +11,22 @@ type MatchRow = {
 	id: string;
 	created_at: string;
 	match_type: MatchType;
+
 	player_a1_id: string;
 	player_a2_id?: string | null;
 	player_b1_id: string;
 	player_b2_id?: string | null;
+
 	score_a: number;
 	score_b: number;
+
+	elo_before_a1: number;
+	elo_before_a2?: number | null;
+	elo_before_b1: number;
+	elo_before_b2?: number | null;
+
+	elo_change_a: number;
+	elo_change_b: number;
 };
 
 type PlayerRow = {
@@ -39,9 +49,7 @@ export default function Matches({
 }) {
 	const router = useRouter();
 
-	/* ---------------------------
-	 * State
-	 * --------------------------- */
+	/* -------------------- State -------------------- */
 	const [matches, setMatches] = useState<MatchRow[]>([]);
 	const [players, setPlayers] = useState<Map<string, string>>(new Map());
 	const [groups, setGroups] = useState<GroupRow[]>([]);
@@ -55,11 +63,7 @@ export default function Matches({
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
 
-	const groupMap = new Map(groups.map((g) => [g.id, g.group_name]));
-
-	/* ---------------------------
-	 * Load meta (players + groups + my group)
-	 * --------------------------- */
+	/* -------------------- Meta load -------------------- */
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: playerData }, { data: groupData }, session] =
@@ -95,9 +99,7 @@ export default function Matches({
 		loadMeta();
 	}, []);
 
-	/* ---------------------------
-	 * Load matches (Leaderboard-style)
-	 * --------------------------- */
+	/* -------------------- Load matches -------------------- */
 	const loadMatches = useCallback(
 		async (reset: boolean) => {
 			if (loading) return;
@@ -115,14 +117,12 @@ export default function Matches({
 					currentPage * PAGE_SIZE + PAGE_SIZE - 1
 				);
 
-			// Profile filter (stackable with everything else)
 			if (profilePlayerId) {
 				query = query.or(
 					`player_a1_id.eq.${profilePlayerId},player_a2_id.eq.${profilePlayerId},player_b1_id.eq.${profilePlayerId},player_b2_id.eq.${profilePlayerId}`
 				);
 			}
 
-			// Group filter
 			if (scope === "group" && groupId) {
 				const { data: groupPlayers } = await supabase
 					.from("players")
@@ -151,13 +151,12 @@ export default function Matches({
 		[loading, page, matchType, scope, groupId, profilePlayerId]
 	);
 
-	/* Reload on filter change */
 	useEffect(() => {
 		loadMatches(true);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [matchType, scope, groupId, profilePlayerId]);
 
-	/* Infinite scroll (same behavior as leaderboard) */
+	/* -------------------- Infinite scroll -------------------- */
 	useEffect(() => {
 		if (!hasMore || loading) return;
 
@@ -175,20 +174,22 @@ export default function Matches({
 		return () => window.removeEventListener("scroll", onScroll);
 	}, [hasMore, loading, loadMatches]);
 
-	/* ---------------------------
-	 * Render
-	 * --------------------------- */
+	/* -------------------- Helpers -------------------- */
+	const eloAfter = (before?: number | null, change?: number | null) =>
+		before != null && change != null ? before + change : null;
+
+	/* -------------------- Render -------------------- */
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* HEADER */}
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold">Matches</h1>
 				<p className="text-text-muted">
-					Match history with scores and participants
+					Match history with Elo changes
 				</p>
 			</section>
 
-			{/* CONTROLS (exact leaderboard layout + submit) */}
+			{/* CONTROLS (same as leaderboard) */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap justify-center gap-2">
 					<button
@@ -201,7 +202,6 @@ export default function Matches({
 					>
 						Singles
 					</button>
-
 					<button
 						onClick={() => setMatchType("doubles")}
 						className={`px-4 py-2 rounded-lg ${
@@ -212,7 +212,6 @@ export default function Matches({
 					>
 						Doubles
 					</button>
-
 					<Link href="/matches/submit">
 						<button className="px-4 py-2 rounded-lg">
 							Submit Match
@@ -260,15 +259,38 @@ export default function Matches({
 				</div>
 			</div>
 
-			{/* MATCH LIST */}
-			<section className="space-y-4">
+			{/* MATCH CARDS */}
+			<section className="space-y-3">
 				{matches.map((m) => {
-					const teamA = [m.player_a1_id, m.player_a2_id].filter(
-						Boolean
-					) as string[];
-					const teamB = [m.player_b1_id, m.player_b2_id].filter(
-						Boolean
-					) as string[];
+					const teamA = [
+						{
+							id: m.player_a1_id,
+							before: m.elo_before_a1,
+						},
+						m.player_a2_id && {
+							id: m.player_a2_id,
+							before: m.elo_before_a2,
+						},
+					].filter(Boolean) as {
+						id: string;
+						before?: number | null;
+					}[];
+
+					const teamB = [
+						{
+							id: m.player_b1_id,
+							before: m.elo_before_b1,
+						},
+						m.player_b2_id && {
+							id: m.player_b2_id,
+							before: m.elo_before_b2,
+						},
+					].filter(Boolean) as {
+						id: string;
+						before?: number | null;
+					}[];
+
+					const teamAWon = m.score_a > m.score_b;
 
 					return (
 						<div
@@ -277,26 +299,88 @@ export default function Matches({
 							className="bg-card p-4 rounded-xl hover-card cursor-pointer"
 						>
 							<div className="flex justify-between gap-6">
-								<div>
-									<div>
-										{teamA
-											.map((id) => players.get(id))
-											.join(" & ")}{" "}
-										<span className="font-bold">
-											{m.score_a}
-										</span>
+								{/* TEAMS */}
+								<div className="space-y-3 flex-1">
+									<div
+										className={`flex justify-between ${
+											teamAWon
+												? "font-semibold"
+												: "text-text-muted"
+										}`}
+									>
+										<div>
+											{teamA.map((p, i) => (
+												<span key={p.id}>
+													{players.get(p.id)}{" "}
+													<span className="text-sm text-text-subtle">
+														(
+														{eloAfter(
+															p.before,
+															m.elo_change_a
+														)}
+														)
+													</span>
+													{i === 0 &&
+														teamA.length > 1 &&
+														" & "}
+												</span>
+											))}
+										</div>
+
+										<div className="text-right">
+											<span className="text-lg font-bold">
+												{m.score_a}
+											</span>
+											<span className="ml-2 text-sm">
+												{m.elo_change_a >= 0 && "+"}
+												{m.elo_change_a}
+											</span>
+										</div>
 									</div>
-									<div>
-										{teamB
-											.map((id) => players.get(id))
-											.join(" & ")}{" "}
-										<span className="font-bold">
-											{m.score_b}
-										</span>
+
+									<div
+										className={`flex justify-between ${
+											!teamAWon
+												? "font-semibold"
+												: "text-text-muted"
+										}`}
+									>
+										<div>
+											{teamB.map((p, i) => (
+												<span key={p.id}>
+													{players.get(p.id)}{" "}
+													<span className="text-sm text-text-subtle">
+														(
+														{eloAfter(
+															p.before,
+															m.elo_change_b
+														)}
+														)
+													</span>
+													{i === 0 &&
+														teamB.length > 1 &&
+														" & "}
+												</span>
+											))}
+										</div>
+
+										<div className="text-right">
+											<span className="text-lg font-bold">
+												{m.score_b}
+											</span>
+											<span className="ml-2 text-sm">
+												{m.elo_change_b >= 0 && "+"}
+												{m.elo_change_b}
+											</span>
+										</div>
 									</div>
 								</div>
 
+								{/* META */}
 								<div className="text-sm text-text-muted text-right">
+									<div>
+										{teamAWon ? "Team A won" : "Team B won"}
+									</div>
 									<div>
 										{new Date(
 											m.created_at
