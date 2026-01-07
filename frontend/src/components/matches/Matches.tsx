@@ -183,7 +183,7 @@ export default function Matches({
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold">Matches</h1>
 				<p className="text-text-muted">
-					Match history with Elo changes
+					Match history with Elo changes.
 				</p>
 			</section>
 
