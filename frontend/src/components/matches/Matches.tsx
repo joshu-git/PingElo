@@ -206,7 +206,7 @@ export default function Matches({
 		<main
 			className={`${
 				profilePlayerId
-					? "space-y-3"
+					? "space-y-6"
 					: "max-w-5xl mx-auto px-4 py-16 space-y-12"
 			}`}
 		>
@@ -320,6 +320,7 @@ export default function Matches({
 					}[];
 
 					const playerWon = didPlayerWin(m);
+					const teamAWon = m.score_a > m.score_b;
 
 					const nameSizeClass =
 						matchType === "singles"
@@ -345,11 +346,9 @@ export default function Matches({
 										className={`flex justify-between items-center ${
 											profilePlayerId
 												? ""
-												: playerWon != null
-												? playerWon
-													? "text-emerald-400"
-													: "text-red-400"
-												: ""
+												: teamAWon
+												? "text-emerald-400"
+												: "text-red-400"
 										}`}
 									>
 										<div
@@ -402,11 +401,9 @@ export default function Matches({
 										className={`flex justify-between items-center ${
 											profilePlayerId
 												? ""
-												: playerWon != null
-												? !playerWon
-													? "text-emerald-400"
-													: "text-red-400"
-												: ""
+												: !teamAWon
+												? "text-emerald-400"
+												: "text-red-400"
 										}`}
 									>
 										<div
@@ -457,6 +454,16 @@ export default function Matches({
 
 								{/* META */}
 								<div className="text-sm text-text-muted text-right shrink-0">
+									{profilePlayerId && playerWon != null && (
+										<div>{playerWon ? "Win" : "Loss"}</div>
+									)}
+									{!profilePlayerId && (
+										<div>
+											{teamAWon
+												? "Team A won"
+												: "Team B won"}
+										</div>
+									)}
 									<div>
 										{new Date(
 											m.created_at
