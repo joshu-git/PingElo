@@ -150,7 +150,6 @@ export default function Matches({
 
 	/* -------------------- Effect: load matches safely -------------------- */
 	useEffect(() => {
-		// Wrap in async function to avoid calling setState synchronously in body
 		const fetch = async () => {
 			await loadMatches(true);
 		};
@@ -179,10 +178,8 @@ export default function Matches({
 	const eloAfter = (
 		before?: number | null,
 		change?: number | null
-	): number | null => {
-		if (before == null || change == null) return null;
-		return before + change;
-	};
+	): number | null =>
+		before != null && change != null ? before + change : null;
 
 	const didPlayerWin = (m: MatchRow): boolean | null => {
 		if (!profilePlayerId) return null;
@@ -336,8 +333,8 @@ export default function Matches({
 										className={`flex justify-between items-center ${
 											profilePlayerId && playerWon != null
 												? playerWon
-													? "font-semibold"
-													: ""
+													? "text-emerald-400"
+													: "text-red-400"
 												: ""
 										}`}
 									>
@@ -374,9 +371,14 @@ export default function Matches({
 												</span>
 											))}
 										</div>
+
 										<div className="flex items-center gap-2 shrink-0">
-											<span className="text-sm text-text-muted">
+											<span className="text-lg font-bold">
 												{m.score_a}
+											</span>
+											<span className="text-sm text-text-muted">
+												{m.elo_change_a >= 0 && "+"}
+												{m.elo_change_a}
 											</span>
 										</div>
 									</div>
@@ -386,8 +388,8 @@ export default function Matches({
 										className={`flex justify-between items-center ${
 											profilePlayerId && playerWon != null
 												? !playerWon
-													? "font-semibold"
-													: ""
+													? "text-emerald-400"
+													: "text-red-400"
 												: ""
 										}`}
 									>
@@ -424,9 +426,14 @@ export default function Matches({
 												</span>
 											))}
 										</div>
+
 										<div className="flex items-center gap-2 shrink-0">
-											<span className="text-sm text-text-muted">
+											<span className="text-lg font-bold">
 												{m.score_b}
+											</span>
+											<span className="text-sm text-text-muted">
+												{m.elo_change_b >= 0 && "+"}
+												{m.elo_change_b}
 											</span>
 										</div>
 									</div>
