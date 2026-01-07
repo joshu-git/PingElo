@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -46,8 +46,10 @@ const PAGE_SIZE = 50;
 
 export default function Matches({
 	profilePlayerId,
+	initialMatchType = "singles",
 }: {
 	profilePlayerId?: string;
+	initialMatchType?: MatchType;
 }) {
 	const router = useRouter();
 
@@ -55,7 +57,7 @@ export default function Matches({
 	const [players, setPlayers] = useState<Map<string, PlayerRow>>(new Map());
 	const [groups, setGroups] = useState<GroupRow[]>([]);
 
-	const [matchType, setMatchType] = useState<MatchType>("singles");
+	const [matchType, setMatchType] = useState<MatchType>(initialMatchType);
 	const [scope, setScope] = useState<"global" | "group">("global");
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
@@ -63,6 +65,8 @@ export default function Matches({
 	const [page, setPage] = useState(0);
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
+
+	const loadingRef = useRef(false);
 
 	/* -------------------- Load meta -------------------- */
 	useEffect(() => {
@@ -99,7 +103,8 @@ export default function Matches({
 	/* -------------------- Load matches -------------------- */
 	const loadMatches = useCallback(
 		async (reset: boolean) => {
-			if (loading) return;
+			if (loadingRef.current) return;
+			loadingRef.current = true;
 			setLoading(true);
 
 			const currentPage = reset ? 0 : page;
@@ -142,10 +147,12 @@ export default function Matches({
 			setMatches((prev) => (reset ? rows : [...prev, ...rows]));
 			setHasMore(rows.length === PAGE_SIZE);
 			if (reset) setPage(1);
+			else setPage((p) => p + 1);
 
+			loadingRef.current = false;
 			setLoading(false);
 		},
-		[loading, page, matchType, scope, groupId, profilePlayerId]
+		[page, matchType, scope, groupId, profilePlayerId]
 	);
 
 	/* -------------------- Effect: load matches safely -------------------- */
@@ -158,21 +165,20 @@ export default function Matches({
 
 	/* -------------------- Infinite scroll -------------------- */
 	useEffect(() => {
-		if (!hasMore || loading) return;
-
 		const onScroll = () => {
 			if (
-				window.innerHeight + window.scrollY >=
-				document.body.offsetHeight - 300
-			) {
-				loadMatches(false);
-				setPage((p) => p + 1);
-			}
+				loadingRef.current ||
+				!hasMore ||
+				window.innerHeight + window.scrollY <
+					document.body.offsetHeight - 300
+			)
+				return;
+			loadMatches(false);
 		};
 
 		window.addEventListener("scroll", onScroll);
 		return () => window.removeEventListener("scroll", onScroll);
-	}, [hasMore, loading, loadMatches]);
+	}, [hasMore, loadMatches]);
 
 	/* -------------------- Helpers -------------------- */
 	const eloAfter = (
@@ -197,7 +203,13 @@ export default function Matches({
 
 	/* -------------------- Render -------------------- */
 	return (
-		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+		<main
+			className={`${
+				profilePlayerId
+					? "space-y-3"
+					: "max-w-5xl mx-auto px-4 py-16 space-y-12"
+			}`}
+		>
 			{/* HEADER only on standalone page */}
 			{!profilePlayerId && (
 				<section className="text-center space-y-4">
@@ -213,7 +225,6 @@ export default function Matches({
 			{/* CONTROLS only on standalone page */}
 			{!profilePlayerId && (
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-					{/* Match type + Submit */}
 					<div className="flex flex-wrap justify-center gap-2">
 						<button
 							onClick={() => setMatchType("singles")}
@@ -242,7 +253,6 @@ export default function Matches({
 						</Link>
 					</div>
 
-					{/* Scope */}
 					<div className="flex flex-wrap justify-center gap-2">
 						<select
 							value={groupId ?? ""}
@@ -285,7 +295,7 @@ export default function Matches({
 			)}
 
 			{/* MATCH CARDS */}
-			<section className="space-y-3">
+			<section className={`space-y-3`}>
 				{matches.map((m) => {
 					const teamA = [
 						{ id: m.player_a1_id, before: m.elo_before_a1 },
@@ -324,14 +334,18 @@ export default function Matches({
 						<div
 							key={m.id}
 							onClick={() => router.push(`/match/${m.id}`)}
-							className="bg-card p-4 rounded-xl hover-card cursor-pointer"
+							className={`bg-card p-4 rounded-xl hover-card cursor-pointer ${
+								profilePlayerId ? "" : "max-w-5xl mx-auto"
+							}`}
 						>
 							<div className="flex justify-between gap-6">
 								<div className="flex-1 space-y-3">
 									{/* TEAM A */}
 									<div
 										className={`flex justify-between items-center ${
-											profilePlayerId && playerWon != null
+											profilePlayerId
+												? ""
+												: playerWon != null
 												? playerWon
 													? "text-emerald-400"
 													: "text-red-400"
@@ -373,12 +387,10 @@ export default function Matches({
 										</div>
 
 										<div className="flex items-center gap-2 shrink-0">
-											{/* ELO change first */}
 											<span className="text-sm text-text-muted">
 												{m.elo_change_a >= 0 && "+"}
 												{m.elo_change_a}
 											</span>
-											{/* Score after */}
 											<span className="text-lg font-bold">
 												{m.score_a}
 											</span>
@@ -388,7 +400,9 @@ export default function Matches({
 									{/* TEAM B */}
 									<div
 										className={`flex justify-between items-center ${
-											profilePlayerId && playerWon != null
+											profilePlayerId
+												? ""
+												: playerWon != null
 												? !playerWon
 													? "text-emerald-400"
 													: "text-red-400"
@@ -430,12 +444,10 @@ export default function Matches({
 										</div>
 
 										<div className="flex items-center gap-2 shrink-0">
-											{/* ELO change first */}
 											<span className="text-sm text-text-muted">
 												{m.elo_change_b >= 0 && "+"}
 												{m.elo_change_b}
 											</span>
-											{/* Score after */}
 											<span className="text-lg font-bold">
 												{m.score_b}
 											</span>
@@ -445,16 +457,6 @@ export default function Matches({
 
 								{/* META */}
 								<div className="text-sm text-text-muted text-right shrink-0">
-									{profilePlayerId && playerWon != null && (
-										<div>{playerWon ? "Win" : "Loss"}</div>
-									)}
-									{!profilePlayerId && (
-										<div>
-											{m.score_a > m.score_b
-												? "Team A won"
-												: "Team B won"}
-										</div>
-									)}
 									<div>
 										{new Date(
 											m.created_at
