@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 /* =====================
@@ -304,6 +305,16 @@ export default function SubmitMatch() {
 						>
 							Doubles
 						</button>
+
+						{/* Back to Matches */}
+						<Link href="/matches">
+							<button
+								type="button"
+								className="px-4 py-2 rounded-lg text-text-muted hover:text-text"
+							>
+								← Matches
+							</button>
+						</Link>
 					</div>
 
 					{/* Tournament */}
