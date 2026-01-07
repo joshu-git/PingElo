@@ -314,7 +314,7 @@ export default function Matches({
 					return (
 						<div
 							key={m.id}
-							onClick={() => router.push(`/matches/${m.id}`)}
+							onClick={() => router.push(`/match/${m.id}`)}
 							className="bg-card p-4 rounded-xl hover-card cursor-pointer"
 						>
 							<div className="flex justify-between gap-6">
