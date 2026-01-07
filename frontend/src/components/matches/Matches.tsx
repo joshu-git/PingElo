@@ -27,12 +27,13 @@ type MatchRow = {
 
 	elo_change_a: number;
 	elo_change_b: number;
+
+	tournament_id?: string | null;
 };
 
 type PlayerRow = {
 	id: string;
 	player_name: string;
-	group_id?: string | null;
 };
 
 type GroupRow = {
@@ -51,7 +52,7 @@ export default function Matches({
 
 	/* -------------------- State -------------------- */
 	const [matches, setMatches] = useState<MatchRow[]>([]);
-	const [players, setPlayers] = useState<Map<string, string>>(new Map());
+	const [players, setPlayers] = useState<Map<string, PlayerRow>>(new Map());
 	const [groups, setGroups] = useState<GroupRow[]>([]);
 
 	const [matchType, setMatchType] = useState<MatchType>("singles");
@@ -68,32 +69,28 @@ export default function Matches({
 		const loadMeta = async () => {
 			const [{ data: playerData }, { data: groupData }, session] =
 				await Promise.all([
-					supabase
-						.from("players")
-						.select("id, player_name, group_id"),
+					supabase.from("players").select("id, player_name"),
 					supabase.from("groups").select("*").order("group_name"),
 					supabase.auth.getSession(),
 				]);
 
 			if (playerData) {
 				setPlayers(
-					new Map(
-						(playerData as PlayerRow[]).map((p) => [
-							p.id,
-							p.player_name,
-						])
-					)
+					new Map((playerData as PlayerRow[]).map((p) => [p.id, p]))
 				);
-
-				if (session.data.session) {
-					const me = (playerData as PlayerRow[]).find(
-						(p) => p.id === session.data.session!.user.id
-					);
-					if (me?.group_id) setMyGroupId(me.group_id);
-				}
 			}
 
 			if (groupData) setGroups(groupData as GroupRow[]);
+
+			if (session.data.session) {
+				const { data: me } = await supabase
+					.from("players")
+					.select("group_id")
+					.eq("account_id", session.data.session.user.id)
+					.maybeSingle();
+
+				if (me?.group_id) setMyGroupId(me.group_id);
+			}
 		};
 
 		loadMeta();
@@ -189,7 +186,7 @@ export default function Matches({
 				</p>
 			</section>
 
-			{/* CONTROLS (same as leaderboard) */}
+			{/* CONTROLS */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap justify-center gap-2">
 					<button
@@ -262,11 +259,10 @@ export default function Matches({
 			{/* MATCH CARDS */}
 			<section className="space-y-3">
 				{matches.map((m) => {
+					const teamAWon = m.score_a > m.score_b;
+
 					const teamA = [
-						{
-							id: m.player_a1_id,
-							before: m.elo_before_a1,
-						},
+						{ id: m.player_a1_id, before: m.elo_before_a1 },
 						m.player_a2_id && {
 							id: m.player_a2_id,
 							before: m.elo_before_a2,
@@ -277,10 +273,7 @@ export default function Matches({
 					}[];
 
 					const teamB = [
-						{
-							id: m.player_b1_id,
-							before: m.elo_before_b1,
-						},
+						{ id: m.player_b1_id, before: m.elo_before_b1 },
 						m.player_b2_id && {
 							id: m.player_b2_id,
 							before: m.elo_before_b2,
@@ -290,7 +283,19 @@ export default function Matches({
 						before?: number | null;
 					}[];
 
-					const teamAWon = m.score_a > m.score_b;
+					const accentA =
+						profilePlayerId && teamAWon
+							? "text-emerald-400"
+							: profilePlayerId
+							? "text-red-400"
+							: "";
+
+					const accentB =
+						profilePlayerId && !teamAWon
+							? "text-emerald-400"
+							: profilePlayerId
+							? "text-red-400"
+							: "";
 
 					return (
 						<div
@@ -299,19 +304,29 @@ export default function Matches({
 							className="bg-card p-4 rounded-xl hover-card cursor-pointer"
 						>
 							<div className="flex justify-between gap-6">
-								{/* TEAMS */}
-								<div className="space-y-3 flex-1">
+								<div className="flex-1 space-y-3">
+									{/* TEAM A */}
 									<div
-										className={`flex justify-between ${
-											teamAWon
-												? "font-semibold"
-												: "text-text-muted"
-										}`}
+										className={`flex justify-between ${accentA}`}
 									>
-										<div>
+										<div className="flex gap-1 max-w-[60%] sm:max-w-[70%] truncate">
 											{teamA.map((p, i) => (
-												<span key={p.id}>
-													{players.get(p.id)}{" "}
+												<span
+													key={p.id}
+													className="truncate"
+												>
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name
+														}`}
+														className="hover:underline truncate"
+													>
+														{
+															players.get(p.id)
+																?.player_name
+														}
+													</Link>{" "}
 													<span className="text-sm text-text-subtle">
 														(
 														{eloAfter(
@@ -326,29 +341,39 @@ export default function Matches({
 												</span>
 											))}
 										</div>
-
-										<div className="text-right">
-											<span className="text-lg font-bold">
-												{m.score_a}
-											</span>
-											<span className="ml-2 text-sm">
+										<div className="flex items-center gap-2 shrink-0">
+											<span className="text-sm text-text-muted">
 												{m.elo_change_a >= 0 && "+"}
 												{m.elo_change_a}
+											</span>
+											<span className="text-lg font-bold">
+												{m.score_a}
 											</span>
 										</div>
 									</div>
 
+									{/* TEAM B */}
 									<div
-										className={`flex justify-between ${
-											!teamAWon
-												? "font-semibold"
-												: "text-text-muted"
-										}`}
+										className={`flex justify-between ${accentB}`}
 									>
-										<div>
+										<div className="flex gap-1 max-w-[60%] sm:max-w-[70%] truncate">
 											{teamB.map((p, i) => (
-												<span key={p.id}>
-													{players.get(p.id)}{" "}
+												<span
+													key={p.id}
+													className="truncate"
+												>
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name
+														}`}
+														className="hover:underline truncate"
+													>
+														{
+															players.get(p.id)
+																?.player_name
+														}
+													</Link>{" "}
 													<span className="text-sm text-text-subtle">
 														(
 														{eloAfter(
@@ -363,21 +388,20 @@ export default function Matches({
 												</span>
 											))}
 										</div>
-
-										<div className="text-right">
-											<span className="text-lg font-bold">
-												{m.score_b}
-											</span>
-											<span className="ml-2 text-sm">
+										<div className="flex items-center gap-2 shrink-0">
+											<span className="text-sm text-text-muted">
 												{m.elo_change_b >= 0 && "+"}
 												{m.elo_change_b}
+											</span>
+											<span className="text-lg font-bold">
+												{m.score_b}
 											</span>
 										</div>
 									</div>
 								</div>
 
 								{/* META */}
-								<div className="text-sm text-text-muted text-right">
+								<div className="text-sm text-text-muted text-right shrink-0">
 									<div>
 										{teamAWon ? "Team A won" : "Team B won"}
 									</div>
@@ -386,6 +410,11 @@ export default function Matches({
 											m.created_at
 										).toLocaleDateString()}
 									</div>
+									{m.tournament_id && (
+										<div className="inline-block mt-1 px-2 py-0.5 text-xs rounded-md bg-border text-text-muted">
+											Tournament
+										</div>
+									)}
 								</div>
 							</div>
 						</div>
