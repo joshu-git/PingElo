@@ -314,7 +314,7 @@ export default function SubmitMatch() {
 							setTournamentId(e.target.value || null)
 						}
 					>
-						<option value="">Casual match</option>
+						<option value="">Casual Match</option>
 						{tournaments.map((t) => (
 							<option key={t.id} value={t.id}>
 								{t.tournament_name}
