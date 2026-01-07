@@ -23,7 +23,7 @@ export default function Profile() {
 	const [groupName, setGroupName] = useState<string | null>(null);
 	const [matches, setMatches] = useState<MatchesRow[]>([]);
 	const [matchType, setMatchType] = useState<MatchType>("singles");
-	const [range, setRange] = useState<number | null>(null);
+	const [range, setRange] = useState<number | null>(null); // days: 7, 30, null for all
 
 	/* ---------- Load player ---------- */
 	useEffect(() => {
@@ -38,7 +38,6 @@ export default function Profile() {
 				router.push("/");
 				return;
 			}
-
 			setPlayer(data);
 		};
 		loadPlayer();
@@ -47,14 +46,12 @@ export default function Profile() {
 	/* ---------- Load group ---------- */
 	useEffect(() => {
 		if (!player?.group_id) return;
-
 		const loadGroup = async () => {
 			const { data } = await supabase
 				.from("groups")
 				.select("group_name")
 				.eq("id", player.group_id)
 				.single();
-
 			setGroupName(data?.group_name ?? null);
 		};
 		loadGroup();
@@ -78,15 +75,23 @@ export default function Profile() {
 		loadMatches();
 	}, [player]);
 
-	/* ---------- Filtered matches by match type ---------- */
+	/* ---------- Filtered matches by type and range ---------- */
 	const filteredMatches = useMemo(() => {
-		return matches.filter((m) => m.match_type === matchType);
-	}, [matches, matchType]);
+		if (!matches) return [];
+		let m = matches.filter((m) => m.match_type === matchType);
+
+		if (range != null) {
+			const cutoff = new Date();
+			cutoff.setDate(cutoff.getDate() - range);
+			m = m.filter((match) => new Date(match.created_at) >= cutoff);
+		}
+
+		return m;
+	}, [matches, matchType, range]);
 
 	/* ---------- Stats ---------- */
 	const stats = useMemo(() => {
 		if (!player) return { wins: 0, losses: 0, rate: 0 };
-
 		let wins = 0;
 		let losses = 0;
 
@@ -107,39 +112,78 @@ export default function Profile() {
 		};
 	}, [filteredMatches, player]);
 
-	/* ---------- Elo chart per match ---------- */
-	const eloHistory = useMemo(() => {
-		if (!player) return [];
+	/* ---------- Elo history per match with fixed day spacing ---------- */
+	const chartData = useMemo(() => {
+		if (!filteredMatches.length) return [];
 
-		return filteredMatches.map((m) => {
-			let elo: number | null = null;
+		// group matches by date (YYYY-MM-DD)
+		const matchesByDay: Record<string, MatchesRow[]> = {};
+		const minDate = new Date(filteredMatches[0].created_at);
+		const maxDate = new Date(
+			filteredMatches[filteredMatches.length - 1].created_at
+		);
 
-			if (m.player_a1_id === player.id)
-				elo = m.elo_before_a1 + m.elo_change_a;
-			else if (m.player_a2_id === player.id)
-				elo = (m.elo_before_a2 ?? 0) + m.elo_change_a;
-			else if (m.player_b1_id === player.id)
-				elo = m.elo_before_b1 + m.elo_change_b;
-			else if (m.player_b2_id === player.id)
-				elo = (m.elo_before_b2 ?? 0) + m.elo_change_b;
-
-			return {
-				date: new Date(m.created_at).toLocaleDateString("en-US", {
-					month: "2-digit",
-					day: "2-digit",
-				}),
-				elo,
-			};
+		filteredMatches.forEach((m) => {
+			const day = new Date(m.created_at).toISOString().slice(0, 10);
+			if (!matchesByDay[day]) matchesByDay[day] = [];
+			matchesByDay[day].push(m);
 		});
+
+		// generate all days in range
+		const dayArray: string[] = [];
+		const d = new Date(minDate);
+		while (d <= maxDate) {
+			dayArray.push(d.toISOString().slice(0, 10));
+			d.setDate(d.getDate() + 1);
+		}
+
+		const data: { x: number; date: string; elo: number }[] = [];
+		dayArray.forEach((day, dayIndex) => {
+			const dayMatches = matchesByDay[day] ?? [];
+			dayMatches.forEach((match, i) => {
+				let elo: number | null = null;
+				if (match.player_a1_id === player?.id)
+					elo = match.elo_before_a1 + match.elo_change_a;
+				else if (match.player_a2_id === player?.id)
+					elo = (match.elo_before_a2 ?? 0) + match.elo_change_a;
+				else if (match.player_b1_id === player?.id)
+					elo = match.elo_before_b1 + match.elo_change_b;
+				else if (match.player_b2_id === player?.id)
+					elo = (match.elo_before_b2 ?? 0) + match.elo_change_b;
+
+				if (elo == null) return;
+
+				const x = dayIndex + (i + 1) / (dayMatches.length + 1); // evenly space within day
+				data.push({ x, date: day, elo });
+			});
+		});
+
+		return data;
 	}, [filteredMatches, player]);
 
 	const yDomain = useMemo(() => {
-		if (!eloHistory.length) return [0, 2500];
-		const elos = eloHistory.map((e) => e.elo ?? 0);
+		if (!chartData.length) return [0, 2500];
+		const elos = chartData.map((d) => d.elo);
 		const min = Math.min(...elos);
 		const max = Math.max(...elos);
 		return [Math.max(0, min - 50), max + 50];
-	}, [eloHistory]);
+	}, [chartData]);
+
+	const xTicks = useMemo(() => {
+		// get unique day indices for x axis
+		const daysSet = new Set(chartData.map((d) => Math.floor(d.x)));
+		return Array.from(daysSet);
+	}, [chartData]);
+
+	const xTickFormatter = (x: number) => {
+		const day = chartData.find((d) => Math.floor(d.x) === x);
+		return day
+			? new Date(day.date).toLocaleDateString("en-US", {
+					month: "2-digit",
+					day: "2-digit",
+			  })
+			: "";
+	};
 
 	if (!player) return null;
 
@@ -206,7 +250,7 @@ export default function Profile() {
 			</div>
 
 			{/* STATS */}
-			<section className="grid grid-cols-3 gap-4">
+			<section className="grid grid-cols-3 gap-4 text-center">
 				<Stat label="Wins" value={stats.wins} />
 				<Stat label="Losses" value={stats.losses} />
 				<Stat label="Win Rate" value={`${stats.rate}%`} />
@@ -214,20 +258,27 @@ export default function Profile() {
 
 			{/* ELO CHART */}
 			<section>
-				<ResponsiveContainer width="100%" height={260}>
+				<ResponsiveContainer width="100%" height={280}>
 					<LineChart
-						data={eloHistory}
-						margin={{ top: 10, right: 0, bottom: 20, left: 0 }}
+						data={chartData}
+						margin={{ top: 10, right: 10, bottom: 30, left: 0 }}
 					>
 						<XAxis
-							dataKey="date"
-							tick={{ fontSize: 12, fill: "#aaa" }}
-							height={30}
+							dataKey="x"
+							type="number"
+							tickFormatter={xTickFormatter}
+							ticks={xTicks}
+							tick={{ fill: "#aaa", fontSize: 12 }}
+							axisLine={{ stroke: "#444" }}
+							tickLine={{ stroke: "#444" }}
 						/>
 						<YAxis
+							dataKey="elo"
 							domain={yDomain}
-							tick={{ fontSize: 12, fill: "#aaa" }}
+							tick={{ fill: "#aaa", fontSize: 12 }}
 							width={50}
+							axisLine={{ stroke: "#444" }}
+							tickLine={{ stroke: "#444" }}
 						/>
 						<Tooltip
 							content={({ payload }) =>
@@ -250,6 +301,7 @@ export default function Profile() {
 							stroke="#4f46e5"
 							strokeWidth={2}
 							dot={false}
+							activeDot={{ r: 4 }}
 						/>
 					</LineChart>
 				</ResponsiveContainer>
