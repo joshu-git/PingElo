@@ -373,12 +373,14 @@ export default function Matches({
 										</div>
 
 										<div className="flex items-center gap-2 shrink-0">
-											<span className="text-lg font-bold">
-												{m.score_a}
-											</span>
+											{/* ELO change first */}
 											<span className="text-sm text-text-muted">
 												{m.elo_change_a >= 0 && "+"}
 												{m.elo_change_a}
+											</span>
+											{/* Score after */}
+											<span className="text-lg font-bold">
+												{m.score_a}
 											</span>
 										</div>
 									</div>
@@ -428,12 +430,14 @@ export default function Matches({
 										</div>
 
 										<div className="flex items-center gap-2 shrink-0">
-											<span className="text-lg font-bold">
-												{m.score_b}
-											</span>
+											{/* ELO change first */}
 											<span className="text-sm text-text-muted">
 												{m.elo_change_b >= 0 && "+"}
 												{m.elo_change_b}
+											</span>
+											{/* Score after */}
+											<span className="text-lg font-bold">
+												{m.score_b}
 											</span>
 										</div>
 									</div>
