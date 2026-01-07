@@ -312,7 +312,7 @@ export default function SubmitMatch() {
 								type="button"
 								className="px-4 py-2 rounded-lg text-text-muted hover:text-text"
 							>
-								← Matches
+								Matches
 							</button>
 						</Link>
 					</div>
