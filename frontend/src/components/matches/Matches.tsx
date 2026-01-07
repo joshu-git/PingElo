@@ -34,40 +34,69 @@ type MatchRow = {
 type PlayerRow = {
 	id: string;
 	player_name: string;
+	group_id?: string | null;
+};
+
+type GroupRow = {
+	id: string;
+	group_name: string;
 };
 
 const PAGE_SIZE = 30;
 
 export default function Matches({
 	profilePlayerId,
-	matchType,
-	onMatchTypeChange,
 }: {
 	profilePlayerId?: string;
-	matchType: MatchType;
-	onMatchTypeChange?: (t: MatchType) => void;
 }) {
 	const router = useRouter();
 
 	const [matches, setMatches] = useState<MatchRow[]>([]);
 	const [players, setPlayers] = useState<Map<string, PlayerRow>>(new Map());
+	const [groups, setGroups] = useState<GroupRow[]>([]);
+
+	const [matchType, setMatchType] = useState<MatchType>("singles");
+	const [scope, setScope] = useState<"global" | "group">("global");
+	const [groupId, setGroupId] = useState<string | null>(null);
+	const [myGroupId, setMyGroupId] = useState<string | null>(null);
+
 	const [page, setPage] = useState(0);
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
 
-	/* ---------- Load players ---------- */
+	/* -------------------- Load meta -------------------- */
 	useEffect(() => {
-		supabase
-			.from("players")
-			.select("id, player_name")
-			.then(({ data }) => {
-				if (data) {
-					setPlayers(new Map(data.map((p: PlayerRow) => [p.id, p])));
-				}
-			});
+		const loadMeta = async () => {
+			const [{ data: playerData }, { data: groupData }, session] =
+				await Promise.all([
+					supabase.from("players").select("id, player_name"),
+					supabase.from("groups").select("*").order("group_name"),
+					supabase.auth.getSession(),
+				]);
+
+			if (playerData) {
+				setPlayers(
+					new Map((playerData as PlayerRow[]).map((p) => [p.id, p]))
+				);
+			}
+
+			if (groupData) setGroups(groupData as GroupRow[]);
+
+			if (session.data.session) {
+				const { data: me } = await supabase
+					.from("players")
+					.select("group_id")
+					.eq("account_id", session.data.session.user.id)
+					.maybeSingle();
+
+				if (me?.group_id) setMyGroupId(me.group_id);
+			}
+		};
+
+		loadMeta();
 	}, []);
 
-	/* ---------- Load matches ---------- */
+	/* -------------------- Load matches -------------------- */
 	const loadMatches = useCallback(
 		async (reset: boolean) => {
 			if (loading) return;
@@ -91,6 +120,22 @@ export default function Matches({
 				);
 			}
 
+			if (scope === "group" && groupId) {
+				const { data: groupPlayers } = await supabase
+					.from("players")
+					.select("id")
+					.eq("group_id", groupId);
+
+				const ids = (groupPlayers ?? []).map((p) => p.id);
+				if (ids.length) {
+					query = query.or(
+						`player_a1_id.in.(${ids.join(
+							","
+						)}),player_b1_id.in.(${ids.join(",")})`
+					);
+				}
+			}
+
 			const { data } = await query;
 			const rows = (data ?? []) as MatchRow[];
 
@@ -100,15 +145,19 @@ export default function Matches({
 
 			setLoading(false);
 		},
-		[loading, page, matchType, profilePlayerId]
+		[loading, page, matchType, scope, groupId, profilePlayerId]
 	);
 
+	/* -------------------- Effect: load matches safely -------------------- */
 	useEffect(() => {
-		loadMatches(true);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [matchType, profilePlayerId]);
+		// Wrap in async function to avoid calling setState synchronously in body
+		const fetch = async () => {
+			await loadMatches(true);
+		};
+		fetch();
+	}, [matchType, scope, groupId, profilePlayerId, loadMatches]);
 
-	/* ---------- Infinite scroll ---------- */
+	/* -------------------- Infinite scroll -------------------- */
 	useEffect(() => {
 		if (!hasMore || loading) return;
 
@@ -126,52 +175,153 @@ export default function Matches({
 		return () => window.removeEventListener("scroll", onScroll);
 	}, [hasMore, loading, loadMatches]);
 
-	const eloAfter = (before?: number | null, change?: number | null) =>
-		before != null && change != null ? before + change : null;
+	/* -------------------- Helpers -------------------- */
+	const eloAfter = (
+		before?: number | null,
+		change?: number | null
+	): number | null => {
+		if (before == null || change == null) return null;
+		return before + change;
+	};
 
+	const didPlayerWin = (m: MatchRow): boolean | null => {
+		if (!profilePlayerId) return null;
+		const teamAWon = m.score_a > m.score_b;
+		const isOnTeamA = [m.player_a1_id, m.player_a2_id].includes(
+			profilePlayerId
+		);
+		const isOnTeamB = [m.player_b1_id, m.player_b2_id].includes(
+			profilePlayerId
+		);
+		if (isOnTeamA) return teamAWon;
+		if (isOnTeamB) return !teamAWon;
+		return null;
+	};
+
+	/* -------------------- Render -------------------- */
 	return (
-		<section className="space-y-6">
-			{/* Match type toggle (only when allowed) */}
-			{onMatchTypeChange && (
-				<div className="flex justify-center gap-2">
-					{(["singles", "doubles"] as MatchType[]).map((t) => (
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			{/* HEADER only on standalone page */}
+			{!profilePlayerId && (
+				<section className="text-center space-y-4">
+					<h1 className="text-4xl md:text-5xl font-extrabold">
+						Matches
+					</h1>
+					<p className="text-text-muted">
+						Match history with Elo changes.
+					</p>
+				</section>
+			)}
+
+			{/* CONTROLS only on standalone page */}
+			{!profilePlayerId && (
+				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+					{/* Match type + Submit */}
+					<div className="flex flex-wrap justify-center gap-2">
 						<button
-							key={t}
-							onClick={() => onMatchTypeChange(t)}
+							onClick={() => setMatchType("singles")}
 							className={`px-4 py-2 rounded-lg ${
-								matchType === t ? "font-semibold underline" : ""
+								matchType === "singles"
+									? "font-semibold underline"
+									: ""
 							}`}
 						>
-							{t === "singles" ? "Singles" : "Doubles"}
+							Singles
 						</button>
-					))}
+						<button
+							onClick={() => setMatchType("doubles")}
+							className={`px-4 py-2 rounded-lg ${
+								matchType === "doubles"
+									? "font-semibold underline"
+									: ""
+							}`}
+						>
+							Doubles
+						</button>
+						<Link href="/matches/submit">
+							<button className="px-4 py-2 rounded-lg">
+								Submit Match
+							</button>
+						</Link>
+					</div>
+
+					{/* Scope */}
+					<div className="flex flex-wrap justify-center gap-2">
+						<select
+							value={groupId ?? ""}
+							onChange={(e) => {
+								setScope("group");
+								setGroupId(e.target.value || null);
+							}}
+							className="px-4 py-2 rounded-lg border border-border bg-transparent"
+						>
+							<option value="">Select Group</option>
+							{groups.map((g) => (
+								<option key={g.id} value={g.id}>
+									{g.group_name}
+								</option>
+							))}
+						</select>
+
+						<button
+							disabled={!myGroupId}
+							onClick={() => {
+								setScope("group");
+								setGroupId(myGroupId);
+							}}
+							className="px-4 py-2 rounded-lg disabled:opacity-50"
+						>
+							My Group
+						</button>
+
+						<button
+							onClick={() => {
+								setScope("global");
+								setGroupId(null);
+							}}
+							className="px-4 py-2 rounded-lg"
+						>
+							Global
+						</button>
+					</div>
 				</div>
 			)}
 
-			{/* Matches */}
-			<div className="space-y-3">
+			{/* MATCH CARDS */}
+			<section className="space-y-3">
 				{matches.map((m) => {
-					const teamAWon = m.score_a > m.score_b;
+					const teamA = [
+						{ id: m.player_a1_id, before: m.elo_before_a1 },
+						m.player_a2_id && {
+							id: m.player_a2_id,
+							before: m.elo_before_a2,
+						},
+					].filter(Boolean) as {
+						id: string;
+						before?: number | null;
+					}[];
 
-					const isProfileOnA =
-						profilePlayerId &&
-						[m.player_a1_id, m.player_a2_id].includes(
-							profilePlayerId
-						);
+					const teamB = [
+						{ id: m.player_b1_id, before: m.elo_before_b1 },
+						m.player_b2_id && {
+							id: m.player_b2_id,
+							before: m.elo_before_b2,
+						},
+					].filter(Boolean) as {
+						id: string;
+						before?: number | null;
+					}[];
 
-					const profileWon =
-						profilePlayerId &&
-						(isProfileOnA ? teamAWon : !teamAWon);
+					const playerWon = didPlayerWin(m);
 
-					const Badge = profileWon ? (
-						<span className="px-2 py-0.5 text-xs rounded-md bg-border">
-							WIN
-						</span>
-					) : (
-						<span className="px-2 py-0.5 text-xs rounded-md border border-border">
-							LOSS
-						</span>
-					);
+					const nameSizeClass =
+						matchType === "singles"
+							? "text-[clamp(0.85rem,4vw,1rem)]"
+							: "text-[clamp(0.75rem,2.5vw,1rem)]";
+					const eloSizeClass =
+						matchType === "singles"
+							? "text-[clamp(0.7rem,3vw,0.85rem)]"
+							: "text-[clamp(0.65rem,2vw,0.85rem)]";
 
 					return (
 						<div
@@ -180,48 +330,127 @@ export default function Matches({
 							className="bg-card p-4 rounded-xl hover-card cursor-pointer"
 						>
 							<div className="flex justify-between gap-6">
-								<div className="flex-1 space-y-2">
-									{/* Team A */}
-									<div className="flex justify-between">
-										<div>
-											{
-												players.get(m.player_a1_id)
-													?.player_name
-											}
+								<div className="flex-1 space-y-3">
+									{/* TEAM A */}
+									<div
+										className={`flex justify-between items-center ${
+											profilePlayerId && playerWon != null
+												? playerWon
+													? "font-semibold"
+													: ""
+												: ""
+										}`}
+									>
+										<div
+											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
+										>
+											{teamA.map((p, i) => (
+												<span key={p.id}>
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name
+														}`}
+														className="hover:underline"
+													>
+														{
+															players.get(p.id)
+																?.player_name
+														}
+													</Link>{" "}
+													<span
+														className={`${eloSizeClass} text-text-subtle`}
+													>
+														(
+														{eloAfter(
+															p.before,
+															m.elo_change_a
+														) ?? "—"}
+														)
+													</span>
+													{i === 0 &&
+														teamA.length > 1 &&
+														" & "}
+												</span>
+											))}
 										</div>
-										<div className="flex items-center gap-2">
-											<span className="font-semibold">
+										<div className="flex items-center gap-2 shrink-0">
+											<span className="text-sm text-text-muted">
 												{m.score_a}
 											</span>
-											{isProfileOnA && Badge}
 										</div>
 									</div>
 
-									{/* Team B */}
-									<div className="flex justify-between">
-										<div>
-											{
-												players.get(m.player_b1_id)
-													?.player_name
-											}
+									{/* TEAM B */}
+									<div
+										className={`flex justify-between items-center ${
+											profilePlayerId && playerWon != null
+												? !playerWon
+													? "font-semibold"
+													: ""
+												: ""
+										}`}
+									>
+										<div
+											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
+										>
+											{teamB.map((p, i) => (
+												<span key={p.id}>
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name
+														}`}
+														className="hover:underline"
+													>
+														{
+															players.get(p.id)
+																?.player_name
+														}
+													</Link>{" "}
+													<span
+														className={`${eloSizeClass} text-text-subtle`}
+													>
+														(
+														{eloAfter(
+															p.before,
+															m.elo_change_b
+														) ?? "—"}
+														)
+													</span>
+													{i === 0 &&
+														teamB.length > 1 &&
+														" & "}
+												</span>
+											))}
 										</div>
-										<div className="flex items-center gap-2">
-											<span className="font-semibold">
+										<div className="flex items-center gap-2 shrink-0">
+											<span className="text-sm text-text-muted">
 												{m.score_b}
 											</span>
-											{!isProfileOnA && Badge}
 										</div>
 									</div>
 								</div>
 
-								<div className="text-sm text-text-muted text-right">
+								{/* META */}
+								<div className="text-sm text-text-muted text-right shrink-0">
+									{profilePlayerId && playerWon != null && (
+										<div>{playerWon ? "Win" : "Loss"}</div>
+									)}
+									{!profilePlayerId && (
+										<div>
+											{m.score_a > m.score_b
+												? "Team A won"
+												: "Team B won"}
+										</div>
+									)}
 									<div>
 										{new Date(
 											m.created_at
 										).toLocaleDateString()}
 									</div>
 									{m.tournament_id && (
-										<div className="mt-1 text-xs px-2 py-0.5 rounded-md bg-border inline-block">
+										<div className="inline-block mt-1 px-2 py-0.5 text-xs rounded-md bg-border text-text-muted">
 											Tournament
 										</div>
 									)}
@@ -232,9 +461,9 @@ export default function Matches({
 				})}
 
 				{loading && (
-					<p className="text-center text-text-muted">Loading…</p>
+					<p className="text-center text-text-muted py-4">Loading…</p>
 				)}
-			</div>
-		</section>
+			</section>
+		</main>
 	);
 }
