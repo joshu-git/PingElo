@@ -42,7 +42,7 @@ type GroupRow = {
 	group_name: string;
 };
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 50;
 
 export default function Matches({
 	profilePlayerId,
