@@ -66,6 +66,7 @@ export default function Profile() {
 	/* ---------- Stats ---------- */
 	const stats = useMemo(() => {
 		if (!player) return { wins: 0, losses: 0, ratio: "0.00" };
+
 		let wins = 0;
 		let losses = 0;
 
@@ -129,79 +130,65 @@ export default function Profile() {
 	if (!player) return null;
 
 	return (
-		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
-			{/* ---------- Header ---------- */}
-			<section className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-				<h1 className="text-4xl md:text-5xl font-extrabold">
+		<main className="max-w-[900px] mx-auto px-4 py-16 space-y-8">
+			{/* ---------- HERO ---------- */}
+			<section className="bg-card p-6 rounded-xl text-center space-y-4">
+				<h1 className="text-5xl font-extrabold">
 					{player.player_name}
 				</h1>
-				<button
-					className="px-4 py-2 rounded-lg border border-border hover:bg-card hover:text-text transition"
-					onClick={() => alert("Report feature coming soon")}
-				>
-					Report Player
-				</button>
-			</section>
 
-			{/* ---------- Match Type + Range ---------- */}
-			<section className="flex flex-wrap items-center gap-4">
-				<div className="flex gap-2">
-					{["singles", "doubles"].map((type) => (
-						<button
-							key={type}
-							onClick={() => setMatchType(type as MatchType)}
-							className={`px-4 py-2 rounded-lg ${
-								matchType === type
-									? "font-semibold underline"
-									: ""
-							}`}
-						>
-							{type[0].toUpperCase() + type.slice(1)}
-						</button>
-					))}
-				</div>
-				<div className="flex gap-2">
-					{[7, 30].map((d) => (
-						<button
-							key={d}
-							onClick={() => setRange(d)}
-							className={`px-3 py-1.5 rounded-lg text-sm ${
-								range === d ? "font-semibold underline" : ""
-							}`}
-						>
-							Last {d} days
-						</button>
-					))}
+				<div className="flex flex-wrap justify-center gap-2">
 					<button
-						onClick={() => setRange(null)}
-						className={`px-3 py-1.5 rounded-lg text-sm ${
-							range === null ? "font-semibold underline" : ""
+						onClick={() => setMatchType("singles")}
+						className={`px-4 py-2 rounded-lg ${
+							matchType === "singles"
+								? "font-semibold underline"
+								: ""
 						}`}
 					>
-						All Time
+						Singles
+					</button>
+
+					<button
+						onClick={() => setMatchType("doubles")}
+						className={`px-4 py-2 rounded-lg ${
+							matchType === "doubles"
+								? "font-semibold underline"
+								: ""
+						}`}
+					>
+						Doubles
+					</button>
+
+					<button
+						onClick={() => alert("Report feature coming soon")}
+						className="px-4 py-2 rounded-lg border border-border hover:bg-card transition"
+					>
+						Report Player
 					</button>
 				</div>
 			</section>
 
-			{/* ---------- Stats ---------- */}
-			<section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+			{/* ---------- STATS ---------- */}
+			<section className="grid grid-cols-3 gap-4">
 				<Stat label="Wins" value={stats.wins} />
 				<Stat label="Losses" value={stats.losses} />
 				<Stat label="Win Ratio" value={stats.ratio} />
 			</section>
 
-			{/* ---------- Elo Chart ---------- */}
+			{/* ---------- ELO CHART ---------- */}
 			<section className="bg-card p-6 rounded-xl">
 				<h2 className="text-xl font-semibold mb-4">
-					{matchType === "singles" ? "Singles" : "Doubles"} Elo Over
-					Time
+					{matchType === "singles" ? "Singles" : "Doubles"} Elo
+					Progression
 				</h2>
+
 				{eloHistory.length === 0 ? (
 					<p className="text-text-muted text-sm">
 						No Elo history available.
 					</p>
 				) : (
-					<ResponsiveContainer width="100%" height={250}>
+					<ResponsiveContainer width="100%" height={260}>
 						<LineChart data={eloHistory}>
 							<XAxis
 								dataKey="day"
@@ -231,8 +218,9 @@ export default function Profile() {
 				)}
 			</section>
 
-			{/* ---------- Match History ---------- */}
-			<section className="space-y-6">
+			{/* ---------- MATCH HISTORY ---------- */}
+			<section className="-mt-2">
+				<h2 className="text-xl font-semibold mb-4">Match History</h2>
 				<Matches profilePlayerId={player.id} />
 			</section>
 		</main>
@@ -241,7 +229,7 @@ export default function Profile() {
 
 function Stat({ label, value }: { label: string; value: number | string }) {
 	return (
-		<div className="bg-card p-4 rounded-xl text-center hover-card transition">
+		<div className="bg-card p-4 rounded-xl text-center hover-card">
 			<p className="text-sm text-text-muted">{label}</p>
 			<p className="text-2xl font-bold">{value}</p>
 		</div>
