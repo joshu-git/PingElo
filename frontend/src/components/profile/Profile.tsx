@@ -29,7 +29,6 @@ export default function Profile() {
 	const [matches, setMatches] = useState<MatchesRow[]>([]);
 	const [groups, setGroups] = useState<GroupsRow[]>([]);
 	const [matchType, setMatchType] = useState<MatchType>("singles");
-	const [range, setRange] = useState<number | null>(null);
 
 	/* ---------- Load player ---------- */
 	useEffect(() => {
@@ -40,14 +39,9 @@ export default function Profile() {
 				.eq("player_name", username)
 				.single();
 
-			if (!data) {
-				router.push("/");
-				return;
-			}
-
+			if (!data) return router.push("/");
 			setPlayer(data);
 		};
-
 		loadPlayer();
 	}, [username, router]);
 
@@ -68,15 +62,13 @@ export default function Profile() {
 			const { data } = await supabase
 				.from("matches")
 				.select("*")
-				.eq("match_type", matchType)
 				.or(
 					`player_a1_id.eq.${player.id},player_a2_id.eq.${player.id},player_b1_id.eq.${player.id},player_b2_id.eq.${player.id}`
 				)
+				.eq("match_type", matchType)
 				.order("created_at", { ascending: true });
-
 			setMatches((data ?? []) as MatchesRow[]);
 		};
-
 		loadMatches();
 	}, [player, matchType]);
 
@@ -88,7 +80,6 @@ export default function Profile() {
 	/* ---------- Stats ---------- */
 	const stats = useMemo(() => {
 		if (!player) return { wins: 0, losses: 0, ratio: "0.00" };
-
 		let wins = 0;
 		let losses = 0;
 
@@ -115,15 +106,12 @@ export default function Profile() {
 	const chartData = useMemo(() => {
 		if (!matches.length || !player) return [];
 
-		// Filter matches by type
 		const filtered = matches.filter((m) => m.match_type === matchType);
-
 		if (!filtered.length) return [];
 
 		const minDate = new Date(filtered[0].created_at);
 		const maxDate = new Date(filtered[filtered.length - 1].created_at);
 
-		// All dates in range
 		const dayArray: string[] = [];
 		const d = new Date(minDate);
 		while (d <= maxDate) {
@@ -139,7 +127,7 @@ export default function Profile() {
 			matchesByDay[day].push(m);
 		});
 
-		// Create chart points
+		// Build chart points (bumpy, match by match)
 		const data: { x: number; date: string; elo: number }[] = [];
 		dayArray.forEach((day, dayIndex) => {
 			const dayMatches = matchesByDay[day] ?? [];
@@ -153,7 +141,6 @@ export default function Profile() {
 					elo = match.elo_before_b1 + match.elo_change_b;
 				else if (match.player_b2_id === player.id)
 					elo = (match.elo_before_b2 ?? 0) + match.elo_change_b;
-
 				if (elo == null) return;
 
 				const x = dayIndex + (i + 1) / (dayMatches.length + 1);
@@ -165,10 +152,10 @@ export default function Profile() {
 	}, [matches, player, matchType]);
 
 	const xTicks = useMemo(() => {
-		const ticks: number[] = [];
-		if (!chartData.length) return ticks;
+		if (!chartData.length) return [];
 		const minDay = Math.floor(chartData[0].x);
 		const maxDay = Math.floor(chartData[chartData.length - 1].x);
+		const ticks: number[] = [];
 		for (let i = minDay; i <= maxDay; i++) ticks.push(i);
 		return ticks;
 	}, [chartData]);
@@ -194,7 +181,7 @@ export default function Profile() {
 	if (!player) return null;
 
 	return (
-		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-6">
 			{/* HERO */}
 			<section className="text-center space-y-4 md:space-y-6">
 				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
@@ -205,7 +192,7 @@ export default function Profile() {
 					{groupName ?? "None"} | Doubles Elo: {player.doubles_elo}
 				</p>
 
-				{/* Buttons like leaderboard */}
+				{/* Buttons */}
 				<div className="flex flex-wrap justify-center gap-2 mt-2">
 					<button
 						onClick={() => setMatchType("singles")}
@@ -229,7 +216,7 @@ export default function Profile() {
 					</button>
 					<button
 						className="px-4 py-2 rounded-lg border border-border text-sm"
-						onClick={() => alert("Report feature coming soon")}
+						onClick={() => alert("Report coming soon")}
 					>
 						Report Player
 					</button>
@@ -289,23 +276,23 @@ export default function Profile() {
 							<Area
 								type="monotone"
 								dataKey="elo"
-								fill="rgba(79,70,229,0.15)"
 								stroke="none"
+								fill="rgba(79,70,229,0.15)"
 							/>
 							<Line
 								type="monotone"
 								dataKey="elo"
 								stroke="#4f46e5"
 								strokeWidth={2}
-								dot={false}
-								activeDot={{ r: 4 }}
+								dot={{ r: 3 }}
+								activeDot={{ r: 5 }}
 							/>
 						</LineChart>
 					</ResponsiveContainer>
 				)}
 			</section>
 
-			{/* Match History */}
+			{/* Matches */}
 			<section className="space-y-6">
 				<Matches
 					profilePlayerId={player.id}
