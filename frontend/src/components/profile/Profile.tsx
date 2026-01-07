@@ -2,31 +2,68 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import Matches from "@/components/matches/Matches";
+import {
+	LineChart,
+	Line,
+	XAxis,
+	YAxis,
+	Tooltip,
+	ResponsiveContainer,
+} from "recharts";
 
-import { EloChart } from "@/components/profile/EloChart";
-import ProfileStats from "./ProfileStats";
-
-import type { MatchesRow } from "@/types/database";
-import type { PlayersRow } from "@/types/database";
-
-type MatchWithNames = MatchesRow & {
-	playerAName: string;
-	playerBName: string;
+/* ------------------------------------------------------------------
+ * Types (kept local so this is fully self‑contained)
+ * ------------------------------------------------------------------ */
+type PlayerRow = {
+	id: string;
+	player_name: string;
+	singles_elo: number;
+	doubles_elo: number;
+	group_id?: string | null;
 };
 
+type MatchRow = {
+	id: string;
+	match_number: number;
+	match_type: "singles" | "doubles";
+
+	player_a1_id: string;
+	player_b1_id: string;
+
+	score_a: number;
+	score_b: number;
+
+	elo_before_a1: number | null;
+	elo_before_b1: number | null;
+	elo_change_a: number | null;
+	elo_change_b: number | null;
+
+	winner1?: string | null;
+};
+
+/* ------------------------------------------------------------------
+ * Profile page – single component, clean data flow
+ * ------------------------------------------------------------------ */
 export default function Profile() {
 	const { username } = useParams<{ username: string }>();
 	const router = useRouter();
 
-	const [player, setPlayer] = useState<PlayersRow | null>(null);
-	const [matches, setMatches] = useState<MatchWithNames[]>([]);
+	const [player, setPlayer] = useState<PlayerRow | null>(null);
+	const [matches, setMatches] = useState<MatchRow[]>([]);
 	const [isAdmin, setIsAdmin] = useState(false);
+	const [loading, setLoading] = useState(true);
 
+	/* ------------------------------------------------------------------
+	 * Load player + matches + admin status
+	 * ------------------------------------------------------------------ */
 	useEffect(() => {
-		async function load() {
-			//Fetch requested player
+		const load = async () => {
+			setLoading(true);
+
+			// 1. Player by username (this was broken before in your app)
 			const { data: playerData } = await supabase
 				.from("players")
 				.select("*")
@@ -38,64 +75,65 @@ export default function Profile() {
 				return;
 			}
 
-			setPlayer(playerData);
+			setPlayer(playerData as PlayerRow);
 
-			/* -------------------------
-         FETCH MATCHES
-      -------------------------- */
+			// 2. Matches involving this player (singles only for Elo graph)
 			const { data: matchData } = await supabase
 				.from("matches")
 				.select("*")
+				.eq("match_type", "singles")
 				.or(
-					`player_a_id.eq.${playerData.id},player_b_id.eq.${playerData.id}`
+					`player_a1_id.eq.${playerData.id},player_b1_id.eq.${playerData.id}`
 				)
 				.order("match_number", { ascending: true });
 
-			/* -------------------------
-         FETCH PLAYERS (LOOKUP)
-      -------------------------- */
-			const { data: players } = await supabase
-				.from("players")
-				.select("id, username");
+			setMatches((matchData ?? []) as MatchRow[]);
 
-			const playerMap = new Map(players?.map((p) => [p.id, p.username]));
-
-			/* -------------------------
-         ATTACH USERNAMES
-      -------------------------- */
-			const enriched =
-				matchData?.map((m) => ({
-					...m,
-					playerAName: playerMap.get(m.player_a_id) ?? "Unknown",
-					playerBName: playerMap.get(m.player_b_id) ?? "Unknown",
-				})) ?? [];
-
-			setMatches(enriched);
-
-			/* -------------------------
-         CHECK ADMIN
-      -------------------------- */
-			const { data: session } = await supabase.auth.getSession();
-
-			if (session?.session) {
+			// 3. Admin check
+			const session = await supabase.auth.getSession();
+			if (session.data.session) {
 				const { data } = await supabase
 					.from("profiles")
 					.select("is_admin")
-					.eq("id", session.session.user.id)
+					.eq("id", session.data.session.user.id)
 					.single();
 
 				setIsAdmin(Boolean(data?.is_admin));
 			}
-		}
+
+			setLoading(false);
+		};
 
 		load();
 	}, [username, router]);
 
-	/* -------------------------
-     ELO HISTORY
-  -------------------------- */
+	/* ------------------------------------------------------------------
+	 * Stats (merged ProfileStats)
+	 * ------------------------------------------------------------------ */
+	const stats = useMemo(() => {
+		if (!player) return { wins: 0, losses: 0, ratio: "0.00" };
+
+		let wins = 0;
+		let losses = 0;
+
+		for (const m of matches) {
+			if (!m.winner1) continue;
+			if (m.winner1 === player.id) wins++;
+			else losses++;
+		}
+
+		return {
+			wins,
+			losses,
+			ratio: wins + losses > 0 ? (wins / losses).toFixed(2) : "0.00",
+		};
+	}, [matches, player]);
+
+	/* ------------------------------------------------------------------
+	 * Elo history (merged EloChart logic)
+	 * ------------------------------------------------------------------ */
 	const eloHistory = useMemo(() => {
-		if (!player) return [];
+		if (!player) return [] as { match: number; elo: number }[];
 
 		return matches
 			.map((m) => {
@@ -110,36 +148,91 @@ export default function Profile() {
 					elo: before + change,
 				};
 			})
-			.filter(Boolean) as {
-			match: number;
-			elo: number;
-		}[];
+			.filter(Boolean) as { match: number; elo: number }[];
 	}, [matches, player]);
 
-	if (!player) return null;
+	if (loading || !player) return null;
 
+	/* ------------------------------------------------------------------
+	 * Render
+	 * ------------------------------------------------------------------ */
 	return (
-		<div className="max-w-5xl mx-auto mt-10 px-4 space-y-8">
-			{/* Header */}
-			<div className="flex justify-between items-center">
-				<h1 className="text-4xl font-bold">{player.player_name}</h1>
-
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			{/* HEADER */}
+			<section className="flex justify-between items-center">
+				<h1 className="text-4xl font-extrabold">
+					{player.player_name}
+				</h1>
 				{isAdmin && (
 					<Link
 						href="/admin"
-						className="px-4 py-2 bg-purple-600 rounded-xl hover:bg-purple-700 transition"
+						className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700"
 					>
 						Admin Dashboard
 					</Link>
 				)}
-			</div>
+			</section>
 
-			<ProfileStats playerId={player.id} matches={matches} />
+			{/* STATS */}
+			<section className="grid grid-cols-3 gap-4 text-center">
+				<Stat label="Wins" value={stats.wins} />
+				<Stat label="Losses" value={stats.losses} />
+				<Stat label="Win Ratio" value={stats.ratio} />
+			</section>
 
-			<div className="bg-black/40 rounded-2xl p-6">
+			{/* ELO CHART */}
+			<section className="bg-black/40 rounded-2xl p-6">
 				<h2 className="text-xl font-semibold mb-4">Elo Over Time</h2>
-				<EloChart data={eloHistory} />
-			</div>
+
+				{eloHistory.length === 0 ? (
+					<p className="text-gray-400 text-sm">
+						No Elo history available.
+					</p>
+				) : (
+					<ResponsiveContainer width="100%" height={250}>
+						<LineChart data={eloHistory}>
+							<XAxis
+								dataKey="match"
+								tick={{ fill: "#aaa", fontSize: 12 }}
+							/>
+							<YAxis tick={{ fill: "#aaa", fontSize: 12 }} />
+							<Tooltip
+								contentStyle={{
+									backgroundColor: "#111",
+									border: "1px solid rgba(255,255,255,0.1)",
+									borderRadius: 8,
+								}}
+								labelStyle={{ color: "#aaa" }}
+							/>
+							<Line
+								type="monotone"
+								dataKey="elo"
+								stroke="#4f46e5"
+								strokeWidth={2}
+								dot={false}
+							/>
+						</LineChart>
+					</ResponsiveContainer>
+				)}
+			</section>
+
+			{/* MATCH HISTORY */}
+			<section>
+				<h2 className="text-2xl font-bold mb-4">Match History</h2>
+				<Matches profilePlayerId={player.id} />
+			</section>
+		</main>
+	);
+}
+
+/* ------------------------------------------------------------------
+ * Small local stat component
+ * ------------------------------------------------------------------ */
+function Stat({ label, value }: { label: string; value: number | string }) {
+	return (
+		<div className="bg-black/40 rounded-xl p-4">
+			<p className="text-sm text-gray-400">{label}</p>
+			<p className="text-2xl font-bold">{value}</p>
 		</div>
 	);
 }
