@@ -34,6 +34,7 @@ type MatchRow = {
 type PlayerRow = {
 	id: string;
 	player_name: string;
+	group_id?: string | null;
 };
 
 type GroupRow = {
@@ -68,9 +69,7 @@ export default function Matches({
 		const loadMeta = async () => {
 			const [{ data: playerData }, { data: groupData }, session] =
 				await Promise.all([
-					supabase
-						.from("players")
-						.select("id, player_name, group_id"),
+					supabase.from("players").select("id, player_name"),
 					supabase.from("groups").select("*").order("group_name"),
 					supabase.auth.getSession(),
 				]);
@@ -82,6 +81,17 @@ export default function Matches({
 			}
 
 			if (groupData) setGroups(groupData as GroupRow[]);
+
+			// Correct way to get myGroupId
+			if (session.data.session) {
+				const { data: me } = await supabase
+					.from("players")
+					.select("group_id")
+					.eq("account_id", session.data.session.user.id)
+					.maybeSingle();
+
+				if (me?.group_id) setMyGroupId(me.group_id);
+			}
 		};
 
 		loadMeta();
@@ -290,6 +300,17 @@ export default function Matches({
 							: "text-red-400"
 						: "";
 
+					// Separate scaling for singles vs doubles
+					const nameSizeClass =
+						matchType === "singles"
+							? "text-[clamp(0.85rem,4vw,1rem)]"
+							: "text-[clamp(0.75rem,2.5vw,1rem)]";
+
+					const eloSizeClass =
+						matchType === "singles"
+							? "text-[clamp(0.7rem,3vw,0.85rem)]"
+							: "text-[clamp(0.65rem,2vw,0.85rem)]";
+
 					return (
 						<div
 							key={m.id}
@@ -302,7 +323,9 @@ export default function Matches({
 									<div
 										className={`flex justify-between items-center ${accentA}`}
 									>
-										<div className="flex gap-1 whitespace-nowrap text-[clamp(0.75rem,2.5vw,1rem)]">
+										<div
+											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
+										>
 											{teamA.map((p, i) => (
 												<span key={p.id}>
 													<Link
@@ -317,7 +340,9 @@ export default function Matches({
 																?.player_name
 														}
 													</Link>{" "}
-													<span className="text-[clamp(0.65rem,2vw,0.85rem)] text-text-subtle">
+													<span
+														className={`${eloSizeClass} text-text-subtle`}
+													>
 														(
 														{eloAfter(
 															p.before,
@@ -347,7 +372,9 @@ export default function Matches({
 									<div
 										className={`flex justify-between items-center ${accentB}`}
 									>
-										<div className="flex gap-1 whitespace-nowrap text-[clamp(0.75rem,2.5vw,1rem)]">
+										<div
+											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
+										>
 											{teamB.map((p, i) => (
 												<span key={p.id}>
 													<Link
@@ -362,7 +389,9 @@ export default function Matches({
 																?.player_name
 														}
 													</Link>{" "}
-													<span className="text-[clamp(0.65rem,2vw,0.85rem)] text-text-subtle">
+													<span
+														className={`${eloSizeClass} text-text-subtle`}
+													>
 														(
 														{eloAfter(
 															p.before,
