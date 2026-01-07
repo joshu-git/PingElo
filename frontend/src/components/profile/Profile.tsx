@@ -27,7 +27,7 @@ export default function Profile() {
 
 	/* ---------- Load player ---------- */
 	useEffect(() => {
-		const load = async () => {
+		const loadPlayer = async () => {
 			const { data } = await supabase
 				.from("players")
 				.select("*")
@@ -41,15 +41,14 @@ export default function Profile() {
 
 			setPlayer(data);
 		};
-
-		load();
+		loadPlayer();
 	}, [username, router]);
 
 	/* ---------- Load group ---------- */
 	useEffect(() => {
 		if (!player?.group_id) return;
 
-		const load = async () => {
+		const loadGroup = async () => {
 			const { data } = await supabase
 				.from("groups")
 				.select("group_name")
@@ -58,15 +57,14 @@ export default function Profile() {
 
 			setGroupName(data?.group_name ?? null);
 		};
-
-		load();
+		loadGroup();
 	}, [player?.group_id]);
 
 	/* ---------- Load matches ---------- */
 	useEffect(() => {
 		if (!player) return;
 
-		const load = async () => {
+		const loadMatches = async () => {
 			const { data } = await supabase
 				.from("matches")
 				.select("*")
@@ -77,34 +75,25 @@ export default function Profile() {
 
 			setMatches((data ?? []) as MatchesRow[]);
 		};
-
-		load();
+		loadMatches();
 	}, [player]);
 
-	/* ---------- Range filter (PURE) ---------- */
+	/* ---------- Filtered matches by match type ---------- */
 	const filteredMatches = useMemo(() => {
-		if (!range || matches.length === 0) return matches;
-
-		const latest = Math.max(
-			...matches.map((m) => new Date(m.created_at).getTime())
-		);
-
-		const cutoff = latest - range * 24 * 60 * 60 * 1000;
-
-		return matches.filter(
-			(m) => new Date(m.created_at).getTime() >= cutoff
-		);
-	}, [matches, range]);
+		return matches.filter((m) => m.match_type === matchType);
+	}, [matches, matchType]);
 
 	/* ---------- Stats ---------- */
 	const stats = useMemo(() => {
+		if (!player) return { wins: 0, losses: 0, rate: 0 };
+
 		let wins = 0;
 		let losses = 0;
 
 		for (const m of filteredMatches) {
 			const winners = [m.winner1, m.winner2].filter(Boolean);
 			if (!winners.length) continue;
-			if (player && winners.includes(player.id)) wins++;
+			if (winners.includes(player.id)) wins++;
 			else losses++;
 		}
 
@@ -118,66 +107,38 @@ export default function Profile() {
 		};
 	}, [filteredMatches, player]);
 
-	/* ---------- Elo history (daily, flat, filtered) ---------- */
+	/* ---------- Elo chart per match ---------- */
 	const eloHistory = useMemo(() => {
 		if (!player) return [];
 
-		const relevant = filteredMatches.filter(
-			(m) => m.match_type === matchType
-		);
+		return filteredMatches.map((m) => {
+			let elo: number | null = null;
 
-		if (!relevant.length) return [];
-
-		const eloAfter = (m: MatchesRow): number | null => {
 			if (m.player_a1_id === player.id)
-				return m.elo_before_a1 + m.elo_change_a;
-			if (m.player_a2_id === player.id)
-				return (m.elo_before_a2 ?? 0) + m.elo_change_a;
-			if (m.player_b1_id === player.id)
-				return m.elo_before_b1 + m.elo_change_b;
-			if (m.player_b2_id === player.id)
-				return (m.elo_before_b2 ?? 0) + m.elo_change_b;
-			return null;
-		};
+				elo = m.elo_before_a1 + m.elo_change_a;
+			else if (m.player_a2_id === player.id)
+				elo = (m.elo_before_a2 ?? 0) + m.elo_change_a;
+			else if (m.player_b1_id === player.id)
+				elo = m.elo_before_b1 + m.elo_change_b;
+			else if (m.player_b2_id === player.id)
+				elo = (m.elo_before_b2 ?? 0) + m.elo_change_b;
 
-		const sorted = [...relevant].sort(
-			(a, b) =>
-				new Date(a.created_at).getTime() -
-				new Date(b.created_at).getTime()
-		);
-
-		const start = new Date(sorted[0].created_at);
-		const end = new Date(sorted[sorted.length - 1].created_at);
-
-		const data: { day: string; elo: number }[] = [];
-
-		let currentElo: number | null = null;
-		let i = 0;
-
-		for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-			const dayKey = d.toISOString().split("T")[0];
-
-			while (
-				i < sorted.length &&
-				new Date(sorted[i].created_at).toISOString().startsWith(dayKey)
-			) {
-				const e = eloAfter(sorted[i]);
-				if (e != null) currentElo = e;
-				i++;
-			}
-
-			if (currentElo != null) {
-				data.push({ day: dayKey, elo: currentElo });
-			}
-		}
-
-		return data;
-	}, [filteredMatches, matchType, player]);
+			return {
+				date: new Date(m.created_at).toLocaleDateString("en-US", {
+					month: "2-digit",
+					day: "2-digit",
+				}),
+				elo,
+			};
+		});
+	}, [filteredMatches, player]);
 
 	const yDomain = useMemo(() => {
 		if (!eloHistory.length) return [0, 2500];
-		const elos = eloHistory.map((e) => e.elo);
-		return [Math.min(...elos) - 50, Math.max(...elos) + 50];
+		const elos = eloHistory.map((e) => e.elo ?? 0);
+		const min = Math.min(...elos);
+		const max = Math.max(...elos);
+		return [Math.max(0, min - 50), max + 50];
 	}, [eloHistory]);
 
 	if (!player) return null;
@@ -256,16 +217,23 @@ export default function Profile() {
 				<ResponsiveContainer width="100%" height={260}>
 					<LineChart
 						data={eloHistory}
-						margin={{ left: 0, right: 0, top: 10 }}
+						margin={{ top: 10, right: 0, bottom: 20, left: 0 }}
 					>
-						<XAxis dataKey="day" hide />
-						<YAxis domain={yDomain} width={40} />
+						<XAxis
+							dataKey="date"
+							tick={{ fontSize: 12, fill: "#aaa" }}
+							height={30}
+						/>
+						<YAxis
+							domain={yDomain}
+							tick={{ fontSize: 12, fill: "#aaa" }}
+							width={50}
+						/>
 						<Tooltip
 							content={({ payload }) =>
-								payload?.length ? (
+								payload?.length && payload[0].value != null ? (
 									<div className="bg-card px-3 py-2 rounded-lg text-sm">
-										Elo{" "}
-										{Math.round(payload[0].value as number)}
+										Elo {Math.round(payload[0].value)}
 									</div>
 								) : null
 							}
@@ -287,7 +255,7 @@ export default function Profile() {
 				</ResponsiveContainer>
 			</section>
 
-			{/* MATCHES (full width, unchanged) */}
+			{/* MATCHES */}
 			<Matches profilePlayerId={player.id} />
 		</main>
 	);
