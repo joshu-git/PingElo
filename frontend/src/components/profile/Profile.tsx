@@ -196,15 +196,9 @@ export default function Profile() {
 
 			{/* STATS */}
 			<section className="grid grid-cols-3 gap-4 text-center">
-				<div className="bg-card p-4 rounded-xl">
-					<Stat label="Wins" value={stats.wins} />
-				</div>
-				<div className="bg-card p-4 rounded-xl">
-					<Stat label="Losses" value={stats.losses} />
-				</div>
-				<div className="bg-card p-4 rounded-xl">
-					<Stat label="W / L" value={`${stats.rate}`} />
-				</div>
+				<Stat label="Wins" value={stats.wins} />
+				<Stat label="Losses" value={stats.losses} />
+				<Stat label="W / L" value={`${stats.rate}`} />
 			</section>
 
 			{/* CONTROLS */}
