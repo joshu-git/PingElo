@@ -113,41 +113,51 @@ export default function Profile() {
 	const chartData = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
+		// 1️⃣ Group matches by local day string
 		const matchesByDay: Record<string, MatchesRow[]> = {};
-		const minDate = new Date(filteredMatches[0].created_at);
-		const maxDate = new Date(
-			filteredMatches[filteredMatches.length - 1].created_at
-		);
-
 		filteredMatches.forEach((m) => {
-			const day = new Date(m.created_at).toISOString().slice(0, 10);
-			if (!matchesByDay[day]) matchesByDay[day] = [];
-			matchesByDay[day].push(m);
+			const dateObj = new Date(m.created_at);
+			const dayStr = `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1)
+				.toString()
+				.padStart(2, "0")}-${dateObj
+				.getDate()
+				.toString()
+				.padStart(2, "0")}`;
+
+			if (!matchesByDay[dayStr]) matchesByDay[dayStr] = [];
+			matchesByDay[dayStr].push(m);
 		});
 
-		const dayArray: string[] = [];
-		const d = new Date(minDate);
-		while (d <= maxDate) {
-			dayArray.push(d.toISOString().slice(0, 10));
-			d.setDate(d.getDate() + 1);
-		}
+		// 2️⃣ Build day array directly from grouped keys, sorted ascending
+		const dayArray = Object.keys(matchesByDay).sort(
+			(a, b) => new Date(a).getTime() - new Date(b).getTime()
+		);
 
 		const data: { x: number; date: string; elo: number }[] = [];
+
+		// 3️⃣ Fill chart data
 		dayArray.forEach((day, dayIndex) => {
 			const dayMatches = matchesByDay[day] ?? [];
+
 			dayMatches.forEach((match, i) => {
 				let elo: number | null = null;
+
 				if (match.player_a1_id === player?.id)
-					elo = match.elo_before_a1 + match.elo_change_a;
+					elo =
+						(match.elo_before_a1 ?? 0) + (match.elo_change_a ?? 0);
 				else if (match.player_a2_id === player?.id)
-					elo = (match.elo_before_a2 ?? 0) + match.elo_change_a;
+					elo =
+						(match.elo_before_a2 ?? 0) + (match.elo_change_a ?? 0);
 				else if (match.player_b1_id === player?.id)
-					elo = match.elo_before_b1 + match.elo_change_b;
+					elo =
+						(match.elo_before_b1 ?? 0) + (match.elo_change_b ?? 0);
 				else if (match.player_b2_id === player?.id)
-					elo = (match.elo_before_b2 ?? 0) + match.elo_change_b;
+					elo =
+						(match.elo_before_b2 ?? 0) + (match.elo_change_b ?? 0);
 
 				if (elo == null) return;
 
+				// spread multiple matches on the same day
 				const x = dayIndex + (i + 1) / (dayMatches.length + 1);
 				data.push({ x, date: day, elo });
 			});
@@ -164,19 +174,9 @@ export default function Profile() {
 		return [Math.max(0, min - 50), max + 50];
 	}, [chartData]);
 
-	// X-axis ticks — include all integer dayIndexes and the last fractional points
 	const xTicks = useMemo(() => {
-		if (!chartData.length) return [];
-
-		// 1️⃣ All full days (like before)
-		const fullDays = new Set(chartData.map((d) => Math.floor(d.x)));
-
-		// 2️⃣ Ensure the last point is included
-		const lastX = chartData[chartData.length - 1].x;
-		fullDays.add(Math.floor(lastX)); // already probably included
-		fullDays.add(lastX); // add fractional value for last match
-
-		return Array.from(fullDays).sort((a, b) => a - b);
+		const daysSet = new Set(chartData.map((d) => Math.floor(d.x)));
+		return Array.from(daysSet);
 	}, [chartData]);
 
 	const xTickFormatter = (x: number) => {
