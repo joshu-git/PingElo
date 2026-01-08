@@ -344,20 +344,25 @@ export default function Matches({
 											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
 										>
 											{teamA.map((p, i) => (
-												<Link
+												<span
 													key={p.id}
-													href={`/profile/${
-														players.get(p.id)
-															?.player_name
-													}`}
-													className={`inline-flex items-center gap-1 hover:underline cursor-pointer`}
+													className="flex items-center gap-1"
 												>
-													<span>
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name
+														}`}
+														onClick={(e) =>
+															e.stopPropagation()
+														} // prevent match card click
+														className="hover:underline cursor-pointer"
+													>
 														{
 															players.get(p.id)
 																?.player_name
 														}
-													</span>
+													</Link>
 													<span
 														className={`${eloSizeClass} text-text-subtle`}
 													>
@@ -371,7 +376,7 @@ export default function Matches({
 													{i === 0 &&
 														teamA.length > 1 &&
 														" & "}
-												</Link>
+												</span>
 											))}
 										</div>
 
@@ -392,20 +397,25 @@ export default function Matches({
 											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
 										>
 											{teamB.map((p, i) => (
-												<Link
+												<span
 													key={p.id}
-													href={`/profile/${
-														players.get(p.id)
-															?.player_name
-													}`}
-													className={`inline-flex items-center gap-1 hover:underline cursor-pointer`}
+													className="flex items-center gap-1"
 												>
-													<span>
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name
+														}`}
+														onClick={(e) =>
+															e.stopPropagation()
+														}
+														className="hover:underline cursor-pointer"
+													>
 														{
 															players.get(p.id)
 																?.player_name
 														}
-													</span>
+													</Link>
 													<span
 														className={`${eloSizeClass} text-text-subtle`}
 													>
@@ -419,7 +429,7 @@ export default function Matches({
 													{i === 0 &&
 														teamB.length > 1 &&
 														" & "}
-												</Link>
+												</span>
 											))}
 										</div>
 
