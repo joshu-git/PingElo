@@ -344,19 +344,20 @@ export default function Matches({
 											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
 										>
 											{teamA.map((p, i) => (
-												<span key={p.id}>
-													<Link
-														href={`/profile/${
-															players.get(p.id)
-																?.player_name
-														}`}
-														className="hover:underline"
-													>
+												<Link
+													key={p.id}
+													href={`/profile/${
+														players.get(p.id)
+															?.player_name
+													}`}
+													className={`inline-flex items-center gap-1 hover:underline cursor-pointer`}
+												>
+													<span>
 														{
 															players.get(p.id)
 																?.player_name
 														}
-													</Link>{" "}
+													</span>
 													<span
 														className={`${eloSizeClass} text-text-subtle`}
 													>
@@ -370,7 +371,7 @@ export default function Matches({
 													{i === 0 &&
 														teamA.length > 1 &&
 														" & "}
-												</span>
+												</Link>
 											))}
 										</div>
 
@@ -391,19 +392,20 @@ export default function Matches({
 											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
 										>
 											{teamB.map((p, i) => (
-												<span key={p.id}>
-													<Link
-														href={`/profile/${
-															players.get(p.id)
-																?.player_name
-														}`}
-														className="hover:underline"
-													>
+												<Link
+													key={p.id}
+													href={`/profile/${
+														players.get(p.id)
+															?.player_name
+													}`}
+													className={`inline-flex items-center gap-1 hover:underline cursor-pointer`}
+												>
+													<span>
 														{
 															players.get(p.id)
 																?.player_name
 														}
-													</Link>{" "}
+													</span>
 													<span
 														className={`${eloSizeClass} text-text-subtle`}
 													>
@@ -417,7 +419,7 @@ export default function Matches({
 													{i === 0 &&
 														teamB.length > 1 &&
 														" & "}
-												</span>
+												</Link>
 											))}
 										</div>
 
