@@ -443,8 +443,8 @@ export default function Matches({
 									{!profilePlayerId && (
 										<div>
 											{teamAWon
-												? "Team A won"
-												: "Team B won"}
+												? "Team A Won"
+												: "Team B Won"}
 										</div>
 									)}
 									<div>
