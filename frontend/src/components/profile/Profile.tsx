@@ -172,7 +172,7 @@ export default function Profile() {
 	const xTickFormatter = (x: number) => {
 		const day = chartData.find((d) => Math.floor(d.x) === x);
 		return day
-			? new Date(day.date).toLocaleDateString("en-US", {
+			? new Date(day.date).toLocaleDateString("en-GB", {
 					month: "2-digit",
 					day: "2-digit",
 			  })
