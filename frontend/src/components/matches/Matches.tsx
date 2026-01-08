@@ -204,9 +204,7 @@ export default function Matches({
 	return (
 		<main
 			className={`${
-				profilePlayerId
-					? "space-y-3"
-					: "max-w-5xl mx-auto px-4 py-16 space-y-12"
+				profilePlayerId ? "" : "max-w-5xl mx-auto px-4 py-16 space-y-12"
 			}`}
 		>
 			{/* HEADER only on standalone page */}
