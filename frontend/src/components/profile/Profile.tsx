@@ -113,7 +113,6 @@ export default function Profile() {
 	const chartData = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
-		// group matches by date (YYYY-MM-DD)
 		const matchesByDay: Record<string, MatchesRow[]> = {};
 		const minDate = new Date(filteredMatches[0].created_at);
 		const maxDate = new Date(
@@ -126,7 +125,6 @@ export default function Profile() {
 			matchesByDay[day].push(m);
 		});
 
-		// generate all days in range
 		const dayArray: string[] = [];
 		const d = new Date(minDate);
 		while (d <= maxDate) {
@@ -150,7 +148,7 @@ export default function Profile() {
 
 				if (elo == null) return;
 
-				const x = dayIndex + (i + 1) / (dayMatches.length + 1); // evenly space within day
+				const x = dayIndex + (i + 1) / (dayMatches.length + 1);
 				data.push({ x, date: day, elo });
 			});
 		});
@@ -167,7 +165,6 @@ export default function Profile() {
 	}, [chartData]);
 
 	const xTicks = useMemo(() => {
-		// get unique day indices for x axis
 		const daysSet = new Set(chartData.map((d) => Math.floor(d.x)));
 		return Array.from(daysSet);
 	}, [chartData]);
@@ -185,9 +182,9 @@ export default function Profile() {
 	if (!player) return null;
 
 	return (
-		<main className="max-w-5xl mx-auto px-4 py-10 space-y-6">
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* HERO */}
-			<section className="text-center space-y-3">
+			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 					{player.player_name}
 				</h1>
@@ -199,9 +196,15 @@ export default function Profile() {
 
 			{/* STATS */}
 			<section className="grid grid-cols-3 gap-4 text-center">
-				<Stat label="Wins" value={stats.wins} />
-				<Stat label="Losses" value={stats.losses} />
-				<Stat label="W / L" value={`${stats.rate}`} />
+				<div className="bg-card p-4 rounded-xl">
+					<Stat label="Wins" value={stats.wins} />
+				</div>
+				<div className="bg-card p-4 rounded-xl">
+					<Stat label="Losses" value={stats.losses} />
+				</div>
+				<div className="bg-card p-4 rounded-xl">
+					<Stat label="W / L" value={`${stats.rate}`} />
+				</div>
 			</section>
 
 			{/* CONTROLS */}
