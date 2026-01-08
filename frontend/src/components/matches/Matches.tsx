@@ -63,6 +63,7 @@ export default function Matches({
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
 
 	const [page, setPage] = useState(0);
+	const pageRef = useRef(0); // ✅ added
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
 
@@ -102,7 +103,7 @@ export default function Matches({
 			loadingRef.current = true;
 			setLoading(true);
 
-			const currentPage = reset ? 0 : page;
+			const currentPage = reset ? 0 : pageRef.current;
 
 			let query = supabase
 				.from("matches")
@@ -140,20 +141,26 @@ export default function Matches({
 
 			setMatches((prev) => (reset ? rows : [...prev, ...rows]));
 			setHasMore(rows.length === PAGE_SIZE);
-			if (reset) setPage(1);
-			else setPage((p) => p + 1);
+
+			setPage((p) => {
+				const next = reset ? 1 : p + 1;
+				pageRef.current = next;
+				return next;
+			});
 
 			loadingRef.current = false;
 			setLoading(false);
 		},
-		[page, matchType, scope, groupId, profilePlayerId]
+		[matchType, scope, groupId, profilePlayerId]
 	);
 
 	/* -------------------- Initial load -------------------- */
 	useEffect(() => {
-		// Run in async wrapper to avoid synchronous setState warning
-		const fetch = async () => await loadMatches(true);
-		fetch();
+		const run = async () => {
+			pageRef.current = 0;
+			await loadMatches(true);
+		};
+		run();
 	}, [matchType, scope, groupId, profilePlayerId, loadMatches]);
 
 	/* -------------------- Infinite scroll -------------------- */
@@ -166,6 +173,7 @@ export default function Matches({
 					document.body.offsetHeight - 300
 			)
 				return;
+
 			loadMatches(false);
 		};
 
@@ -288,7 +296,7 @@ export default function Matches({
 			)}
 
 			{/* MATCH CARDS */}
-			<section className={`space-y-3`}>
+			<section className="space-y-3">
 				{matches.map((m) => {
 					const teamA = [
 						{ id: m.player_a1_id, before: m.elo_before_a1 },
@@ -335,9 +343,7 @@ export default function Matches({
 							<div className="flex justify-between gap-6">
 								<div className="flex-1 space-y-3">
 									{/* TEAM A */}
-									<div
-										className={`flex justify-between items-center`}
-									>
+									<div className="flex justify-between items-center">
 										<div
 											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
 										>
@@ -384,9 +390,7 @@ export default function Matches({
 									</div>
 
 									{/* TEAM B */}
-									<div
-										className={`flex justify-between items-center`}
-									>
+									<div className="flex justify-between items-center">
 										<div
 											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
 										>
