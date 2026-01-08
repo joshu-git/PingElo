@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-//Feature card
+export const dynamic = "force-dynamic";
+
+// Feature card
 function Feature({
 	title,
 	description,
@@ -17,12 +19,22 @@ function Feature({
 	);
 }
 
-//Quick Stats
-function QuickStats() {
+// Quick Stats (LIVE)
+async function QuickStats() {
+	const [
+		{ count: matchCount },
+		{ count: playerCount },
+		{ count: groupCount },
+	] = await Promise.all([
+		supabase.from("matches").select("*", { count: "exact", head: true }),
+		supabase.from("players").select("*", { count: "exact", head: true }),
+		supabase.from("groups").select("*", { count: "exact", head: true }),
+	]);
+
 	const stats = [
-		{ label: "Matches", value: 470 },
-		{ label: "Players", value: 17 },
-		{ label: "Groups", value: 1 },
+		{ label: "Matches", value: matchCount ?? 0 },
+		{ label: "Players", value: playerCount ?? 0 },
+		{ label: "Groups", value: groupCount ?? 0 },
 	];
 
 	return (
@@ -37,7 +49,7 @@ function QuickStats() {
 	);
 }
 
-//Home Page
+// Home Page
 export default function HomePage() {
 	return (
 		<div className="max-w-5xl mx-auto px-4 py-16 space-y-16">
