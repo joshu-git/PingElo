@@ -164,9 +164,19 @@ export default function Profile() {
 		return [Math.max(0, min - 50), max + 50];
 	}, [chartData]);
 
+	// X-axis ticks — include all integer dayIndexes and the last fractional points
 	const xTicks = useMemo(() => {
-		const daysSet = new Set(chartData.map((d) => Math.floor(d.x)));
-		return Array.from(daysSet);
+		if (!chartData.length) return [];
+
+		// 1️⃣ All full days (like before)
+		const fullDays = new Set(chartData.map((d) => Math.floor(d.x)));
+
+		// 2️⃣ Ensure the last point is included
+		const lastX = chartData[chartData.length - 1].x;
+		fullDays.add(Math.floor(lastX)); // already probably included
+		fullDays.add(lastX); // add fractional value for last match
+
+		return Array.from(fullDays).sort((a, b) => a - b);
 	}, [chartData]);
 
 	const xTickFormatter = (x: number) => {
