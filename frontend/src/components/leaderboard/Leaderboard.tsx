@@ -126,6 +126,18 @@ export default function Leaderboard() {
 		return "text-text-muted";
 	};
 
+	const getRank = (elo: number) => {
+		if (elo >= 1400) return "Grand Master";
+		if (elo >= 1300) return "Master";
+		if (elo >= 1200) return "Expert";
+		if (elo >= 1100) return "Advanced";
+		if (elo >= 1000) return "Intermediate";
+		if (elo >= 900) return "Amateur";
+		if (elo >= 800) return "Beginner";
+		if (elo >= 700) return "Novice";
+		return "Rookie";
+	};
+
 	/* ----------------------------------------
 	 * Render
 	 * ---------------------------------------- */
@@ -239,7 +251,8 @@ export default function Leaderboard() {
 								</Link>
 								{p.group_id && (
 									<p className="text-sm text-text-muted">
-										{groupMap.get(p.group_id)} · Member
+										{groupMap.get(p.group_id)} ·{" "}
+										{getRank(eloValue(p))}
 									</p>
 								)}
 							</div>
