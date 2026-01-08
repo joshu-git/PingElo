@@ -62,8 +62,7 @@ export default function Matches({
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
 
-	const [page, setPage] = useState(0);
-	const pageRef = useRef(0); // ✅ added
+	const pageRef = useRef(0);
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
 
@@ -142,11 +141,7 @@ export default function Matches({
 			setMatches((prev) => (reset ? rows : [...prev, ...rows]));
 			setHasMore(rows.length === PAGE_SIZE);
 
-			setPage((p) => {
-				const next = reset ? 1 : p + 1;
-				pageRef.current = next;
-				return next;
-			});
+			pageRef.current = reset ? 1 : pageRef.current + 1;
 
 			loadingRef.current = false;
 			setLoading(false);
