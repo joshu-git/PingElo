@@ -68,14 +68,14 @@ export default function CookieConsent() {
 					measure performance. You can accept or decline.
 				</p>
 				<div className="flex justify-center gap-4">
-					<button onClick={accept} className="px-4 py-2 rounded-lg">
-						Accept
-					</button>
 					<button
 						onClick={decline}
 						className="px-4 py-2 rounded-lg bg-bg-soft text-text-muted hover:bg-bg-muted"
 					>
 						Decline
+					</button>
+					<button onClick={accept} className="px-4 py-2 rounded-lg">
+						Accept
 					</button>
 				</div>
 			</div>
