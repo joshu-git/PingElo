@@ -331,7 +331,7 @@ export default function Matches({
 					return (
 						<div
 							key={m.id}
-							onClick={() => router.push(`/match/${m.id}`)}
+							onClick={() => router.push(`/matches/${m.id}`)}
 							className={`bg-card p-4 rounded-xl hover-card cursor-pointer ${
 								profilePlayerId ? "" : "max-w-5xl mx-auto"
 							}`}
