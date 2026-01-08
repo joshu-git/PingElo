@@ -3,13 +3,14 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { PlayersRow, GroupsRow, MatchType } from "@/types/database";
+import { PlayersRow, GroupsRow, MatchType, MatchesRow } from "@/types/database";
 
 const PAGE_SIZE = 50;
 
 export default function Leaderboard() {
 	const [players, setPlayers] = useState<PlayersRow[]>([]);
 	const [groups, setGroups] = useState<GroupsRow[]>([]);
+	const [matches, setMatches] = useState<MatchesRow[]>([]); // NEW: all matches
 
 	const [matchType, setMatchType] = useState<MatchType>("singles");
 	const [scope, setScope] = useState<"global" | "group">("global");
@@ -48,6 +49,18 @@ export default function Leaderboard() {
 		};
 
 		loadMeta();
+	}, []);
+
+	/* ----------------------------------------
+	 * Load all matches
+	 * ---------------------------------------- */
+	useEffect(() => {
+		const loadMatches = async () => {
+			const { data, error } = await supabase.from("matches").select("*");
+			if (data && !error) setMatches(data);
+		};
+
+		loadMatches();
 	}, []);
 
 	/* ----------------------------------------
@@ -126,12 +139,42 @@ export default function Leaderboard() {
 		return "text-text-muted";
 	};
 
-	const getRank = (elo: number) => {
+	// NEW: compute match counts per type
+	const singlesMatchCountMap = new Map<string, number>();
+	const doublesMatchCountMap = new Map<string, number>();
+	matches.forEach((m) => {
+		if (m.match_type === "singles") {
+			[m.player_a1_id, m.player_b1_id].forEach((pid) => {
+				if (!pid) return;
+				singlesMatchCountMap.set(
+					pid,
+					(singlesMatchCountMap.get(pid) || 0) + 1
+				);
+			});
+		} else if (m.match_type === "doubles") {
+			[
+				m.player_a1_id,
+				m.player_b1_id,
+				m.player_a2_id,
+				m.player_b2_id,
+			].forEach((pid) => {
+				if (!pid) return;
+				doublesMatchCountMap.set(
+					pid,
+					(doublesMatchCountMap.get(pid) || 0) + 1
+				);
+			});
+		}
+	});
+
+	const getRank = (elo: number, matchesPlayed: number) => {
+		if (matchesPlayed < 5) return "Unranked";
+
 		if (elo >= 1400) return "Grand Master";
 		if (elo >= 1300) return "Master";
 		if (elo >= 1200) return "Expert";
 		if (elo >= 1100) return "Advanced";
-		if (elo >= 1000) return "Intermediate";
+		if (elo >= 1000) return "Competitor";
 		if (elo >= 900) return "Amateur";
 		if (elo >= 800) return "Beginner";
 		if (elo >= 700) return "Novice";
@@ -228,39 +271,59 @@ export default function Leaderboard() {
 
 			{/* LEADERBOARD */}
 			<section className="space-y-2">
-				{players.map((p, i) => (
-					<div
-						key={p.id}
-						className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
-					>
-						<div className="flex items-center gap-4">
-							<div
-								className={`text-lg font-bold w-8 ${rankStyle(
-									i + 1
-								)}`}
-							>
-								#{i + 1}
+				{players.map((p, i) => {
+					const matchesPlayed =
+						matchType === "singles"
+							? singlesMatchCountMap.get(p.id) ?? 0
+							: doublesMatchCountMap.get(p.id) ?? 0;
+
+					return (
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+						>
+							<div className="flex items-center gap-4">
+								<div
+									className={`text-lg font-bold w-8 ${rankStyle(
+										i + 1
+									)}`}
+								>
+									#{i + 1}
+								</div>
+
+								<div>
+									<Link
+										href={`/profile/${p.player_name}`}
+										className="font-semibold hover:underline"
+									>
+										{p.player_name}
+									</Link>
+									{p.group_id && (
+										<p className="text-sm text-text-muted">
+											{groupMap.get(p.group_id)} ·{" "}
+											<span
+												className={
+													matchesPlayed < 5
+														? "text-text-subtle"
+														: ""
+												}
+											>
+												{getRank(
+													eloValue(p),
+													matchesPlayed
+												)}
+											</span>
+										</p>
+									)}
+								</div>
 							</div>
 
-							<div>
-								<Link
-									href={`/profile/${p.player_name}`}
-									className="font-semibold hover:underline"
-								>
-									{p.player_name}
-								</Link>
-								{p.group_id && (
-									<p className="text-sm text-text-muted">
-										{groupMap.get(p.group_id)} ·{" "}
-										{getRank(eloValue(p))}
-									</p>
-								)}
+							<div className="text-2xl font-bold">
+								{eloValue(p)}
 							</div>
 						</div>
-
-						<div className="text-2xl font-bold">{eloValue(p)}</div>
-					</div>
-				))}
+					);
+				})}
 
 				{loading && (
 					<p className="text-center text-text-muted py-4">Loading…</p>
