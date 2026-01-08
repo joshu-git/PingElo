@@ -323,7 +323,7 @@ export default function Profile() {
 			</section>
 
 			{/* MATCHES */}
-			<Matches profilePlayerId={player.id} />
+			<Matches profilePlayerId={player.id} matchType={matchType} />
 		</main>
 	);
 }

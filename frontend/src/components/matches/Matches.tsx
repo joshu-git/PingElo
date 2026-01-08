@@ -46,10 +46,10 @@ const PAGE_SIZE = 50;
 
 export default function Matches({
 	profilePlayerId,
-	initialMatchType = "singles",
+	matchType: controlledMatchType,
 }: {
 	profilePlayerId?: string;
-	initialMatchType?: MatchType;
+	matchType?: MatchType;
 }) {
 	const router = useRouter();
 
@@ -57,7 +57,10 @@ export default function Matches({
 	const [players, setPlayers] = useState<Map<string, PlayerRow>>(new Map());
 	const [groups, setGroups] = useState<GroupRow[]>([]);
 
-	const [matchType, setMatchType] = useState<MatchType>(initialMatchType);
+	const [localMatchType, setLocalMatchType] = useState<MatchType>("singles");
+
+	const matchType = controlledMatchType ?? localMatchType;
+
 	const [scope, setScope] = useState<"global" | "group">("global");
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
@@ -223,7 +226,7 @@ export default function Matches({
 				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 					<div className="flex flex-wrap justify-center gap-2">
 						<button
-							onClick={() => setMatchType("singles")}
+							onClick={() => setLocalMatchType("singles")}
 							className={`px-4 py-2 rounded-lg ${
 								matchType === "singles"
 									? "font-semibold underline"
@@ -233,7 +236,7 @@ export default function Matches({
 							Singles
 						</button>
 						<button
-							onClick={() => setMatchType("doubles")}
+							onClick={() => setLocalMatchType("doubles")}
 							className={`px-4 py-2 rounded-lg ${
 								matchType === "doubles"
 									? "font-semibold underline"
