@@ -113,7 +113,7 @@ export default function Profile() {
 	const chartData = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
-		// 1️⃣ Group matches by local day string
+		// Group matches by local day
 		const matchesByDay: Record<string, MatchesRow[]> = {};
 		filteredMatches.forEach((m) => {
 			const dateObj = new Date(m.created_at);
@@ -128,20 +128,32 @@ export default function Profile() {
 			matchesByDay[dayStr].push(m);
 		});
 
-		// 2️⃣ Build day array directly from grouped keys, sorted ascending
-		const dayArray = Object.keys(matchesByDay).sort(
-			(a, b) => new Date(a).getTime() - new Date(b).getTime()
+		// Full day range
+		const minDate = new Date(filteredMatches[0].created_at);
+		const maxDate = new Date(
+			filteredMatches[filteredMatches.length - 1].created_at
 		);
+		minDate.setHours(0, 0, 0, 0);
+		maxDate.setHours(0, 0, 0, 0);
+
+		const dayArray: string[] = [];
+		const d = new Date(minDate);
+		while (d <= maxDate) {
+			const dayStr = `${d.getFullYear()}-${(d.getMonth() + 1)
+				.toString()
+				.padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+			dayArray.push(dayStr);
+			d.setDate(d.getDate() + 1);
+		}
 
 		const data: { x: number; date: string; elo: number }[] = [];
 
-		// 3️⃣ Fill chart data
 		dayArray.forEach((day, dayIndex) => {
 			const dayMatches = matchesByDay[day] ?? [];
 
+			// Only push points for actual matches
 			dayMatches.forEach((match, i) => {
-				let elo: number | null = null;
-
+				let elo = 0;
 				if (match.player_a1_id === player?.id)
 					elo =
 						(match.elo_before_a1 ?? 0) + (match.elo_change_a ?? 0);
@@ -155,9 +167,6 @@ export default function Profile() {
 					elo =
 						(match.elo_before_b2 ?? 0) + (match.elo_change_b ?? 0);
 
-				if (elo == null) return;
-
-				// spread multiple matches on the same day
 				const x = dayIndex + (i + 1) / (dayMatches.length + 1);
 				data.push({ x, date: day, elo });
 			});
