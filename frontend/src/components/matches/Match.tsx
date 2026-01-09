@@ -155,6 +155,16 @@ export default function Match() {
 				</p>
 			</section>
 
+			{/* STATS BAR (moved directly under header) */}
+			<section className="grid grid-cols-3 gap-4 text-center">
+				<Stat label="Winner" value={teamAWon ? "Team A" : "Team B"} />
+				<Stat label="Match #" value={match.match_number} />
+				<Stat
+					label="Tournament"
+					value={match.tournament_id ? "Yes" : "No"}
+				/>
+			</section>
+
 			{/* MATCH CARD */}
 			<section className="bg-card rounded-xl p-6 space-y-6">
 				{/* TEAM A */}
@@ -251,17 +261,6 @@ export default function Match() {
 				</section>
 			)}
 
-			{/* META */}
-			<section className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-				<Meta label="Winner" value={teamAWon ? "Team A" : "Team B"} />
-				<Meta label="Game Points" value={match.game_points} />
-				<Meta label="Match #" value={match.match_number} />
-				<Meta
-					label="Tournament"
-					value={match.tournament_id ? "Yes" : "No"}
-				/>
-			</section>
-
 			{group && (
 				<section className="text-center text-sm text-text-muted">
 					Group:{" "}
@@ -272,11 +271,12 @@ export default function Match() {
 	);
 }
 
-function Meta({ label, value }: { label: string; value: string | number }) {
+/* ---------- STAT COMPONENT (same as profile.tsx) ---------- */
+function Stat({ label, value }: { label: string; value: number | string }) {
 	return (
-		<div className="bg-card rounded-lg p-4">
+		<div className="text-center">
 			<p className="text-sm text-text-muted">{label}</p>
-			<p className="text-lg font-semibold">{value}</p>
+			<p className="text-2xl font-bold">{value}</p>
 		</div>
 	);
 }
