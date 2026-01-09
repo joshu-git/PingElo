@@ -6,13 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { MatchesRow, PlayersRow, GroupsRow } from "@/types/database";
 
-/* ---------- Helpers ---------- */
-function avg(arr: (number | null | undefined)[]) {
-	const filtered = arr.filter((v): v is number => v != null);
-	if (!filtered.length) return 0;
-	return filtered.reduce((a, b) => a + b, 0) / filtered.length;
-}
-
+/* ---------- Elo helpers ---------- */
 function expectedScore(rA: number, rB: number) {
 	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
@@ -43,6 +37,7 @@ export default function Match() {
 			setMatch(data);
 			setLoading(false);
 		};
+
 		loadMatch();
 	}, [id, router]);
 
@@ -56,12 +51,12 @@ export default function Match() {
 				match.player_a2_id,
 				match.player_b1_id,
 				match.player_b2_id,
-			].filter(Boolean) as string[];
+			].filter(Boolean);
 
 			const { data: playerData } = await supabase
 				.from("players")
 				.select("*")
-				.in("id", playerIds);
+				.in("id", playerIds as string[]);
 
 			if (playerData) {
 				setPlayers(new Map(playerData.map((p) => [p.id, p])));
@@ -82,37 +77,61 @@ export default function Match() {
 		loadMeta();
 	}, [match]);
 
-	/* ---------- Pre-match win chance ---------- */
-	const preMatchWinChance = useMemo(() => {
+	/* ---------- Helpers ---------- */
+	const eloAfter = (before?: number | null, change?: number | null) =>
+		before != null && change != null ? before + change : null;
+
+	const teamAWon = match ? match.score_a > match.score_b : false;
+
+	const teamA = useMemo(() => {
+		if (!match) return [];
+		return [
+			{ id: match.player_a1_id, before: match.elo_before_a1 },
+			match.player_a2_id && {
+				id: match.player_a2_id,
+				before: match.elo_before_a2,
+			},
+		].filter(Boolean) as { id: string; before?: number | null }[];
+	}, [match]);
+
+	const teamB = useMemo(() => {
+		if (!match) return [];
+		return [
+			{ id: match.player_b1_id, before: match.elo_before_b1 },
+			match.player_b2_id && {
+				id: match.player_b2_id,
+				before: match.elo_before_b2,
+			},
+		].filter(Boolean) as { id: string; before?: number | null }[];
+	}, [match]);
+
+	/* ---------- Win probability ---------- */
+	const winChance = useMemo(() => {
 		if (!match) return null;
 
-		const rA = avg([
-			players.get(match.player_a1_id)?.singles_elo,
-			match.player_a2_id
-				? players.get(match.player_a2_id)?.singles_elo
-				: 0,
-		]);
-		const rB = avg([
-			players.get(match.player_b1_id)?.singles_elo,
-			match.player_b2_id
-				? players.get(match.player_b2_id)?.singles_elo
-				: 0,
-		]);
+		const teamAElo =
+			match.match_type === "singles"
+				? match.elo_before_a1
+				: Math.round(
+						((match.elo_before_a1 ?? 0) +
+							(match.elo_before_a2 ?? 0)) /
+							2
+				  );
 
-		if (rA === 0 && rB === 0) return null;
+		const teamBElo =
+			match.match_type === "singles"
+				? match.elo_before_b1
+				: Math.round(
+						((match.elo_before_b1 ?? 0) +
+							(match.elo_before_b2 ?? 0)) /
+							2
+				  );
 
+		const a = expectedScore(teamAElo, teamBElo);
 		return {
-			teamA: expectedScore(rA, rB),
-			teamB: 1 - expectedScore(rA, rB),
+			a: Math.round(a * 100),
+			b: Math.round((1 - a) * 100),
 		};
-	}, [match, players]);
-
-	/* ---------- Elo per point ---------- */
-	const eloPerPoint = useMemo(() => {
-		if (!match) return 0;
-		const diff = Math.abs(match.score_a - match.score_b);
-		if (diff === 0) return 0;
-		return Math.abs(match.elo_change_a ?? 0) / diff;
 	}, [match]);
 
 	if (loading || !match) {
@@ -123,27 +142,10 @@ export default function Match() {
 		);
 	}
 
-	/* ---------- Teams ---------- */
-	const teamA = [
-		{ id: match.player_a1_id, eloChange: match.elo_change_a },
-		match.player_a2_id && {
-			id: match.player_a2_id,
-			eloChange: match.elo_change_a,
-		},
-	].filter(Boolean) as { id: string; eloChange: number | null }[];
-
-	const teamB = [
-		{ id: match.player_b1_id, eloChange: match.elo_change_b },
-		match.player_b2_id && {
-			id: match.player_b2_id,
-			eloChange: match.elo_change_b,
-		},
-	].filter(Boolean) as { id: string; eloChange: number | null }[];
-
 	return (
-		<main className="max-w-4xl mx-auto px-4 py-16 space-y-8">
+		<main className="max-w-4xl mx-auto px-4 py-16 space-y-10">
 			{/* HEADER */}
-			<section className="text-center space-y-2">
+			<section className="text-center space-y-3">
 				<h1 className="text-3xl md:text-4xl font-extrabold">
 					Match Details
 				</h1>
@@ -152,46 +154,6 @@ export default function Match() {
 					{new Date(match.created_at).toLocaleDateString()}
 				</p>
 			</section>
-
-			{/* STATS ROW (profile-style) */}
-			<section className="grid grid-cols-4 gap-4 text-center text-sm">
-				<Stat label="Match #" value={match.match_number} />
-				<Stat
-					label="Score"
-					value={`${match.score_a} - ${match.score_b}`}
-				/>
-				<Stat label="Elo / pt" value={eloPerPoint.toFixed(2)} />
-				{preMatchWinChance && (
-					<Stat
-						label="Win Prob."
-						value={`${(preMatchWinChance.teamA * 100).toFixed(
-							1
-						)}% / ${(preMatchWinChance.teamB * 100).toFixed(1)}%`}
-					/>
-				)}
-			</section>
-
-			{/* PRE-MATCH WIN CHANCE CARD */}
-			{preMatchWinChance && (
-				<section className="bg-card rounded-lg p-4 flex justify-around text-sm text-center">
-					<div className="flex flex-col">
-						<span className="text-text-muted text-xs">
-							Team A Win Chance
-						</span>
-						<span className="font-medium">
-							{(preMatchWinChance.teamA * 100).toFixed(1)}%
-						</span>
-					</div>
-					<div className="flex flex-col">
-						<span className="text-text-muted text-xs">
-							Team B Win Chance
-						</span>
-						<span className="font-medium">
-							{(preMatchWinChance.teamB * 100).toFixed(1)}%
-						</span>
-					</div>
-				</section>
-			)}
 
 			{/* MATCH CARD */}
 			<section className="bg-card rounded-xl p-6 space-y-6">
@@ -204,22 +166,29 @@ export default function Match() {
 								<Link
 									key={p.id}
 									href={`/profile/${
-										players.get(p.id)?.player_name ??
-										"unknown"
+										players.get(p.id)?.player_name
 									}`}
 									className="hover:underline font-medium"
 								>
-									{players.get(p.id)?.player_name ??
-										"Unknown"}
+									{players.get(p.id)?.player_name}
 								</Link>
 							))}
 						</div>
 						<p className="text-sm text-text-muted">
-							Elo change:{" "}
-							{teamA.map((p) => p.eloChange ?? 0).join(" / ")}
+							Elo after:{" "}
+							{teamA
+								.map((p) =>
+									eloAfter(p.before, match.elo_change_a)
+								)
+								.join(" / ")}
 						</p>
 					</div>
+
 					<div className="text-right">
+						<p className="text-sm text-text-muted">
+							{match.elo_change_a >= 0 && "+"}
+							{match.elo_change_a} Elo
+						</p>
 						<p className="text-3xl font-bold">{match.score_a}</p>
 					</div>
 				</div>
@@ -235,28 +204,64 @@ export default function Match() {
 								<Link
 									key={p.id}
 									href={`/profile/${
-										players.get(p.id)?.player_name ??
-										"unknown"
+										players.get(p.id)?.player_name
 									}`}
 									className="hover:underline font-medium"
 								>
-									{players.get(p.id)?.player_name ??
-										"Unknown"}
+									{players.get(p.id)?.player_name}
 								</Link>
 							))}
 						</div>
 						<p className="text-sm text-text-muted">
-							Elo change:{" "}
-							{teamB.map((p) => p.eloChange ?? 0).join(" / ")}
+							Elo after:{" "}
+							{teamB
+								.map((p) =>
+									eloAfter(p.before, match.elo_change_b)
+								)
+								.join(" / ")}
 						</p>
 					</div>
+
 					<div className="text-right">
+						<p className="text-sm text-text-muted">
+							{match.elo_change_b >= 0 && "+"}
+							{match.elo_change_b} Elo
+						</p>
 						<p className="text-3xl font-bold">{match.score_b}</p>
 					</div>
 				</div>
 			</section>
 
-			{/* GROUP */}
+			{/* WIN PROBABILITY */}
+			{winChance && (
+				<section className="bg-card rounded-xl p-4 text-center space-y-2">
+					<p className="text-sm text-text-muted">
+						Pre-match win probability
+					</p>
+					<div className="flex justify-between text-sm">
+						<div className="flex-1">
+							<p className="font-medium">Team A</p>
+							<p>{winChance.a}%</p>
+						</div>
+						<div className="flex-1">
+							<p className="font-medium">Team B</p>
+							<p>{winChance.b}%</p>
+						</div>
+					</div>
+				</section>
+			)}
+
+			{/* META */}
+			<section className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+				<Meta label="Winner" value={teamAWon ? "Team A" : "Team B"} />
+				<Meta label="Game Points" value={match.game_points} />
+				<Meta label="Match #" value={match.match_number} />
+				<Meta
+					label="Tournament"
+					value={match.tournament_id ? "Yes" : "No"}
+				/>
+			</section>
+
 			{group && (
 				<section className="text-center text-sm text-text-muted">
 					Group:{" "}
@@ -267,11 +272,11 @@ export default function Match() {
 	);
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Meta({ label, value }: { label: string; value: string | number }) {
 	return (
-		<div>
-			<p className="text-text-muted text-xs">{label}</p>
-			<p className="font-bold">{value}</p>
+		<div className="bg-card rounded-lg p-4">
+			<p className="text-sm text-text-muted">{label}</p>
+			<p className="text-lg font-semibold">{value}</p>
 		</div>
 	);
 }
