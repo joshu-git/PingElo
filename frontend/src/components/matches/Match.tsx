@@ -6,7 +6,13 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { MatchesRow, PlayersRow, GroupsRow } from "@/types/database";
 
-/* ---------- Lightweight Elo expected score ---------- */
+/* ---------- Helpers ---------- */
+function avg(arr: (number | null | undefined)[]) {
+	const filtered = arr.filter((v): v is number => v != null);
+	if (!filtered.length) return 0;
+	return filtered.reduce((a, b) => a + b, 0) / filtered.length;
+}
+
 function expectedScore(rA: number, rB: number) {
 	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
@@ -23,13 +29,13 @@ export default function Match() {
 	/* ---------- Load match ---------- */
 	useEffect(() => {
 		const loadMatch = async () => {
-			const { data } = await supabase
+			const { data, error } = await supabase
 				.from("matches")
 				.select("*")
 				.eq("id", id)
 				.single();
 
-			if (!data) {
+			if (error || !data) {
 				router.push("/matches");
 				return;
 			}
@@ -37,7 +43,6 @@ export default function Match() {
 			setMatch(data);
 			setLoading(false);
 		};
-
 		loadMatch();
 	}, [id, router]);
 
@@ -46,104 +51,67 @@ export default function Match() {
 		if (!match) return;
 
 		const loadMeta = async () => {
-			const ids = [
+			const playerIds = [
 				match.player_a1_id,
 				match.player_a2_id,
 				match.player_b1_id,
 				match.player_b2_id,
-			].filter((id): id is string => Boolean(id));
+			].filter(Boolean) as string[];
 
 			const { data: playerData } = await supabase
 				.from("players")
 				.select("*")
-				.in("id", ids);
+				.in("id", playerIds);
 
 			if (playerData) {
 				setPlayers(new Map(playerData.map((p) => [p.id, p])));
 			}
 
-			const first = playerData?.[0];
-			if (first?.group_id) {
+			const firstPlayer = playerData?.[0];
+			if (firstPlayer?.group_id) {
 				const { data: groupData } = await supabase
 					.from("groups")
 					.select("*")
-					.eq("id", first.group_id)
+					.eq("id", firstPlayer.group_id)
 					.single();
-				setGroup(groupData ?? null);
+
+				if (groupData) setGroup(groupData);
 			}
 		};
 
 		loadMeta();
 	}, [match]);
 
-	const teamAWon = match ? match.score_a > match.score_b : false;
-
-	/* ---------- Elo / Point (winner-based, accurate) ---------- */
-	const eloPerPoint = useMemo(() => {
+	/* ---------- Always call hooks at top ---------- */
+	const preMatchWinChance = useMemo(() => {
 		if (!match) return null;
 
-		const winnerPoints = teamAWon ? match.score_a : match.score_b;
-		const eloChange = teamAWon
-			? Math.abs(match.elo_change_a)
-			: Math.abs(match.elo_change_b);
-
-		if (!winnerPoints) return null;
-		return eloChange / winnerPoints;
-	}, [match, teamAWon]);
-
-	/* ---------- Pre-match win probability ---------- */
-	const winProb = useMemo(() => {
-		if (!match || players.size === 0) return null;
-
-		const getElo = (id: string | null, type: "singles" | "doubles") =>
-			id ? players.get(id)?.[`${type}_elo`] ?? 0 : 0;
-
-		if (match.match_type === "singles") {
-			const rA = getElo(match.player_a1_id, "singles");
-			const rB = getElo(match.player_b1_id, "singles");
-			return Math.round(expectedScore(rA, rB) * 100);
-		}
-
-		const avg = (ids: (string | null)[]) => {
-			const valid = ids.filter((id): id is string => Boolean(id));
-			return (
-				valid.reduce((sum, id) => sum + getElo(id, "doubles"), 0) /
-				valid.length
-			);
-		};
-
 		const rA = avg([
-			match.player_a1_id ?? null,
-			match.player_a2_id ?? null,
+			players.get(match.player_a1_id)?.singles_elo,
+			match.player_a2_id
+				? players.get(match.player_a2_id)?.singles_elo
+				: 0,
+		]);
+		const rB = avg([
+			players.get(match.player_b1_id)?.singles_elo,
+			match.player_b2_id
+				? players.get(match.player_b2_id)?.singles_elo
+				: 0,
 		]);
 
-		const rB = avg([
-			match.player_b1_id ?? null,
-			match.player_b2_id ?? null,
-		]);
+		if (rA === 0 && rB === 0) return null;
 
 		return Math.round(expectedScore(rA, rB) * 100);
 	}, [match, players]);
 
-	const eloAfter = (before?: number | null, change?: number | null) =>
-		before != null && change != null ? before + change : null;
+	const eloPerPoint = useMemo(() => {
+		if (!match) return 0;
+		const diff = Math.abs(match.score_a - match.score_b);
+		if (diff === 0) return 0;
+		return Math.abs(match.elo_change_a ?? 0) / diff;
+	}, [match]);
 
-	const teamA = [
-		{ id: match?.player_a1_id, before: match?.elo_before_a1 },
-		match?.player_a2_id && {
-			id: match.player_a2_id,
-			before: match.elo_before_a2,
-		},
-	].filter(Boolean) as { id: string; before?: number | null }[];
-
-	const teamB = [
-		{ id: match?.player_b1_id, before: match?.elo_before_b1 },
-		match?.player_b2_id && {
-			id: match.player_b2_id,
-			before: match.elo_before_b2,
-		},
-	].filter(Boolean) as { id: string; before?: number | null }[];
-
+	/* ---------- Early return for loading ---------- */
 	if (loading || !match) {
 		return (
 			<main className="max-w-4xl mx-auto px-4 py-16 text-center text-text-muted">
@@ -152,46 +120,44 @@ export default function Match() {
 		);
 	}
 
+	/* ---------- Teams ---------- */
+	const teamA = [
+		{ id: match.player_a1_id, eloChange: match.elo_change_a },
+		match.player_a2_id && {
+			id: match.player_a2_id,
+			eloChange: match.elo_change_a,
+		},
+	].filter(Boolean) as { id: string; eloChange: number | null }[];
+
+	const teamB = [
+		{ id: match.player_b1_id, eloChange: match.elo_change_b },
+		match.player_b2_id && {
+			id: match.player_b2_id,
+			eloChange: match.elo_change_b,
+		},
+	].filter(Boolean) as { id: string; eloChange: number | null }[];
+
 	return (
-		<main className="max-w-4xl mx-auto px-4 py-16 space-y-10">
-			{/* HEADER */}
-			<section className="text-center space-y-3">
-				<h1 className="text-3xl md:text-4xl font-extrabold">
-					Match Details
-				</h1>
-				<p className="text-text-muted">
-					{new Date(match.created_at).toLocaleDateString()}
-				</p>
+		<main className="max-w-4xl mx-auto px-4 py-16 space-y-6">
+			{/* Stats row */}
+			<section className="flex flex-wrap justify-between gap-4 text-sm text-center">
+				<div>Match #: {match.match_number}</div>
+				<div>
+					Score: {match.score_a} - {match.score_b}
+				</div>
+				<div>Elo/pt: {eloPerPoint.toFixed(2)}</div>
 			</section>
 
-			{/* STATS LINE (profile-style) */}
-			<section className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-				<Stat label="Winner" value={teamAWon ? "Team A" : "Team B"} />
-				<Stat
-					label="Elo / Point"
-					value={eloPerPoint?.toFixed(2) ?? "—"}
-				/>
-				<Stat label="Match #" value={match.match_number} />
-				<Stat
-					label="Format"
-					value={
-						match.match_type === "singles" ? "Singles" : "Doubles"
-					}
-				/>
-			</section>
-
-			{/* WIN PROBABILITY */}
-			{winProb != null && (
-				<section className="text-center text-sm text-text-muted">
-					Pre-match win chance:{" "}
-					<span className="font-medium">Team A {winProb}%</span> ·{" "}
-					<span className="font-medium">Team B {100 - winProb}%</span>
-				</section>
+			{/* Pre-match chance card */}
+			{preMatchWinChance != null && (
+				<div className="bg-card p-4 rounded-lg text-center text-lg font-medium">
+					Team A pre-match win chance: {preMatchWinChance}%
+				</div>
 			)}
 
-			{/* MATCH CARD */}
+			{/* Match card */}
 			<section className="bg-card rounded-xl p-6 space-y-6">
-				{/* TEAM A */}
+				{/* Team A */}
 				<div className="flex justify-between items-center">
 					<div className="space-y-1">
 						<p className="text-sm text-text-muted">Team A</p>
@@ -200,36 +166,29 @@ export default function Match() {
 								<Link
 									key={p.id}
 									href={`/profile/${
-										players.get(p.id)?.player_name
+										players.get(p.id)?.player_name ??
+										"unknown"
 									}`}
 									className="hover:underline font-medium"
 								>
-									{players.get(p.id)?.player_name}
+									{players.get(p.id)?.player_name ??
+										"Unknown"}
 								</Link>
 							))}
 						</div>
 						<p className="text-sm text-text-muted">
-							Elo after:{" "}
-							{teamA
-								.map((p) =>
-									eloAfter(p.before, match.elo_change_a)
-								)
-								.join(" / ")}
+							Elo change:{" "}
+							{teamA.map((p) => p.eloChange ?? 0).join(" / ")}
 						</p>
 					</div>
-
 					<div className="text-right">
-						<p className="text-sm text-text-muted">
-							{match.elo_change_a >= 0 && "+"}
-							{match.elo_change_a} Elo
-						</p>
 						<p className="text-3xl font-bold">{match.score_a}</p>
 					</div>
 				</div>
 
 				<hr className="border-border" />
 
-				{/* TEAM B */}
+				{/* Team B */}
 				<div className="flex justify-between items-center">
 					<div className="space-y-1">
 						<p className="text-sm text-text-muted">Team B</p>
@@ -238,34 +197,28 @@ export default function Match() {
 								<Link
 									key={p.id}
 									href={`/profile/${
-										players.get(p.id)?.player_name
+										players.get(p.id)?.player_name ??
+										"unknown"
 									}`}
 									className="hover:underline font-medium"
 								>
-									{players.get(p.id)?.player_name}
+									{players.get(p.id)?.player_name ??
+										"Unknown"}
 								</Link>
 							))}
 						</div>
 						<p className="text-sm text-text-muted">
-							Elo after:{" "}
-							{teamB
-								.map((p) =>
-									eloAfter(p.before, match.elo_change_b)
-								)
-								.join(" / ")}
+							Elo change:{" "}
+							{teamB.map((p) => p.eloChange ?? 0).join(" / ")}
 						</p>
 					</div>
-
 					<div className="text-right">
-						<p className="text-sm text-text-muted">
-							{match.elo_change_b >= 0 && "+"}
-							{match.elo_change_b} Elo
-						</p>
 						<p className="text-3xl font-bold">{match.score_b}</p>
 					</div>
 				</div>
 			</section>
 
+			{/* Group */}
 			{group && (
 				<section className="text-center text-sm text-text-muted">
 					Group:{" "}
@@ -273,14 +226,5 @@ export default function Match() {
 				</section>
 			)}
 		</main>
-	);
-}
-
-function Stat({ label, value }: { label: string; value: string | number }) {
-	return (
-		<div className="text-center">
-			<p className="text-sm text-text-muted">{label}</p>
-			<p className="text-2xl font-bold">{value}</p>
-		</div>
 	);
 }
