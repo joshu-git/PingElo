@@ -165,20 +165,27 @@ export default function Match() {
 				/>
 			</section>
 
-			{/* WIN PROBABILITY (below stats, above card) */}
+			{/* WIN PROBABILITY (balanced + vertically low values) */}
 			{winChance && (
-				<section className="bg-card rounded-xl p-4 text-center space-y-2">
-					<p className="text-sm text-text-muted">
-						Pre-match win probability
-					</p>
-					<div className="flex justify-between text-sm">
-						<div className="flex-1">
+				<section className="bg-card rounded-xl px-6 py-4">
+					<div className="grid grid-cols-3 items-end min-h-[72px]">
+						{/* Team A */}
+						<div className="text-left self-end">
 							<p className="font-medium">Team A</p>
-							<p>{winChance.a}%</p>
+							<p className="text-text-muted">{winChance.a}%</p>
 						</div>
-						<div className="flex-1">
+
+						{/* Center title */}
+						<div className="text-center self-center">
+							<p className="text-sm text-text-muted">
+								Pre-match win probability
+							</p>
+						</div>
+
+						{/* Team B */}
+						<div className="text-right self-end">
 							<p className="font-medium">Team B</p>
-							<p>{winChance.b}%</p>
+							<p className="text-text-muted">{winChance.b}%</p>
 						</div>
 					</div>
 				</section>
