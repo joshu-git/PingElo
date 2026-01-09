@@ -155,7 +155,17 @@ export default function Match() {
 				</p>
 			</section>
 
-			{/* WIN PROBABILITY ABOVE STATS */}
+			{/* STATS BAR */}
+			<section className="grid grid-cols-3 gap-4 text-center">
+				<Stat label="Winner" value={teamAWon ? "Team A" : "Team B"} />
+				<Stat label="Match #" value={match.match_number} />
+				<Stat
+					label="Tournament"
+					value={match.tournament_id ? "Yes" : "No"}
+				/>
+			</section>
+
+			{/* WIN PROBABILITY (below stats, above card) */}
 			{winChance && (
 				<section className="bg-card rounded-xl p-4 text-center space-y-2">
 					<p className="text-sm text-text-muted">
@@ -173,16 +183,6 @@ export default function Match() {
 					</div>
 				</section>
 			)}
-
-			{/* STATS BAR */}
-			<section className="grid grid-cols-3 gap-4 text-center">
-				<Stat label="Winner" value={teamAWon ? "Team A" : "Team B"} />
-				<Stat label="Match #" value={match.match_number} />
-				<Stat
-					label="Tournament"
-					value={match.tournament_id ? "Yes" : "No"}
-				/>
-			</section>
 
 			{/* MATCH CARD */}
 			<section className="bg-card rounded-xl p-6 space-y-6">
