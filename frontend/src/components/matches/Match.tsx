@@ -23,13 +23,13 @@ export default function Match() {
 	/* ---------- Load match ---------- */
 	useEffect(() => {
 		const loadMatch = async () => {
-			const { data, error } = await supabase
+			const { data } = await supabase
 				.from("matches")
 				.select("*")
 				.eq("id", id)
 				.single();
 
-			if (error || !data) {
+			if (!data) {
 				router.push("/matches");
 				return;
 			}
@@ -46,31 +46,30 @@ export default function Match() {
 		if (!match) return;
 
 		const loadMeta = async () => {
-			const playerIds = [
+			const ids = [
 				match.player_a1_id,
 				match.player_a2_id,
 				match.player_b1_id,
 				match.player_b2_id,
-			].filter(Boolean);
+			].filter((id): id is string => Boolean(id));
 
 			const { data: playerData } = await supabase
 				.from("players")
 				.select("*")
-				.in("id", playerIds as string[]);
+				.in("id", ids);
 
 			if (playerData) {
 				setPlayers(new Map(playerData.map((p) => [p.id, p])));
 			}
 
-			const firstPlayer = playerData?.[0];
-			if (firstPlayer?.group_id) {
+			const first = playerData?.[0];
+			if (first?.group_id) {
 				const { data: groupData } = await supabase
 					.from("groups")
 					.select("*")
-					.eq("id", firstPlayer.group_id)
+					.eq("id", first.group_id)
 					.single();
-
-				if (groupData) setGroup(groupData);
+				setGroup(groupData ?? null);
 			}
 		};
 
@@ -79,69 +78,71 @@ export default function Match() {
 
 	const teamAWon = match ? match.score_a > match.score_b : false;
 
-	const teamA = useMemo(() => {
-		if (!match) return [];
-		return [
-			{ id: match.player_a1_id, before: match.elo_before_a1 },
-			match.player_a2_id && {
-				id: match.player_a2_id,
-				before: match.elo_before_a2,
-			},
-		].filter(Boolean) as { id: string; before?: number | null }[];
-	}, [match]);
-
-	const teamB = useMemo(() => {
-		if (!match) return [];
-		return [
-			{ id: match.player_b1_id, before: match.elo_before_b1 },
-			match.player_b2_id && {
-				id: match.player_b2_id,
-				before: match.elo_before_b2,
-			},
-		].filter(Boolean) as { id: string; before?: number | null }[];
-	}, [match]);
-
-	const eloAfter = (before?: number | null, change?: number | null) =>
-		before != null && change != null ? before + change : null;
-
-	/* ---------- Win chance ---------- */
-	const winChance = useMemo(() => {
+	/* ---------- Elo / Point (winner-based, accurate) ---------- */
+	const eloPerPoint = useMemo(() => {
 		if (!match) return null;
 
-		const getElo = (id?: string | null, isDoubles = false) =>
-			id
-				? players.get(id)?.[
-						isDoubles ? "doubles_elo" : "singles_elo"
-				  ] ?? 0
-				: 0;
+		const winnerPoints = teamAWon ? match.score_a : match.score_b;
+		const eloChange = teamAWon
+			? Math.abs(match.elo_change_a)
+			: Math.abs(match.elo_change_b);
+
+		if (!winnerPoints) return null;
+		return eloChange / winnerPoints;
+	}, [match, teamAWon]);
+
+	/* ---------- Pre-match win probability ---------- */
+	const winProb = useMemo(() => {
+		if (!match || players.size === 0) return null;
+
+		const getElo = (id: string | null, type: "singles" | "doubles") =>
+			id ? players.get(id)?.[`${type}_elo`] ?? 0 : 0;
 
 		if (match.match_type === "singles") {
-			const rA = getElo(match.player_a1_id);
-			const rB = getElo(match.player_b1_id);
+			const rA = getElo(match.player_a1_id, "singles");
+			const rB = getElo(match.player_b1_id, "singles");
 			return Math.round(expectedScore(rA, rB) * 100);
 		}
 
-		const team = (ids: (string | null | undefined)[]) =>
-			ids.reduce((sum, id) => sum + getElo(id, true), 0) / ids.length;
-
-		const rA = R([match.player_a1_id, match.player_a2_id]);
-		const rB = R([match.player_b1_id, match.player_b2_id]);
-
-		function R(ids: (string | null | undefined)[]) {
-			const valid = ids.filter(Boolean) as string[];
+		const avg = (ids: (string | null)[]) => {
+			const valid = ids.filter((id): id is string => Boolean(id));
 			return (
-				valid.reduce((s, id) => s + getElo(id, true), 0) / valid.length
+				valid.reduce((sum, id) => sum + getElo(id, "doubles"), 0) /
+				valid.length
 			);
-		}
+		};
+
+		const rA = avg([
+			match.player_a1_id ?? null,
+			match.player_a2_id ?? null,
+		]);
+
+		const rB = avg([
+			match.player_b1_id ?? null,
+			match.player_b2_id ?? null,
+		]);
 
 		return Math.round(expectedScore(rA, rB) * 100);
 	}, [match, players]);
 
-	/* ---------- Elo efficiency ---------- */
-	const eloEfficiency = useMemo(() => {
-		if (!match?.game_points) return null;
-		return Math.abs(match.elo_change_a) / match.game_points;
-	}, [match]);
+	const eloAfter = (before?: number | null, change?: number | null) =>
+		before != null && change != null ? before + change : null;
+
+	const teamA = [
+		{ id: match?.player_a1_id, before: match?.elo_before_a1 },
+		match?.player_a2_id && {
+			id: match.player_a2_id,
+			before: match.elo_before_a2,
+		},
+	].filter(Boolean) as { id: string; before?: number | null }[];
+
+	const teamB = [
+		{ id: match?.player_b1_id, before: match?.elo_before_b1 },
+		match?.player_b2_id && {
+			id: match.player_b2_id,
+			before: match.elo_before_b2,
+		},
+	].filter(Boolean) as { id: string; before?: number | null }[];
 
 	if (loading || !match) {
 		return (
@@ -163,21 +164,30 @@ export default function Match() {
 				</p>
 			</section>
 
-			{/* TOP STATS (profile-style) */}
+			{/* STATS LINE (profile-style) */}
 			<section className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-				<Meta label="Winner" value={teamAWon ? "Team A" : "Team B"} />
-				<Meta label="Win Chance" value={`${winChance}%`} />
-				<Meta
+				<Stat label="Winner" value={teamAWon ? "Team A" : "Team B"} />
+				<Stat
 					label="Elo / Point"
-					value={eloEfficiency?.toFixed(2) ?? "—"}
+					value={eloPerPoint?.toFixed(2) ?? "—"}
 				/>
-				<Meta
+				<Stat label="Match #" value={match.match_number} />
+				<Stat
 					label="Format"
 					value={
 						match.match_type === "singles" ? "Singles" : "Doubles"
 					}
 				/>
 			</section>
+
+			{/* WIN PROBABILITY */}
+			{winProb != null && (
+				<section className="text-center text-sm text-text-muted">
+					Pre-match win chance:{" "}
+					<span className="font-medium">Team A {winProb}%</span> ·{" "}
+					<span className="font-medium">Team B {100 - winProb}%</span>
+				</section>
+			)}
 
 			{/* MATCH CARD */}
 			<section className="bg-card rounded-xl p-6 space-y-6">
@@ -266,11 +276,11 @@ export default function Match() {
 	);
 }
 
-function Meta({ label, value }: { label: string; value: string | number }) {
+function Stat({ label, value }: { label: string; value: string | number }) {
 	return (
-		<div className="bg-card rounded-lg p-4">
+		<div className="text-center">
 			<p className="text-sm text-text-muted">{label}</p>
-			<p className="text-lg font-semibold">{value}</p>
+			<p className="text-2xl font-bold">{value}</p>
 		</div>
 	);
 }
