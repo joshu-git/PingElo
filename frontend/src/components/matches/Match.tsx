@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { MatchesRow, PlayersRow, GroupsRow } from "@/types/database";
 
-/* ---------- Elo helpers ---------- */
+/* ---------- Lightweight Elo expected score ---------- */
 function expectedScore(rA: number, rB: number) {
 	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
@@ -77,10 +77,6 @@ export default function Match() {
 		loadMeta();
 	}, [match]);
 
-	/* ---------- Helpers ---------- */
-	const eloAfter = (before?: number | null, change?: number | null) =>
-		before != null && change != null ? before + change : null;
-
 	const teamAWon = match ? match.score_a > match.score_b : false;
 
 	const teamA = useMemo(() => {
@@ -105,33 +101,46 @@ export default function Match() {
 		].filter(Boolean) as { id: string; before?: number | null }[];
 	}, [match]);
 
-	/* ---------- Win probability ---------- */
+	const eloAfter = (before?: number | null, change?: number | null) =>
+		before != null && change != null ? before + change : null;
+
+	/* ---------- Win chance ---------- */
 	const winChance = useMemo(() => {
 		if (!match) return null;
 
-		const teamAElo =
-			match.match_type === "singles"
-				? match.elo_before_a1
-				: Math.round(
-						((match.elo_before_a1 ?? 0) +
-							(match.elo_before_a2 ?? 0)) /
-							2
-				  );
+		const getElo = (id?: string | null, isDoubles = false) =>
+			id
+				? players.get(id)?.[
+						isDoubles ? "doubles_elo" : "singles_elo"
+				  ] ?? 0
+				: 0;
 
-		const teamBElo =
-			match.match_type === "singles"
-				? match.elo_before_b1
-				: Math.round(
-						((match.elo_before_b1 ?? 0) +
-							(match.elo_before_b2 ?? 0)) /
-							2
-				  );
+		if (match.match_type === "singles") {
+			const rA = getElo(match.player_a1_id);
+			const rB = getElo(match.player_b1_id);
+			return Math.round(expectedScore(rA, rB) * 100);
+		}
 
-		const a = expectedScore(teamAElo, teamBElo);
-		return {
-			a: Math.round(a * 100),
-			b: Math.round((1 - a) * 100),
-		};
+		const team = (ids: (string | null | undefined)[]) =>
+			ids.reduce((sum, id) => sum + getElo(id, true), 0) / ids.length;
+
+		const rA = R([match.player_a1_id, match.player_a2_id]);
+		const rB = R([match.player_b1_id, match.player_b2_id]);
+
+		function R(ids: (string | null | undefined)[]) {
+			const valid = ids.filter(Boolean) as string[];
+			return (
+				valid.reduce((s, id) => s + getElo(id, true), 0) / valid.length
+			);
+		}
+
+		return Math.round(expectedScore(rA, rB) * 100);
+	}, [match, players]);
+
+	/* ---------- Elo efficiency ---------- */
+	const eloEfficiency = useMemo(() => {
+		if (!match?.game_points) return null;
+		return Math.abs(match.elo_change_a) / match.game_points;
 	}, [match]);
 
 	if (loading || !match) {
@@ -150,9 +159,24 @@ export default function Match() {
 					Match Details
 				</h1>
 				<p className="text-text-muted">
-					{match.match_type === "singles" ? "Singles" : "Doubles"} ·{" "}
 					{new Date(match.created_at).toLocaleDateString()}
 				</p>
+			</section>
+
+			{/* TOP STATS (profile-style) */}
+			<section className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+				<Meta label="Winner" value={teamAWon ? "Team A" : "Team B"} />
+				<Meta label="Win Chance" value={`${winChance}%`} />
+				<Meta
+					label="Elo / Point"
+					value={eloEfficiency?.toFixed(2) ?? "—"}
+				/>
+				<Meta
+					label="Format"
+					value={
+						match.match_type === "singles" ? "Singles" : "Doubles"
+					}
+				/>
 			</section>
 
 			{/* MATCH CARD */}
@@ -230,36 +254,6 @@ export default function Match() {
 						<p className="text-3xl font-bold">{match.score_b}</p>
 					</div>
 				</div>
-			</section>
-
-			{/* WIN PROBABILITY */}
-			{winChance && (
-				<section className="bg-card rounded-xl p-4 text-center space-y-2">
-					<p className="text-sm text-text-muted">
-						Pre-match win probability
-					</p>
-					<div className="flex justify-between text-sm">
-						<div className="flex-1">
-							<p className="font-medium">Team A</p>
-							<p>{winChance.a}%</p>
-						</div>
-						<div className="flex-1">
-							<p className="font-medium">Team B</p>
-							<p>{winChance.b}%</p>
-						</div>
-					</div>
-				</section>
-			)}
-
-			{/* META */}
-			<section className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-				<Meta label="Winner" value={teamAWon ? "Team A" : "Team B"} />
-				<Meta label="Game Points" value={match.game_points} />
-				<Meta label="Match #" value={match.match_number} />
-				<Meta
-					label="Tournament"
-					value={match.tournament_id ? "Yes" : "No"}
-				/>
 			</section>
 
 			{group && (
