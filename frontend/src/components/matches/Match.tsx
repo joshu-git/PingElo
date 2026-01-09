@@ -82,7 +82,7 @@ export default function Match() {
 		loadMeta();
 	}, [match]);
 
-	/* ---------- Always call hooks at top ---------- */
+	/* ---------- Always call hooks ---------- */
 	const preMatchWinChance = useMemo(() => {
 		if (!match) return null;
 
@@ -101,7 +101,12 @@ export default function Match() {
 
 		if (rA === 0 && rB === 0) return null;
 
-		return Math.round(expectedScore(rA, rB) * 100);
+		const chanceA = expectedScore(rA, rB);
+		const chanceB = 1 - chanceA;
+		return {
+			teamA: Math.round(chanceA * 100),
+			teamB: Math.round(chanceB * 100),
+		};
 	}, [match, players]);
 
 	const eloPerPoint = useMemo(() => {
@@ -111,7 +116,6 @@ export default function Match() {
 		return Math.abs(match.elo_change_a ?? 0) / diff;
 	}, [match]);
 
-	/* ---------- Early return for loading ---------- */
 	if (loading || !match) {
 		return (
 			<main className="max-w-4xl mx-auto px-4 py-16 text-center text-text-muted">
@@ -138,26 +142,47 @@ export default function Match() {
 	].filter(Boolean) as { id: string; eloChange: number | null }[];
 
 	return (
-		<main className="max-w-4xl mx-auto px-4 py-16 space-y-6">
-			{/* Stats row */}
-			<section className="flex flex-wrap justify-between gap-4 text-sm text-center">
-				<div>Match #: {match.match_number}</div>
-				<div>
-					Score: {match.score_a} - {match.score_b}
-				</div>
-				<div>Elo/pt: {eloPerPoint.toFixed(2)}</div>
+		<main className="max-w-4xl mx-auto px-4 py-16 space-y-10">
+			{/* HEADER */}
+			<section className="text-center space-y-3">
+				<h1 className="text-3xl md:text-4xl font-extrabold">
+					Match Details
+				</h1>
+				<p className="text-text-muted">
+					{match.match_type === "singles" ? "Singles" : "Doubles"} ·{" "}
+					{new Date(match.created_at).toLocaleDateString()}
+				</p>
 			</section>
 
-			{/* Pre-match chance card */}
-			{preMatchWinChance != null && (
-				<div className="bg-card p-4 rounded-lg text-center text-lg font-medium">
-					Team A pre-match win chance: {preMatchWinChance}%
+			{/* STATS ROW */}
+			<section className="flex flex-wrap justify-between gap-4 text-center text-sm">
+				<div>
+					<p className="text-text-muted">Match #</p>
+					<p className="font-bold">{match.match_number}</p>
 				</div>
+				<div>
+					<p className="text-text-muted">Score</p>
+					<p className="font-bold">
+						{match.score_a} - {match.score_b}
+					</p>
+				</div>
+				<div>
+					<p className="text-text-muted">Elo / pt</p>
+					<p className="font-bold">{eloPerPoint.toFixed(2)}</p>
+				</div>
+			</section>
+
+			{/* PRE-MATCH WIN CHANCE CARD */}
+			{preMatchWinChance && (
+				<section className="bg-card p-4 rounded-lg text-center flex justify-around text-lg font-medium space-x-4">
+					<div>Team A win chance: {preMatchWinChance.teamA}%</div>
+					<div>Team B win chance: {preMatchWinChance.teamB}%</div>
+				</section>
 			)}
 
-			{/* Match card */}
+			{/* MATCH CARD */}
 			<section className="bg-card rounded-xl p-6 space-y-6">
-				{/* Team A */}
+				{/* TEAM A */}
 				<div className="flex justify-between items-center">
 					<div className="space-y-1">
 						<p className="text-sm text-text-muted">Team A</p>
@@ -188,7 +213,7 @@ export default function Match() {
 
 				<hr className="border-border" />
 
-				{/* Team B */}
+				{/* TEAM B */}
 				<div className="flex justify-between items-center">
 					<div className="space-y-1">
 						<p className="text-sm text-text-muted">Team B</p>
@@ -218,7 +243,7 @@ export default function Match() {
 				</div>
 			</section>
 
-			{/* Group */}
+			{/* GROUP */}
 			{group && (
 				<section className="text-center text-sm text-text-muted">
 					Group:{" "}
