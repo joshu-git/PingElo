@@ -155,7 +155,26 @@ export default function Match() {
 				</p>
 			</section>
 
-			{/* STATS BAR (moved directly under header) */}
+			{/* WIN PROBABILITY ABOVE STATS */}
+			{winChance && (
+				<section className="bg-card rounded-xl p-4 text-center space-y-2">
+					<p className="text-sm text-text-muted">
+						Pre-match win probability
+					</p>
+					<div className="flex justify-between text-sm">
+						<div className="flex-1">
+							<p className="font-medium">Team A</p>
+							<p>{winChance.a}%</p>
+						</div>
+						<div className="flex-1">
+							<p className="font-medium">Team B</p>
+							<p>{winChance.b}%</p>
+						</div>
+					</div>
+				</section>
+			)}
+
+			{/* STATS BAR */}
 			<section className="grid grid-cols-3 gap-4 text-center">
 				<Stat label="Winner" value={teamAWon ? "Team A" : "Team B"} />
 				<Stat label="Match #" value={match.match_number} />
@@ -242,25 +261,6 @@ export default function Match() {
 				</div>
 			</section>
 
-			{/* WIN PROBABILITY */}
-			{winChance && (
-				<section className="bg-card rounded-xl p-4 text-center space-y-2">
-					<p className="text-sm text-text-muted">
-						Pre-match win probability
-					</p>
-					<div className="flex justify-between text-sm">
-						<div className="flex-1">
-							<p className="font-medium">Team A</p>
-							<p>{winChance.a}%</p>
-						</div>
-						<div className="flex-1">
-							<p className="font-medium">Team B</p>
-							<p>{winChance.b}%</p>
-						</div>
-					</div>
-				</section>
-			)}
-
 			{group && (
 				<section className="text-center text-sm text-text-muted">
 					Group:{" "}
@@ -271,7 +271,7 @@ export default function Match() {
 	);
 }
 
-/* ---------- STAT COMPONENT (same as profile.tsx) ---------- */
+/* ---------- STAT COMPONENT ---------- */
 function Stat({ label, value }: { label: string; value: number | string }) {
 	return (
 		<div className="text-center">
