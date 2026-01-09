@@ -169,21 +169,23 @@ export default function Match() {
 			{winChance && (
 				<section className="bg-card rounded-xl px-6 py-4">
 					<div className="space-y-3">
-						{/* Title (top + centered) */}
+						{/* Title (top, centered) */}
 						<p className="text-sm text-text-muted text-center">
-							Pre-match win probability
+							Match Win Probability
 						</p>
 
-						{/* Probabilities (lower, balanced) */}
-						<div className="flex justify-between text-sm">
-							<div className="text-left">
+						{/* Probabilities (lower, centered in zones) */}
+						<div className="grid grid-cols-3 text-sm">
+							<div className="flex flex-col items-center">
 								<p className="font-medium">Team A</p>
 								<p className="text-text-muted">
 									{winChance.a}%
 								</p>
 							</div>
 
-							<div className="text-right">
+							<div />
+
+							<div className="flex flex-col items-center">
 								<p className="font-medium">Team B</p>
 								<p className="text-text-muted">
 									{winChance.b}%
