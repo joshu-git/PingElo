@@ -6,6 +6,11 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { MatchesRow, PlayersRow, GroupsRow } from "@/types/database";
 
+/* ---------- Elo helpers ---------- */
+function expectedScore(rA: number, rB: number) {
+	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
+}
+
 export default function Match() {
 	const { id } = useParams<{ id: string }>();
 	const router = useRouter();
@@ -57,7 +62,6 @@ export default function Match() {
 				setPlayers(new Map(playerData.map((p) => [p.id, p])));
 			}
 
-			// Optional: group (based on first player)
 			const firstPlayer = playerData?.[0];
 			if (firstPlayer?.group_id) {
 				const { data: groupData } = await supabase
@@ -73,6 +77,7 @@ export default function Match() {
 		loadMeta();
 	}, [match]);
 
+	/* ---------- Helpers ---------- */
 	const eloAfter = (before?: number | null, change?: number | null) =>
 		before != null && change != null ? before + change : null;
 
@@ -81,10 +86,7 @@ export default function Match() {
 	const teamA = useMemo(() => {
 		if (!match) return [];
 		return [
-			{
-				id: match.player_a1_id,
-				before: match.elo_before_a1,
-			},
+			{ id: match.player_a1_id, before: match.elo_before_a1 },
 			match.player_a2_id && {
 				id: match.player_a2_id,
 				before: match.elo_before_a2,
@@ -95,15 +97,41 @@ export default function Match() {
 	const teamB = useMemo(() => {
 		if (!match) return [];
 		return [
-			{
-				id: match.player_b1_id,
-				before: match.elo_before_b1,
-			},
+			{ id: match.player_b1_id, before: match.elo_before_b1 },
 			match.player_b2_id && {
 				id: match.player_b2_id,
 				before: match.elo_before_b2,
 			},
 		].filter(Boolean) as { id: string; before?: number | null }[];
+	}, [match]);
+
+	/* ---------- Win probability ---------- */
+	const winChance = useMemo(() => {
+		if (!match) return null;
+
+		const teamAElo =
+			match.match_type === "singles"
+				? match.elo_before_a1
+				: Math.round(
+						((match.elo_before_a1 ?? 0) +
+							(match.elo_before_a2 ?? 0)) /
+							2
+				  );
+
+		const teamBElo =
+			match.match_type === "singles"
+				? match.elo_before_b1
+				: Math.round(
+						((match.elo_before_b1 ?? 0) +
+							(match.elo_before_b2 ?? 0)) /
+							2
+				  );
+
+		const a = expectedScore(teamAElo, teamBElo);
+		return {
+			a: Math.round(a * 100),
+			b: Math.round((1 - a) * 100),
+		};
 	}, [match]);
 
 	if (loading || !match) {
@@ -203,6 +231,25 @@ export default function Match() {
 					</div>
 				</div>
 			</section>
+
+			{/* WIN PROBABILITY */}
+			{winChance && (
+				<section className="bg-card rounded-xl p-4 text-center space-y-2">
+					<p className="text-sm text-text-muted">
+						Pre-match win probability
+					</p>
+					<div className="flex justify-between text-sm">
+						<div className="flex-1">
+							<p className="font-medium">Team A</p>
+							<p>{winChance.a}%</p>
+						</div>
+						<div className="flex-1">
+							<p className="font-medium">Team B</p>
+							<p>{winChance.b}%</p>
+						</div>
+					</div>
+				</section>
+			)}
 
 			{/* META */}
 			<section className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
