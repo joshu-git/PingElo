@@ -82,7 +82,7 @@ export default function Match() {
 		loadMeta();
 	}, [match]);
 
-	/* ---------- Always call hooks ---------- */
+	/* ---------- Pre-match win chance ---------- */
 	const preMatchWinChance = useMemo(() => {
 		if (!match) return null;
 
@@ -101,14 +101,13 @@ export default function Match() {
 
 		if (rA === 0 && rB === 0) return null;
 
-		const chanceA = expectedScore(rA, rB);
-		const chanceB = 1 - chanceA;
 		return {
-			teamA: Math.round(chanceA * 100),
-			teamB: Math.round(chanceB * 100),
+			teamA: expectedScore(rA, rB),
+			teamB: 1 - expectedScore(rA, rB),
 		};
 	}, [match, players]);
 
+	/* ---------- Elo per point ---------- */
 	const eloPerPoint = useMemo(() => {
 		if (!match) return 0;
 		const diff = Math.abs(match.score_a - match.score_b);
@@ -142,9 +141,9 @@ export default function Match() {
 	].filter(Boolean) as { id: string; eloChange: number | null }[];
 
 	return (
-		<main className="max-w-4xl mx-auto px-4 py-16 space-y-10">
+		<main className="max-w-4xl mx-auto px-4 py-16 space-y-8">
 			{/* HEADER */}
-			<section className="text-center space-y-3">
+			<section className="text-center space-y-2">
 				<h1 className="text-3xl md:text-4xl font-extrabold">
 					Match Details
 				</h1>
@@ -154,29 +153,43 @@ export default function Match() {
 				</p>
 			</section>
 
-			{/* STATS ROW */}
-			<section className="flex flex-wrap justify-between gap-4 text-center text-sm">
-				<div>
-					<p className="text-text-muted">Match #</p>
-					<p className="font-bold">{match.match_number}</p>
-				</div>
-				<div>
-					<p className="text-text-muted">Score</p>
-					<p className="font-bold">
-						{match.score_a} - {match.score_b}
-					</p>
-				</div>
-				<div>
-					<p className="text-text-muted">Elo / pt</p>
-					<p className="font-bold">{eloPerPoint.toFixed(2)}</p>
-				</div>
+			{/* STATS ROW (profile-style) */}
+			<section className="grid grid-cols-4 gap-4 text-center text-sm">
+				<Stat label="Match #" value={match.match_number} />
+				<Stat
+					label="Score"
+					value={`${match.score_a} - ${match.score_b}`}
+				/>
+				<Stat label="Elo / pt" value={eloPerPoint.toFixed(2)} />
+				{preMatchWinChance && (
+					<Stat
+						label="Win Prob."
+						value={`${(preMatchWinChance.teamA * 100).toFixed(
+							1
+						)}% / ${(preMatchWinChance.teamB * 100).toFixed(1)}%`}
+					/>
+				)}
 			</section>
 
 			{/* PRE-MATCH WIN CHANCE CARD */}
 			{preMatchWinChance && (
-				<section className="bg-card p-4 rounded-lg text-center flex justify-around text-lg font-medium space-x-4">
-					<div>Team A win chance: {preMatchWinChance.teamA}%</div>
-					<div>Team B win chance: {preMatchWinChance.teamB}%</div>
+				<section className="bg-card rounded-lg p-4 flex justify-around text-sm text-center">
+					<div className="flex flex-col">
+						<span className="text-text-muted text-xs">
+							Team A Win Chance
+						</span>
+						<span className="font-medium">
+							{(preMatchWinChance.teamA * 100).toFixed(1)}%
+						</span>
+					</div>
+					<div className="flex flex-col">
+						<span className="text-text-muted text-xs">
+							Team B Win Chance
+						</span>
+						<span className="font-medium">
+							{(preMatchWinChance.teamB * 100).toFixed(1)}%
+						</span>
+					</div>
 				</section>
 			)}
 
@@ -251,5 +264,14 @@ export default function Match() {
 				</section>
 			)}
 		</main>
+	);
+}
+
+function Stat({ label, value }: { label: string; value: string | number }) {
+	return (
+		<div>
+			<p className="text-text-muted text-xs">{label}</p>
+			<p className="font-bold">{value}</p>
+		</div>
 	);
 }
