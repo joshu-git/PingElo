@@ -92,14 +92,14 @@ export default function Match() {
 
 			/* Created by */
 			if (match.created_by) {
-				const { data } = await supabase
+				const { data: creator } = await supabase
 					.from("players")
-					.select("player_name")
+					.select("id, player_name")
 					.eq("id", match.created_by)
 					.single();
 
-				if (data?.player_name) {
-					setCreatedByName(data.player_name);
+				if (creator) {
+					setCreatedByName(creator.player_name);
 				}
 			}
 		};
@@ -310,19 +310,42 @@ export default function Match() {
 			<section className="text-center text-sm text-text-muted space-y-1">
 				<p>
 					Tournament:{" "}
-					<span className="font-medium">{tournamentName}</span>
+					{match.tournament_id ? (
+						<Link
+							href={`/tournaments/${match.tournament_id}`}
+							className="font-medium hover:underline"
+						>
+							{tournamentName}
+						</Link>
+					) : (
+						<span className="font-medium">Casual</span>
+					)}
 				</p>
 
 				{group && (
 					<p>
 						Group:{" "}
-						<span className="font-medium">{group.group_name}</span>
+						<Link
+							href={`/groups/${group.id}`}
+							className="font-medium hover:underline"
+						>
+							{group.group_name}
+						</Link>
 					</p>
 				)}
 
 				<p>
 					Created By:{" "}
-					<span className="font-medium">{createdByName}</span>
+					{match.created_by ? (
+						<Link
+							href={`/profile/${createdByName}`}
+							className="font-medium hover:underline"
+						>
+							{createdByName}
+						</Link>
+					) : (
+						<span className="font-medium">Unknown</span>
+					)}
 				</p>
 			</section>
 		</main>
