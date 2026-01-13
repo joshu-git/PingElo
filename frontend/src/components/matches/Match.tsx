@@ -86,13 +86,13 @@ export default function Match() {
 					setTournamentName(tournamentData.tournament_name);
 			}
 
-			/* Created By (from auth.users -> match.created_by) */
 			if (match.created_by) {
 				const { data: creator } = await supabase
 					.from("players")
 					.select("player_name")
-					.eq("created_by", match.created_by)
+					.eq("account_id", match.created_by)
 					.single();
+
 				if (creator?.player_name) setCreatedByName(creator.player_name);
 			}
 		};
