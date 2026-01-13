@@ -61,9 +61,8 @@ export default function Match() {
 				.select("*")
 				.in("id", playerIds);
 
-			if (playerData) {
+			if (playerData)
 				setPlayers(new Map(playerData.map((p) => [p.id, p])));
-			}
 
 			/* Group */
 			const firstPlayer = playerData?.[0];
@@ -73,34 +72,28 @@ export default function Match() {
 					.select("*")
 					.eq("id", firstPlayer.group_id)
 					.single();
-
 				if (groupData) setGroup(groupData);
 			}
 
 			/* Tournament */
 			if (match.tournament_id) {
-				const { data } = await supabase
+				const { data: tournamentData } = await supabase
 					.from("tournaments")
 					.select("tournament_name")
 					.eq("id", match.tournament_id)
 					.single();
-
-				if (data?.tournament_name) {
-					setTournamentName(data.tournament_name);
-				}
+				if (tournamentData?.tournament_name)
+					setTournamentName(tournamentData.tournament_name);
 			}
 
-			/* ---------- Created by ---------- */
+			/* Created By (from auth.users -> match.created_by) */
 			if (match.created_by) {
 				const { data: creator } = await supabase
 					.from("players")
 					.select("player_name")
-					.eq("account_id", match.created_by)
+					.eq("created_by", match.created_by)
 					.single();
-
-				if (creator) {
-					setCreatedByName(creator.player_name);
-				}
+				if (creator?.player_name) setCreatedByName(creator.player_name);
 			}
 		};
 
@@ -306,37 +299,41 @@ export default function Match() {
 				</div>
 			</section>
 
-			{/* META (same style as Group) */}
-			<section className="text-center text-sm text-text-muted space-y-1">
-				<p>
-					Tournament:{" "}
+			<section className="grid grid-cols-3 text-center text-sm text-text-muted mt-4">
+				{/* Tournament */}
+				<div>
+					<p className="text-text-muted">Tournament</p>
 					{match.tournament_id ? (
 						<Link
-							href={`/tournaments/${match.tournament_id}`}
+							href={`/tournaments/${tournamentName}`}
 							className="font-medium hover:underline"
 						>
 							{tournamentName}
 						</Link>
 					) : (
-						<span className="font-medium">Casual</span>
+						<p className="font-medium">Casual</p>
 					)}
-				</p>
+				</div>
 
-				{group && (
-					<p>
-						Group:{" "}
+				{/* Group */}
+				<div>
+					<p className="text-text-muted">Group</p>
+					{group ? (
 						<Link
-							href={`/groups/${group.id}`}
+							href={`/groups/${group.group_name}`}
 							className="font-medium hover:underline"
 						>
 							{group.group_name}
 						</Link>
-					</p>
-				)}
+					) : (
+						<p className="font-medium">—</p>
+					)}
+				</div>
 
-				<p>
-					Created By:{" "}
-					{match.created_by ? (
+				{/* Created By */}
+				<div>
+					<p className="text-text-muted">Created By</p>
+					{createdByName ? (
 						<Link
 							href={`/profile/${createdByName}`}
 							className="font-medium hover:underline"
@@ -346,7 +343,7 @@ export default function Match() {
 					) : (
 						<span className="font-medium">Unknown</span>
 					)}
-				</p>
+				</div>
 			</section>
 		</main>
 	);
