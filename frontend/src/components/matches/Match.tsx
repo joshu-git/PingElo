@@ -18,6 +18,8 @@ export default function Match() {
 	const [match, setMatch] = useState<MatchesRow | null>(null);
 	const [players, setPlayers] = useState<Map<string, PlayersRow>>(new Map());
 	const [group, setGroup] = useState<GroupsRow | null>(null);
+	const [tournamentName, setTournamentName] = useState<string>("Casual");
+	const [createdByName, setCreatedByName] = useState<string>("Unknown");
 	const [loading, setLoading] = useState(true);
 
 	/* ---------- Load match ---------- */
@@ -41,27 +43,29 @@ export default function Match() {
 		loadMatch();
 	}, [id, router]);
 
-	/* ---------- Load players + group ---------- */
+	/* ---------- Load players, group, tournament, creator ---------- */
 	useEffect(() => {
 		if (!match) return;
 
 		const loadMeta = async () => {
+			/* Players */
 			const playerIds = [
 				match.player_a1_id,
 				match.player_a2_id,
 				match.player_b1_id,
 				match.player_b2_id,
-			].filter(Boolean);
+			].filter(Boolean) as string[];
 
 			const { data: playerData } = await supabase
 				.from("players")
 				.select("*")
-				.in("id", playerIds as string[]);
+				.in("id", playerIds);
 
 			if (playerData) {
 				setPlayers(new Map(playerData.map((p) => [p.id, p])));
 			}
 
+			/* Group */
 			const firstPlayer = playerData?.[0];
 			if (firstPlayer?.group_id) {
 				const { data: groupData } = await supabase
@@ -71,6 +75,32 @@ export default function Match() {
 					.single();
 
 				if (groupData) setGroup(groupData);
+			}
+
+			/* Tournament */
+			if (match.tournament_id) {
+				const { data } = await supabase
+					.from("tournaments")
+					.select("tournament_name")
+					.eq("id", match.tournament_id)
+					.single();
+
+				if (data?.tournament_name) {
+					setTournamentName(data.tournament_name);
+				}
+			}
+
+			/* Created by */
+			if (match.created_by) {
+				const { data } = await supabase
+					.from("players")
+					.select("player_name")
+					.eq("id", match.created_by)
+					.single();
+
+				if (data?.player_name) {
+					setCreatedByName(data.player_name);
+				}
 			}
 		};
 
@@ -128,6 +158,7 @@ export default function Match() {
 				  );
 
 		const a = expectedScore(teamAElo, teamBElo);
+
 		return {
 			a: Math.round(a * 100),
 			b: Math.round((1 - a) * 100),
@@ -169,12 +200,10 @@ export default function Match() {
 			{winChance && (
 				<section className="bg-card rounded-xl px-6 py-4">
 					<div className="space-y-3">
-						{/* Title */}
 						<p className="text-sm text-text-muted text-center">
 							Pre-match win probability
 						</p>
 
-						{/* Probabilities */}
 						<div className="grid grid-cols-3">
 							<div className="flex flex-col items-center">
 								<p className="text-base font-semibold">
@@ -277,12 +306,25 @@ export default function Match() {
 				</div>
 			</section>
 
-			{group && (
-				<section className="text-center text-sm text-text-muted">
-					Group:{" "}
-					<span className="font-medium">{group.group_name}</span>
-				</section>
-			)}
+			{/* META (same style as Group) */}
+			<section className="text-center text-sm text-text-muted space-y-1">
+				<p>
+					Tournament:{" "}
+					<span className="font-medium">{tournamentName}</span>
+				</p>
+
+				{group && (
+					<p>
+						Group:{" "}
+						<span className="font-medium">{group.group_name}</span>
+					</p>
+				)}
+
+				<p>
+					Created By:{" "}
+					<span className="font-medium">{createdByName}</span>
+				</p>
+			</section>
 		</main>
 	);
 }
