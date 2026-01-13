@@ -90,12 +90,12 @@ export default function Match() {
 				}
 			}
 
-			/* Created by */
+			/* ---------- Created by ---------- */
 			if (match.created_by) {
 				const { data: creator } = await supabase
 					.from("players")
-					.select("id, player_name")
-					.eq("id", match.created_by)
+					.select("player_name")
+					.eq("account_id", match.created_by)
 					.single();
 
 				if (creator) {
