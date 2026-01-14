@@ -1,9 +1,18 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import Matches from "@/components/matches/Matches";
+import {
+	ResponsiveContainer,
+	LineChart,
+	Line,
+	Area,
+	XAxis,
+	YAxis,
+	Tooltip,
+} from "recharts";
+import type { MatchesRow } from "@/types/database";
 
 type Player = {
 	id: string;
@@ -19,26 +28,30 @@ type GroupData = {
 	can_leave: boolean;
 };
 
+type ChartPoint = {
+	x: number;
+	date: string;
+	matches: number;
+};
+
 export default function Group() {
 	const { id } = useParams<{ id: string }>();
 	const router = useRouter();
 
 	const [group, setGroup] = useState<GroupData | null>(null);
+	const [matches, setMatches] = useState<MatchesRow[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [actionLoading, setActionLoading] = useState(false);
+	const [matchType, setMatchType] = useState<"singles" | "doubles">(
+		"singles"
+	);
+	const [range, setRange] = useState<number | null>(null); // days: 7, 30, null = all
 
-	/* ---------- Load group + players from Supabase ---------- */
+	/* ---------- Load group ---------- */
 	useEffect(() => {
 		let cancelled = false;
 
 		const loadGroup = async () => {
 			setLoading(true);
-
-			// Get current session
-			const {
-				data: { session },
-			} = await supabase.auth.getSession();
-			const userId = session?.user.id;
 
 			const { data, error } = await supabase
 				.from("groups")
@@ -58,9 +71,8 @@ export default function Group() {
 					claim_code: p.claim_code,
 				}));
 
-				const is_member = players.some((p) => p.claim_code === userId);
-				const claimedPlayers = players.filter((p) => p.claim_code);
-				const can_leave = is_member && claimedPlayers.length > 1;
+				const is_member = false; // placeholder
+				const can_leave = false;
 
 				setGroup({
 					id: data.id,
@@ -79,71 +91,64 @@ export default function Group() {
 		};
 	}, [id, router]);
 
-	/* ---------- Backend actions ---------- */
-	const joinGroup = async () => {
-		if (!group || actionLoading) return;
-		setActionLoading(true);
+	/* ---------- Load group matches ---------- */
+	useEffect(() => {
+		if (!group) return;
 
-		const {
-			data: { session },
-		} = await supabase.auth.getSession();
-		if (!session) return;
+		const loadMatches = async () => {
+			const { data } = await supabase
+				.from("matches")
+				.select("*")
+				.eq("group_id", group.id)
+				.order("created_at", { ascending: true });
 
-		try {
-			await fetch(
-				`${process.env.NEXT_PUBLIC_API_URL}/groups/${id}/join`,
-				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${session.access_token}`,
-					},
-				}
-			);
-			setGroup(null); // force reload
-		} catch (err) {
-			console.error(err);
-		} finally {
-			setActionLoading(false);
-		}
-	};
+			setMatches((data ?? []) as MatchesRow[]);
+		};
 
-	const leaveGroup = async () => {
-		if (!group || actionLoading) return;
-		setActionLoading(true);
-
-		const {
-			data: { session },
-		} = await supabase.auth.getSession();
-		if (!session) return;
-
-		try {
-			await fetch(
-				`${process.env.NEXT_PUBLIC_API_URL}/groups/${id}/leave`,
-				{
-					method: "POST",
-					headers: {
-						Authorization: `Bearer ${session.access_token}`,
-					},
-				}
-			);
-			setGroup(null); // force reload
-		} catch (err) {
-			console.error(err);
-		} finally {
-			setActionLoading(false);
-		}
-	};
-
-	/* ---------- Derived stats ---------- */
-	const claimedCount = useMemo(() => {
-		return group?.players.filter((p) => p.claim_code).length ?? 0;
+		loadMatches();
 	}, [group]);
 
-	const unclaimedCount = useMemo(() => {
-		return group ? group.players.length - claimedCount : 0;
-	}, [group, claimedCount]);
+	/* ---------- Filter matches by type and range ---------- */
+	const filteredMatches = useMemo(() => {
+		let m = matches.filter((m) => m.match_type === matchType);
 
-	/* ---------- Render ---------- */
+		if (range != null) {
+			const cutoff = new Date();
+			cutoff.setDate(cutoff.getDate() - range);
+			m = m.filter((match) => new Date(match.created_at) >= cutoff);
+		}
+
+		return m;
+	}, [matches, matchType, range]);
+
+	/* ---------- Chart Data (matches played cumulative) ---------- */
+	const chartData: ChartPoint[] = useMemo(() => {
+		if (!filteredMatches.length) return [];
+
+		// Group by day
+		const matchesByDay: Record<string, MatchesRow[]> = {};
+		filteredMatches.forEach((m) => {
+			const day = new Date(m.created_at);
+			const dayStr = `${day.getFullYear()}-${(day.getMonth() + 1)
+				.toString()
+				.padStart(2, "0")}-${day
+				.getDate()
+				.toString()
+				.padStart(2, "0")}`;
+
+			if (!matchesByDay[dayStr]) matchesByDay[dayStr] = [];
+			matchesByDay[dayStr].push(m);
+		});
+
+		const sortedDays = Object.keys(matchesByDay).sort();
+		let cumulative = 0;
+
+		return sortedDays.map((day, index) => {
+			cumulative += matchesByDay[day].length;
+			return { x: index, date: day, matches: cumulative };
+		});
+	}, [filteredMatches]);
+
 	if (loading || !group) {
 		return (
 			<main className="max-w-5xl mx-auto px-4 py-16">
@@ -160,52 +165,116 @@ export default function Group() {
 					{group.group_name}
 				</h1>
 				<p className="text-text-muted">
-					Players: {group.players.length} · Claimed: {claimedCount} ·
-					Unclaimed: {unclaimedCount}
+					Players: {group.players.length}
 				</p>
-
-				{!group.is_member && (
-					<button
-						onClick={joinGroup}
-						disabled={actionLoading}
-						className="px-6 py-2 rounded-lg bg-primary text-white font-semibold"
-					>
-						Join Group
-					</button>
-				)}
-				{group.is_member && group.can_leave && (
-					<button
-						onClick={leaveGroup}
-						disabled={actionLoading}
-						className="px-6 py-2 rounded-lg bg-red-500 text-white font-semibold"
-					>
-						Leave Group
-					</button>
-				)}
-				{group.is_member && !group.can_leave && (
-					<p className="text-sm text-text-muted">
-						The last claimed player cannot leave
-					</p>
-				)}
 			</section>
 
-			{/* PLAYERS GRID */}
-			<section className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-				{group.players.map((p) => (
-					<div
-						key={p.id}
-						className="bg-card p-4 rounded-lg text-center shadow-sm"
+			{/* CONTROLS */}
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				{/* Left: Match Type Buttons */}
+				<div className="flex flex-wrap justify-center gap-2">
+					<button
+						onClick={() => setMatchType("singles")}
+						className={`px-4 py-2 rounded-lg ${
+							matchType === "singles"
+								? "font-semibold underline"
+								: ""
+						}`}
 					>
-						<p className="font-medium">{p.player_name}</p>
-						<p className="text-xs text-text-muted">
-							{p.claim_code ? "Claimed" : "Unclaimed"}
-						</p>
-					</div>
-				))}
-			</section>
+						Singles
+					</button>
+					<button
+						onClick={() => setMatchType("doubles")}
+						className={`px-4 py-2 rounded-lg ${
+							matchType === "doubles"
+								? "font-semibold underline"
+								: ""
+						}`}
+					>
+						Doubles
+					</button>
+				</div>
 
-			{/* MATCHES */}
-			<Matches matchType="singles" />
+				{/* Right: Range Buttons */}
+				<div className="flex flex-wrap justify-center gap-2">
+					{[7, 30].map((d) => (
+						<button
+							key={d}
+							onClick={() => setRange(d)}
+							className={`px-4 py-2 rounded-lg ${
+								range === d ? "font-semibold underline" : ""
+							}`}
+						>
+							Last {d} Days
+						</button>
+					))}
+					<button
+						onClick={() => setRange(null)}
+						className={`px-4 py-2 rounded-lg ${
+							range === null ? "font-semibold underline" : ""
+						}`}
+					>
+						All Time
+					</button>
+				</div>
+			</div>
+
+			{/* MATCHES PLAYED CHART */}
+			<section>
+				<ResponsiveContainer width="100%" height={280}>
+					<LineChart
+						data={chartData}
+						margin={{ top: 10, right: 10, bottom: 30, left: 0 }}
+					>
+						<XAxis
+							dataKey="x"
+							type="number"
+							tickFormatter={(x) => {
+								const point = chartData[x];
+								return point
+									? new Date(point.date).toLocaleDateString(
+											"en-GB",
+											{ month: "2-digit", day: "2-digit" }
+									  )
+									: "";
+							}}
+							tick={{ fill: "#aaa", fontSize: 12 }}
+							axisLine={{ stroke: "#444" }}
+							tickLine={{ stroke: "#444" }}
+						/>
+						<YAxis
+							dataKey="matches"
+							tick={{ fill: "#aaa", fontSize: 12 }}
+							width={50}
+							axisLine={{ stroke: "#444" }}
+							tickLine={{ stroke: "#444" }}
+						/>
+						<Tooltip
+							content={({ payload }) =>
+								payload?.length ? (
+									<div className="bg-card px-3 py-2 rounded-lg text-sm">
+										Matches Played: {payload[0].value}
+									</div>
+								) : null
+							}
+						/>
+						<Area
+							type="monotone"
+							dataKey="matches"
+							fill="rgba(79,70,229,0.25)"
+							stroke="none"
+						/>
+						<Line
+							type="monotone"
+							dataKey="matches"
+							stroke="#4f46e5"
+							strokeWidth={2}
+							dot={false}
+							activeDot={{ r: 4 }}
+						/>
+					</LineChart>
+				</ResponsiveContainer>
+			</section>
 		</main>
 	);
 }
