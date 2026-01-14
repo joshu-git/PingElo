@@ -61,7 +61,7 @@ export default function Groups() {
 					{groups.map((g) => (
 						<Link
 							key={g.id}
-							href={`/groups/${g.id}`}
+							href={`/groups/${g.group_name}`}
 							className="bg-card p-6 rounded-xl hover-card text-center"
 						>
 							<h2 className="text-lg font-semibold">
