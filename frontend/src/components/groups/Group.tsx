@@ -8,7 +8,7 @@ import Matches from "@/components/matches/Matches";
 type Player = {
 	id: string;
 	player_name: string;
-	is_claimed: boolean;
+	claim_code: string | null;
 };
 
 type GroupData = {
@@ -26,31 +26,67 @@ export default function Group() {
 	const [loading, setLoading] = useState(true);
 	const [actionLoading, setActionLoading] = useState(false);
 
-	/* ---------- Load group ---------- */
+	/* ---------- Load group directly from Supabase ---------- */
 	useEffect(() => {
 		let cancelled = false;
 
 		const run = async () => {
 			setLoading(true);
 
+			// Get current user session
 			const {
 				data: { session },
 			} = await supabase.auth.getSession();
+			const userId = session?.user.id;
 
-			if (!session || cancelled) return;
+			// Fetch group + players
+			const { data, error } = await supabase
+				.from("groups")
+				.select(
+					`
+          id,
+          group_name,
+          players(id, player_name, claim_code)
+        `
+				)
+				.eq("id", id)
+				.single();
 
-			const res = await fetch(
-				`${process.env.NEXT_PUBLIC_API_URL}/groups/${id}`,
-				{
-					headers: {
-						Authorization: `Bearer ${session.access_token}`,
-					},
-				}
-			);
+			if (error) {
+				console.error(error);
+				setLoading(false);
+				return;
+			}
 
-			const json = await res.json();
-			if (!cancelled) {
-				setGroup(json);
+			if (!cancelled && data) {
+				// Type for Supabase nested players
+				type SupabasePlayer = {
+					id: string;
+					player_name: string;
+					claim_code: string | null;
+				};
+
+				const players: Player[] = (data.players ?? []).map(
+					(p: SupabasePlayer) => ({
+						id: p.id,
+						player_name: p.player_name,
+						claim_code: p.claim_code,
+					})
+				);
+
+				// Determine membership and if they can leave
+				const is_member = players.some((p) => p.claim_code === userId);
+				const claimedPlayers = players.filter((p) => p.claim_code);
+				const can_leave = is_member && claimedPlayers.length > 1;
+
+				setGroup({
+					id: data.id,
+					group_name: data.group_name,
+					players,
+					is_member,
+					can_leave,
+				});
+
 				setLoading(false);
 			}
 		};
@@ -62,7 +98,7 @@ export default function Group() {
 		};
 	}, [id]);
 
-	/* ---------- Actions ---------- */
+	/* ---------- Actions via backend ---------- */
 	const joinGroup = async () => {
 		if (!group || actionLoading) return;
 		setActionLoading(true);
@@ -72,16 +108,23 @@ export default function Group() {
 		} = await supabase.auth.getSession();
 		if (!session) return;
 
-		await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${id}/join`, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${session.access_token}`,
-			},
-		});
+		try {
+			await fetch(
+				`${process.env.NEXT_PUBLIC_API_URL}/groups/${id}/join`,
+				{
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${session.access_token}`,
+					},
+				}
+			);
 
-		setActionLoading(false);
-		// reload via effect by updating local state
-		setGroup(null);
+			setGroup(null); // force reload
+		} catch (err) {
+			console.error(err);
+		} finally {
+			setActionLoading(false);
+		}
 	};
 
 	const leaveGroup = async () => {
@@ -93,15 +136,23 @@ export default function Group() {
 		} = await supabase.auth.getSession();
 		if (!session) return;
 
-		await fetch(`${process.env.NEXT_PUBLIC_API_URL}/groups/${id}/leave`, {
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${session.access_token}`,
-			},
-		});
+		try {
+			await fetch(
+				`${process.env.NEXT_PUBLIC_API_URL}/groups/${id}/leave`,
+				{
+					method: "POST",
+					headers: {
+						Authorization: `Bearer ${session.access_token}`,
+					},
+				}
+			);
 
-		setActionLoading(false);
-		setGroup(null);
+			setGroup(null); // force reload
+		} catch (err) {
+			console.error(err);
+		} finally {
+			setActionLoading(false);
+		}
 	};
 
 	/* ---------- Render ---------- */
@@ -143,7 +194,7 @@ export default function Group() {
 
 				{group.is_member && !group.can_leave && (
 					<p className="text-sm text-text-muted">
-						You must claim your player before leaving this group
+						The last claimed player cannot leave the group
 					</p>
 				)}
 			</section>
@@ -156,7 +207,7 @@ export default function Group() {
 						className="bg-card p-3 rounded-lg text-center"
 					>
 						{p.player_name}
-						{!p.is_claimed && (
+						{!p.claim_code && (
 							<div className="text-xs text-text-muted">
 								Unclaimed
 							</div>
