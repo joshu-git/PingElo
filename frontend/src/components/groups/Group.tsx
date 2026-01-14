@@ -14,16 +14,19 @@ import {
 } from "recharts";
 import type { MatchesRow } from "@/types/database";
 
-type Player = {
+type GroupPlayer = {
 	id: string;
 	player_name: string;
 	claim_code: string | null;
+	account_id: string | null;
+	singles_elo: number;
+	doubles_elo: number;
 };
 
 type GroupData = {
 	id: string;
 	group_name: string;
-	players: Player[];
+	players: GroupPlayer[];
 	is_member: boolean;
 	can_leave: boolean;
 };
@@ -44,7 +47,7 @@ export default function Group() {
 	const [matchType, setMatchType] = useState<"singles" | "doubles">(
 		"singles"
 	);
-	const [range, setRange] = useState<number | null>(null); // days: 7, 30, null = all
+	const [range, setRange] = useState<number | null>(null);
 	const [sessionUserId, setSessionUserId] = useState<string | null>(null);
 
 	/* ---------- Get session user ---------- */
@@ -67,7 +70,11 @@ export default function Group() {
 
 			const { data, error } = await supabase
 				.from("groups")
-				.select("id, group_name, players(id, player_name, claim_code)")
+				.select(
+					`id, group_name, players(
+						id, player_name, claim_code, singles_elo, doubles_elo, account_id
+					)`
+				)
 				.eq("id", id)
 				.single();
 
@@ -77,22 +84,27 @@ export default function Group() {
 			}
 
 			if (!cancelled) {
-				const players: Player[] = (data.players ?? []).map((p) => ({
-					id: p.id,
-					player_name: p.player_name,
-					claim_code: p.claim_code,
-				}));
+				const players: GroupPlayer[] = (data.players ?? []).map(
+					(p) => ({
+						id: p.id,
+						player_name: p.player_name,
+						claim_code: p.claim_code ?? null,
+						singles_elo: p.singles_elo ?? 1000,
+						doubles_elo: p.doubles_elo ?? 1000,
+						account_id: p.account_id ?? null,
+					})
+				);
+
+				const is_member = players.some(
+					(p) => p.account_id === sessionUserId
+				);
 
 				setGroup({
 					id: data.id,
 					group_name: data.group_name,
 					players,
-					is_member: players.some(
-						(p) => p.claim_code === sessionUserId
-					),
-					can_leave:
-						players.some((p) => p.claim_code === sessionUserId) &&
-						players.filter((p) => p.claim_code).length > 1,
+					is_member,
+					can_leave: is_member && players.length > 1,
 				});
 				setLoading(false);
 			}
@@ -134,7 +146,7 @@ export default function Group() {
 		return m;
 	}, [matches, matchType, range]);
 
-	/* ---------- Chart Data: Matches per day, equal width days ---------- */
+	/* ---------- Chart Data ---------- */
 	const chartData: ChartPoint[] = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
@@ -184,25 +196,17 @@ export default function Group() {
 		}));
 	}, [filteredMatches]);
 
-	/* ---------- Mini Leaderboard (players in group) ---------- */
-	const leaderboardData = useMemo(() => {
+	/* ---------- Leaderboard ---------- */
+	const leaderboardPlayers = useMemo(() => {
 		if (!group) return [];
-		return group.players
-			.map((p) => {
-				const matchesPlayed = filteredMatches.filter(
-					(m) =>
-						m.match_type === matchType &&
-						[
-							m.player_a1_id,
-							m.player_a2_id,
-							m.player_b1_id,
-							m.player_b2_id,
-						].includes(p.id)
-				).length;
-				return { player: p, matchesPlayed };
-			})
-			.sort((a, b) => b.matchesPlayed - a.matchesPlayed);
-	}, [group, filteredMatches, matchType]);
+		return [...group.players].sort((a, b) => {
+			const eloA =
+				matchType === "singles" ? a.singles_elo : a.doubles_elo;
+			const eloB =
+				matchType === "singles" ? b.singles_elo : b.doubles_elo;
+			return eloB - eloA;
+		});
+	}, [group, matchType]);
 
 	if (loading || !group) {
 		return (
@@ -211,6 +215,29 @@ export default function Group() {
 			</main>
 		);
 	}
+
+	/* ---------- Join / Leave Handlers ---------- */
+	const handleJoin = async () => {
+		if (!sessionUserId || !group) return;
+
+		await supabase
+			.from("players")
+			.update({ group_id: group.id })
+			.eq("account_id", sessionUserId);
+
+		setGroup({ ...group, is_member: true, can_leave: true });
+	};
+
+	const handleLeave = async () => {
+		if (!sessionUserId || !group) return;
+
+		await supabase
+			.from("players")
+			.update({ group_id: null })
+			.eq("account_id", sessionUserId);
+
+		setGroup({ ...group, is_member: false, can_leave: false });
+	};
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -226,7 +253,6 @@ export default function Group() {
 
 			{/* CONTROLS */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				{/* Left: Match Type Buttons */}
 				<div className="flex flex-wrap justify-center gap-2">
 					<button
 						onClick={() => setMatchType("singles")}
@@ -249,22 +275,24 @@ export default function Group() {
 						Doubles
 					</button>
 
-					{/* Join / Leave Button */}
 					{sessionUserId &&
-						(group.players.some(
-							(p) => p.claim_code === sessionUserId
-						) ? (
-							<button className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold">
+						(group.is_member ? (
+							<button
+								onClick={handleLeave}
+								className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold"
+							>
 								Leave Group
 							</button>
 						) : (
-							<button className="px-4 py-2 rounded-lg bg-primary text-white font-semibold">
+							<button
+								onClick={handleJoin}
+								className="px-4 py-2 rounded-lg bg-primary text-white font-semibold"
+							>
 								Join Group
 							</button>
 						))}
 				</div>
 
-				{/* Right: Range Buttons */}
 				<div className="flex flex-wrap justify-center gap-2">
 					{[7, 30].map((d) => (
 						<button
@@ -288,7 +316,7 @@ export default function Group() {
 				</div>
 			</div>
 
-			{/* MATCHES PLAYED CHART */}
+			{/* MATCHES CHART */}
 			<section>
 				<ResponsiveContainer width="100%" height={280}>
 					<LineChart
@@ -349,21 +377,23 @@ export default function Group() {
 				</ResponsiveContainer>
 			</section>
 
-			{/* MINI LEADERBOARD */}
+			{/* LEADERBOARD */}
 			<section className="space-y-2">
-				{leaderboardData.map((p, i) => (
+				{leaderboardPlayers.map((p, i) => (
 					<div
-						key={p.player.id}
+						key={p.id}
 						className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
 					>
 						<div className="flex items-center gap-4">
-							<div className="text-lg font-bold w-8">{i + 1}</div>
-							<div className="font-semibold">
-								{p.player.player_name}
+							<div className="text-lg font-bold w-8">
+								#{i + 1}
 							</div>
+							<div className="font-semibold">{p.player_name}</div>
 						</div>
 						<div className="text-2xl font-bold">
-							{p.matchesPlayed}
+							{matchType === "singles"
+								? p.singles_elo
+								: p.doubles_elo}
 						</div>
 					</div>
 				))}
