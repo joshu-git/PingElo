@@ -2,11 +2,14 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 
-//Gives access to player routes
+//Gives access to players routes
 import playersRoutes from "./routes/players.routes.js";
 
-//Gives access to match routes
+//Gives access to matches routes
 import matchesRoutes from "./routes/matches.routes.js";
+
+//Gives access to groups routes
+import groupsRoutes from "./routes/matches.routes.js";
 
 //Load environment variables
 dotenv.config();
@@ -29,6 +32,7 @@ app.use(
 //All routes for players, matches and admins
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);
+app.use("/groups", groupsRoutes);
 
 //Health check to confirm the backend is running
 app.get("/", (_req, res) => {
