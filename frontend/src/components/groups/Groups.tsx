@@ -7,73 +7,70 @@ import { supabase } from "@/lib/supabase";
 type Group = {
 	id: string;
 	group_name: string;
-	member_count: number;
 };
 
 export default function Groups() {
 	const [groups, setGroups] = useState<Group[]>([]);
 	const [loading, setLoading] = useState(true);
 
+	/* ---------- Load all groups from Supabase ---------- */
 	useEffect(() => {
-		const loadGroups = async () => {
-			const {
-				data: { session },
-			} = await supabase.auth.getSession();
+		let cancelled = false;
 
-			if (!session) return;
+		const run = async () => {
+			setLoading(true);
 
-			const res = await fetch(
-				`${process.env.NEXT_PUBLIC_API_URL}/groups`,
-				{
-					headers: {
-						Authorization: `Bearer ${session.access_token}`,
-					},
-				}
-			);
+			const { data, error } = await supabase
+				.from("groups")
+				.select("*")
+				.order("group_name");
 
-			const json = await res.json();
-			setGroups(json.groups);
-			setLoading(false);
+			if (error) {
+				console.error(error);
+				setLoading(false);
+				return;
+			}
+
+			if (!cancelled) {
+				setGroups(data ?? []);
+				setLoading(false);
+			}
 		};
 
-		loadGroups();
+		run();
+
+		return () => {
+			cancelled = true;
+		};
 	}, []);
 
-	if (loading) {
-		return (
-			<main className="max-w-5xl mx-auto px-4 py-16">
-				<p className="text-center text-text-muted">Loading groups…</p>
-			</main>
-		);
-	}
-
+	/* ---------- Render ---------- */
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
-			<section className="text-center space-y-2">
-				<h1 className="text-4xl font-extrabold">Groups</h1>
-				<p className="text-text-muted">
-					Browse and join playing groups
-				</p>
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold">Groups</h1>
+				<p className="text-text-muted">View all available groups.</p>
 			</section>
 
-			<section className="space-y-3">
-				{groups.map((g) => (
-					<Link
-						key={g.id}
-						href={`/groups/${g.id}`}
-						className="block bg-card p-4 rounded-xl hover-card"
-					>
-						<div className="flex justify-between items-center">
-							<span className="font-semibold">
+			{loading && (
+				<p className="text-center text-text-muted">Loading groups…</p>
+			)}
+
+			{!loading && (
+				<section className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+					{groups.map((g) => (
+						<Link
+							key={g.id}
+							href={`/groups/${g.id}`}
+							className="bg-card p-6 rounded-xl hover-card text-center"
+						>
+							<h2 className="text-lg font-semibold">
 								{g.group_name}
-							</span>
-							<span className="text-sm text-text-muted">
-								{g.member_count} players
-							</span>
-						</div>
-					</Link>
-				))}
-			</section>
+							</h2>
+						</Link>
+					))}
+				</section>
+			)}
 		</main>
 	);
 }
