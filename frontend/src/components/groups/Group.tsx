@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import {
 	ResponsiveContainer,
@@ -21,6 +22,7 @@ type GroupPlayer = {
 	account_id: string | null;
 	singles_elo: number;
 	doubles_elo: number;
+	group_id: string | null;
 };
 
 type GroupData = {
@@ -37,6 +39,8 @@ type ChartPoint = {
 	matches: number;
 };
 
+const PAGE_SIZE = 50;
+
 export default function Group() {
 	const { id } = useParams<{ id: string }>();
 	const router = useRouter();
@@ -49,6 +53,7 @@ export default function Group() {
 	);
 	const [range, setRange] = useState<number | null>(null);
 	const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+	const [visiblePlayers, setVisiblePlayers] = useState<number>(PAGE_SIZE);
 
 	/* ---------- Get session user ---------- */
 	useEffect(() => {
@@ -72,7 +77,7 @@ export default function Group() {
 				.from("groups")
 				.select(
 					`id, group_name, players(
-						id, player_name, claim_code, singles_elo, doubles_elo, account_id
+						id, player_name, claim_code, singles_elo, doubles_elo, account_id, group_id
 					)`
 				)
 				.eq("id", id)
@@ -92,6 +97,7 @@ export default function Group() {
 						singles_elo: p.singles_elo ?? 1000,
 						doubles_elo: p.doubles_elo ?? 1000,
 						account_id: p.account_id ?? null,
+						group_id: p.group_id ?? null,
 					})
 				);
 
@@ -133,16 +139,14 @@ export default function Group() {
 		loadMatches();
 	}, [group]);
 
-	/* ---------- Filter matches by type and range ---------- */
+	/* ---------- Filter matches ---------- */
 	const filteredMatches = useMemo(() => {
 		let m = matches.filter((m) => m.match_type === matchType);
-
 		if (range != null) {
 			const cutoff = new Date();
 			cutoff.setDate(cutoff.getDate() - range);
 			m = m.filter((match) => new Date(match.created_at) >= cutoff);
 		}
-
 		return m;
 	}, [matches, matchType, range]);
 
@@ -208,6 +212,62 @@ export default function Group() {
 		});
 	}, [group, matchType]);
 
+	const rankStyle = (rank: number) => {
+		if (rank === 1) return "text-yellow-500";
+		if (rank === 2) return "text-gray-400";
+		if (rank === 3) return "text-amber-600";
+		return "text-text-muted";
+	};
+
+	const getRankLabel = (elo: number) => {
+		if (elo >= 1400) return "Grand Master";
+		if (elo >= 1300) return "Master";
+		if (elo >= 1200) return "Expert";
+		if (elo >= 1100) return "Advanced";
+		if (elo >= 1000) return "Competitor";
+		if (elo >= 900) return "Amateur";
+		if (elo >= 800) return "Beginner";
+		if (elo >= 700) return "Novice";
+		return "Rookie";
+	};
+
+	const eloValue = (p: GroupPlayer) =>
+		matchType === "singles" ? p.singles_elo : p.doubles_elo;
+
+	const handleJoin = async () => {
+		if (!sessionUserId || !group) return;
+		await supabase
+			.from("players")
+			.update({ group_id: group.id })
+			.eq("account_id", sessionUserId);
+		setGroup({ ...group, is_member: true, can_leave: true });
+	};
+
+	const handleLeave = async () => {
+		if (!sessionUserId || !group) return;
+		await supabase
+			.from("players")
+			.update({ group_id: null })
+			.eq("account_id", sessionUserId);
+		setGroup({ ...group, is_member: false, can_leave: false });
+	};
+
+	/* ---------- Infinite scroll ---------- */
+	useEffect(() => {
+		const onScroll = () => {
+			if (
+				window.innerHeight + window.scrollY >=
+				document.body.offsetHeight - 300
+			) {
+				setVisiblePlayers((v) =>
+					Math.min(v + PAGE_SIZE, leaderboardPlayers.length)
+				);
+			}
+		};
+		window.addEventListener("scroll", onScroll);
+		return () => window.removeEventListener("scroll", onScroll);
+	}, [leaderboardPlayers.length]);
+
 	if (loading || !group) {
 		return (
 			<main className="max-w-5xl mx-auto px-4 py-16">
@@ -215,29 +275,6 @@ export default function Group() {
 			</main>
 		);
 	}
-
-	/* ---------- Join / Leave Handlers ---------- */
-	const handleJoin = async () => {
-		if (!sessionUserId || !group) return;
-
-		await supabase
-			.from("players")
-			.update({ group_id: group.id })
-			.eq("account_id", sessionUserId);
-
-		setGroup({ ...group, is_member: true, can_leave: true });
-	};
-
-	const handleLeave = async () => {
-		if (!sessionUserId || !group) return;
-
-		await supabase
-			.from("players")
-			.update({ group_id: null })
-			.eq("account_id", sessionUserId);
-
-		setGroup({ ...group, is_member: false, can_leave: false });
-	};
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -379,22 +416,33 @@ export default function Group() {
 
 			{/* LEADERBOARD */}
 			<section className="space-y-2">
-				{leaderboardPlayers.map((p, i) => (
+				{leaderboardPlayers.slice(0, visiblePlayers).map((p, i) => (
 					<div
 						key={p.id}
 						className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
 					>
 						<div className="flex items-center gap-4">
-							<div className="text-lg font-bold w-8">
+							<div
+								className={`text-lg font-bold w-8 ${rankStyle(
+									i + 1
+								)}`}
+							>
 								#{i + 1}
 							</div>
-							<div className="font-semibold">{p.player_name}</div>
+							<div>
+								<Link
+									href={`/profile/${p.player_name}`}
+									className="font-semibold hover:underline"
+								>
+									{p.player_name}
+								</Link>
+								<p className="text-sm text-text-muted">
+									{p.claim_code ? "Unclaimed" : "Claimed"} ·{" "}
+									{getRankLabel(eloValue(p))}
+								</p>
+							</div>
 						</div>
-						<div className="text-2xl font-bold">
-							{matchType === "singles"
-								? p.singles_elo
-								: p.doubles_elo}
-						</div>
+						<div className="text-2xl font-bold">{eloValue(p)}</div>
 					</div>
 				))}
 			</section>
