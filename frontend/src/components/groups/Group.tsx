@@ -71,15 +71,12 @@ export default function Group() {
 					claim_code: p.claim_code,
 				}));
 
-				const is_member = false; // placeholder
-				const can_leave = false;
-
 				setGroup({
 					id: data.id,
 					group_name: data.group_name,
 					players,
-					is_member,
-					can_leave,
+					is_member: false,
+					can_leave: false,
 				});
 				setLoading(false);
 			}
@@ -121,11 +118,11 @@ export default function Group() {
 		return m;
 	}, [matches, matchType, range]);
 
-	/* ---------- Chart Data (matches played cumulative) ---------- */
+	/* ---------- Chart Data: Matches per day, equal width days ---------- */
 	const chartData: ChartPoint[] = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
-		// Group by day
+		// Group matches by day
 		const matchesByDay: Record<string, MatchesRow[]> = {};
 		filteredMatches.forEach((m) => {
 			const day = new Date(m.created_at);
@@ -140,13 +137,40 @@ export default function Group() {
 			matchesByDay[dayStr].push(m);
 		});
 
-		const sortedDays = Object.keys(matchesByDay).sort();
-		let cumulative = 0;
+		// Fill all days in range to ensure equal width spacing
+		const firstDay = new Date(
+			Math.min(
+				...filteredMatches.map((m) => new Date(m.created_at).getTime())
+			)
+		);
+		const lastDay = new Date(
+			Math.max(
+				...filteredMatches.map((m) => new Date(m.created_at).getTime())
+			)
+		);
 
-		return sortedDays.map((day, index) => {
-			cumulative += matchesByDay[day].length;
-			return { x: index, date: day, matches: cumulative };
-		});
+		firstDay.setHours(0, 0, 0, 0);
+		lastDay.setHours(0, 0, 0, 0);
+
+		const dayArray: string[] = [];
+		const current = new Date(firstDay);
+
+		while (current <= lastDay) {
+			const dayStr = `${current.getFullYear()}-${(current.getMonth() + 1)
+				.toString()
+				.padStart(2, "0")}-${current
+				.getDate()
+				.toString()
+				.padStart(2, "0")}`;
+			dayArray.push(dayStr);
+			current.setDate(current.getDate() + 1);
+		}
+
+		return dayArray.map((day, index) => ({
+			x: index,
+			date: day,
+			matches: matchesByDay[day]?.length ?? 0,
+		}));
 	}, [filteredMatches]);
 
 	if (loading || !group) {
@@ -234,7 +258,10 @@ export default function Group() {
 								return point
 									? new Date(point.date).toLocaleDateString(
 											"en-GB",
-											{ month: "2-digit", day: "2-digit" }
+											{
+												month: "2-digit",
+												day: "2-digit",
+											}
 									  )
 									: "";
 							}}
@@ -248,6 +275,7 @@ export default function Group() {
 							width={50}
 							axisLine={{ stroke: "#444" }}
 							tickLine={{ stroke: "#444" }}
+							allowDecimals={false}
 						/>
 						<Tooltip
 							content={({ payload }) =>
