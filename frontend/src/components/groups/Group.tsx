@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
 	ResponsiveContainer,
@@ -23,6 +23,7 @@ type GroupPlayer = {
 	singles_elo: number;
 	doubles_elo: number;
 	group_id: string | null;
+	is_admin: boolean;
 };
 
 type GroupData = {
@@ -31,6 +32,7 @@ type GroupData = {
 	players: GroupPlayer[];
 	is_member: boolean;
 	can_leave: boolean;
+	loggedInIsAdmin: boolean;
 };
 
 type ChartPoint = {
@@ -39,10 +41,8 @@ type ChartPoint = {
 	matches: number;
 };
 
-const PAGE_SIZE = 50;
-
 export default function Group() {
-	const { id } = useParams<{ id: string }>();
+	const { groupname } = useParams<{ groupname: string }>();
 	const router = useRouter();
 
 	const [group, setGroup] = useState<GroupData | null>(null);
@@ -53,7 +53,6 @@ export default function Group() {
 	);
 	const [range, setRange] = useState<number | null>(null);
 	const [sessionUserId, setSessionUserId] = useState<string | null>(null);
-	const [visiblePlayers, setVisiblePlayers] = useState<number>(PAGE_SIZE);
 
 	/* ---------- Get session user ---------- */
 	useEffect(() => {
@@ -66,7 +65,7 @@ export default function Group() {
 		getSession();
 	}, []);
 
-	/* ---------- Load group ---------- */
+	/* ---------- Load group by group_name + players + admin info ---------- */
 	useEffect(() => {
 		let cancelled = false;
 
@@ -76,11 +75,22 @@ export default function Group() {
 			const { data, error } = await supabase
 				.from("groups")
 				.select(
-					`id, group_name, players(
-						id, player_name, claim_code, singles_elo, doubles_elo, account_id, group_id
-					)`
+					`
+					id,
+					group_name,
+					players(
+						id,
+						player_name,
+						claim_code,
+						singles_elo,
+						doubles_elo,
+						account_id,
+						group_id,
+						account(is_admin)
+					)
+				`
 				)
-				.eq("id", id)
+				.eq("group_name", groupname)
 				.single();
 
 			if (error || !data) {
@@ -98,12 +108,18 @@ export default function Group() {
 						doubles_elo: p.doubles_elo ?? 1000,
 						account_id: p.account_id ?? null,
 						group_id: p.group_id ?? null,
+						is_admin:
+							Array.isArray(p.account) && p.account.length > 0
+								? p.account[0].is_admin
+								: false,
 					})
 				);
 
-				const is_member = players.some(
+				const loggedInPlayer = players.find(
 					(p) => p.account_id === sessionUserId
 				);
+				const is_member = !!loggedInPlayer;
+				const loggedInIsAdmin = loggedInPlayer?.is_admin ?? false;
 
 				setGroup({
 					id: data.id,
@@ -111,7 +127,9 @@ export default function Group() {
 					players,
 					is_member,
 					can_leave: is_member && players.length > 1,
+					loggedInIsAdmin,
 				});
+
 				setLoading(false);
 			}
 		};
@@ -120,7 +138,7 @@ export default function Group() {
 		return () => {
 			cancelled = true;
 		};
-	}, [id, router, sessionUserId]);
+	}, [groupname, router, sessionUserId]);
 
 	/* ---------- Load group matches ---------- */
 	useEffect(() => {
@@ -139,14 +157,16 @@ export default function Group() {
 		loadMatches();
 	}, [group]);
 
-	/* ---------- Filter matches ---------- */
+	/* ---------- Filter matches by type and range ---------- */
 	const filteredMatches = useMemo(() => {
 		let m = matches.filter((m) => m.match_type === matchType);
+
 		if (range != null) {
 			const cutoff = new Date();
 			cutoff.setDate(cutoff.getDate() - range);
 			m = m.filter((match) => new Date(match.created_at) >= cutoff);
 		}
+
 		return m;
 	}, [matches, matchType, range]);
 
@@ -212,28 +232,15 @@ export default function Group() {
 		});
 	}, [group, matchType]);
 
-	const rankStyle = (rank: number) => {
-		if (rank === 1) return "text-yellow-500";
-		if (rank === 2) return "text-gray-400";
-		if (rank === 3) return "text-amber-600";
-		return "text-text-muted";
-	};
+	if (loading || !group) {
+		return (
+			<main className="max-w-5xl mx-auto px-4 py-16">
+				<p className="text-center text-text-muted">Loading group…</p>
+			</main>
+		);
+	}
 
-	const getRankLabel = (elo: number) => {
-		if (elo >= 1400) return "Grand Master";
-		if (elo >= 1300) return "Master";
-		if (elo >= 1200) return "Expert";
-		if (elo >= 1100) return "Advanced";
-		if (elo >= 1000) return "Competitor";
-		if (elo >= 900) return "Amateur";
-		if (elo >= 800) return "Beginner";
-		if (elo >= 700) return "Novice";
-		return "Rookie";
-	};
-
-	const eloValue = (p: GroupPlayer) =>
-		matchType === "singles" ? p.singles_elo : p.doubles_elo;
-
+	/* ---------- Join / Leave / Dashboard Handlers ---------- */
 	const handleJoin = async () => {
 		if (!sessionUserId || !group) return;
 		await supabase
@@ -252,29 +259,8 @@ export default function Group() {
 		setGroup({ ...group, is_member: false, can_leave: false });
 	};
 
-	/* ---------- Infinite scroll ---------- */
-	useEffect(() => {
-		const onScroll = () => {
-			if (
-				window.innerHeight + window.scrollY >=
-				document.body.offsetHeight - 300
-			) {
-				setVisiblePlayers((v) =>
-					Math.min(v + PAGE_SIZE, leaderboardPlayers.length)
-				);
-			}
-		};
-		window.addEventListener("scroll", onScroll);
-		return () => window.removeEventListener("scroll", onScroll);
-	}, [leaderboardPlayers.length]);
-
-	if (loading || !group) {
-		return (
-			<main className="max-w-5xl mx-auto px-4 py-16">
-				<p className="text-center text-text-muted">Loading group…</p>
-			</main>
-		);
-	}
+	const eloValue = (p: GroupPlayer) =>
+		matchType === "singles" ? p.singles_elo : p.doubles_elo;
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -313,7 +299,14 @@ export default function Group() {
 					</button>
 
 					{sessionUserId &&
-						(group.is_member ? (
+						(group.loggedInIsAdmin ? (
+							<Link
+								href={`/admin/${group.id}`}
+								className="px-4 py-2 rounded-lg bg-primary text-white font-semibold"
+							>
+								Dashboard
+							</Link>
+						) : group.is_member ? (
 							<button
 								onClick={handleLeave}
 								className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold"
@@ -368,10 +361,7 @@ export default function Group() {
 								return point
 									? new Date(point.date).toLocaleDateString(
 											"en-GB",
-											{
-												month: "2-digit",
-												day: "2-digit",
-											}
+											{ month: "2-digit", day: "2-digit" }
 									  )
 									: "";
 							}}
@@ -416,29 +406,23 @@ export default function Group() {
 
 			{/* LEADERBOARD */}
 			<section className="space-y-2">
-				{leaderboardPlayers.slice(0, visiblePlayers).map((p, i) => (
+				{leaderboardPlayers.map((p, i) => (
 					<div
 						key={p.id}
 						className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
 					>
 						<div className="flex items-center gap-4">
-							<div
-								className={`text-lg font-bold w-8 ${rankStyle(
-									i + 1
-								)}`}
-							>
+							<div className="text-lg font-bold w-8">
 								#{i + 1}
 							</div>
 							<div>
-								<Link
-									href={`/profile/${p.player_name}`}
-									className="font-semibold hover:underline"
-								>
-									{p.player_name}
-								</Link>
+								<p className="font-semibold">{p.player_name}</p>
 								<p className="text-sm text-text-muted">
-									{p.claim_code ? "Unclaimed" : "Claimed"} ·{" "}
-									{getRankLabel(eloValue(p))}
+									{p.is_admin
+										? "Admin"
+										: p.claim_code
+										? "Unclaimed"
+										: "Claimed"}
 								</p>
 							</div>
 						</div>
