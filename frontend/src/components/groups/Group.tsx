@@ -45,6 +45,18 @@ export default function Group() {
 		"singles"
 	);
 	const [range, setRange] = useState<number | null>(null); // days: 7, 30, null = all
+	const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+
+	/* ---------- Get session user ---------- */
+	useEffect(() => {
+		const getSession = async () => {
+			const {
+				data: { session },
+			} = await supabase.auth.getSession();
+			setSessionUserId(session?.user.id ?? null);
+		};
+		getSession();
+	}, []);
 
 	/* ---------- Load group ---------- */
 	useEffect(() => {
@@ -75,8 +87,12 @@ export default function Group() {
 					id: data.id,
 					group_name: data.group_name,
 					players,
-					is_member: false,
-					can_leave: false,
+					is_member: players.some(
+						(p) => p.claim_code === sessionUserId
+					),
+					can_leave:
+						players.some((p) => p.claim_code === sessionUserId) &&
+						players.filter((p) => p.claim_code).length > 1,
 				});
 				setLoading(false);
 			}
@@ -86,7 +102,7 @@ export default function Group() {
 		return () => {
 			cancelled = true;
 		};
-	}, [id, router]);
+	}, [id, router, sessionUserId]);
 
 	/* ---------- Load group matches ---------- */
 	useEffect(() => {
@@ -122,7 +138,6 @@ export default function Group() {
 	const chartData: ChartPoint[] = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
-		// Group matches by day
 		const matchesByDay: Record<string, MatchesRow[]> = {};
 		filteredMatches.forEach((m) => {
 			const day = new Date(m.created_at);
@@ -132,12 +147,10 @@ export default function Group() {
 				.getDate()
 				.toString()
 				.padStart(2, "0")}`;
-
 			if (!matchesByDay[dayStr]) matchesByDay[dayStr] = [];
 			matchesByDay[dayStr].push(m);
 		});
 
-		// Fill all days in range to ensure equal width spacing
 		const firstDay = new Date(
 			Math.min(
 				...filteredMatches.map((m) => new Date(m.created_at).getTime())
@@ -148,13 +161,11 @@ export default function Group() {
 				...filteredMatches.map((m) => new Date(m.created_at).getTime())
 			)
 		);
-
 		firstDay.setHours(0, 0, 0, 0);
 		lastDay.setHours(0, 0, 0, 0);
 
 		const dayArray: string[] = [];
 		const current = new Date(firstDay);
-
 		while (current <= lastDay) {
 			const dayStr = `${current.getFullYear()}-${(current.getMonth() + 1)
 				.toString()
@@ -172,6 +183,26 @@ export default function Group() {
 			matches: matchesByDay[day]?.length ?? 0,
 		}));
 	}, [filteredMatches]);
+
+	/* ---------- Mini Leaderboard (players in group) ---------- */
+	const leaderboardData = useMemo(() => {
+		if (!group) return [];
+		return group.players
+			.map((p) => {
+				const matchesPlayed = filteredMatches.filter(
+					(m) =>
+						m.match_type === matchType &&
+						[
+							m.player_a1_id,
+							m.player_a2_id,
+							m.player_b1_id,
+							m.player_b2_id,
+						].includes(p.id)
+				).length;
+				return { player: p, matchesPlayed };
+			})
+			.sort((a, b) => b.matchesPlayed - a.matchesPlayed);
+	}, [group, filteredMatches, matchType]);
 
 	if (loading || !group) {
 		return (
@@ -217,6 +248,20 @@ export default function Group() {
 					>
 						Doubles
 					</button>
+
+					{/* Join / Leave Button */}
+					{sessionUserId &&
+						(group.players.some(
+							(p) => p.claim_code === sessionUserId
+						) ? (
+							<button className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold">
+								Leave Group
+							</button>
+						) : (
+							<button className="px-4 py-2 rounded-lg bg-primary text-white font-semibold">
+								Join Group
+							</button>
+						))}
 				</div>
 
 				{/* Right: Range Buttons */}
@@ -302,6 +347,26 @@ export default function Group() {
 						/>
 					</LineChart>
 				</ResponsiveContainer>
+			</section>
+
+			{/* MINI LEADERBOARD */}
+			<section className="space-y-2">
+				{leaderboardData.map((p, i) => (
+					<div
+						key={p.player.id}
+						className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+					>
+						<div className="flex items-center gap-4">
+							<div className="text-lg font-bold w-8">{i + 1}</div>
+							<div className="font-semibold">
+								{p.player.player_name}
+							</div>
+						</div>
+						<div className="text-2xl font-bold">
+							{p.matchesPlayed}
+						</div>
+					</div>
+				))}
 			</section>
 		</main>
 	);
