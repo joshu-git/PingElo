@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -32,7 +31,7 @@ type GroupData = {
 	players: GroupPlayer[];
 	is_member: boolean;
 	can_leave: boolean;
-	loggedInIsAdmin: boolean;
+	is_admin: boolean;
 };
 
 type ChartPoint = {
@@ -65,30 +64,21 @@ export default function Group() {
 		getSession();
 	}, []);
 
-	/* ---------- Load group by group_name + players + admin info ---------- */
+	/* ---------- Load group ---------- */
 	useEffect(() => {
 		let cancelled = false;
 
 		const loadGroup = async () => {
 			setLoading(true);
 
+			// fetch group by group_name instead of id
 			const { data, error } = await supabase
 				.from("groups")
 				.select(
-					`
-					id,
-					group_name,
-					players(
-						id,
-						player_name,
-						claim_code,
-						singles_elo,
-						doubles_elo,
-						account_id,
-						group_id,
-						account(is_admin)
-					)
-				`
+					`id, group_name, players(
+            id, player_name, claim_code, singles_elo, doubles_elo, account_id, group_id,
+            account!inner(is_admin)
+          )`
 				)
 				.eq("group_name", groupname)
 				.single();
@@ -115,11 +105,12 @@ export default function Group() {
 					})
 				);
 
-				const loggedInPlayer = players.find(
+				const is_member = players.some(
 					(p) => p.account_id === sessionUserId
 				);
-				const is_member = !!loggedInPlayer;
-				const loggedInIsAdmin = loggedInPlayer?.is_admin ?? false;
+				const is_admin = players.some(
+					(p) => p.account_id === sessionUserId && p.is_admin
+				);
 
 				setGroup({
 					id: data.id,
@@ -127,9 +118,8 @@ export default function Group() {
 					players,
 					is_member,
 					can_leave: is_member && players.length > 1,
-					loggedInIsAdmin,
+					is_admin,
 				});
-
 				setLoading(false);
 			}
 		};
@@ -160,13 +150,11 @@ export default function Group() {
 	/* ---------- Filter matches by type and range ---------- */
 	const filteredMatches = useMemo(() => {
 		let m = matches.filter((m) => m.match_type === matchType);
-
 		if (range != null) {
 			const cutoff = new Date();
 			cutoff.setDate(cutoff.getDate() - range);
 			m = m.filter((match) => new Date(match.created_at) >= cutoff);
 		}
-
 		return m;
 	}, [matches, matchType, range]);
 
@@ -259,9 +247,15 @@ export default function Group() {
 		setGroup({ ...group, is_member: false, can_leave: false });
 	};
 
-	const eloValue = (p: GroupPlayer) =>
-		matchType === "singles" ? p.singles_elo : p.doubles_elo;
+	/* ---------- Rank Colors ---------- */
+	const rankStyle = (rank: number) => {
+		if (rank === 1) return "text-yellow-500";
+		if (rank === 2) return "text-gray-400";
+		if (rank === 3) return "text-amber-600";
+		return "text-text-muted";
+	};
 
+	/* ---------- Render ---------- */
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* HEADER */}
@@ -299,13 +293,13 @@ export default function Group() {
 					</button>
 
 					{sessionUserId &&
-						(group.loggedInIsAdmin ? (
-							<Link
+						(group.is_admin ? (
+							<a
 								href={`/admin/${group.id}`}
 								className="px-4 py-2 rounded-lg bg-primary text-white font-semibold"
 							>
 								Dashboard
-							</Link>
+							</a>
 						) : group.is_member ? (
 							<button
 								onClick={handleLeave}
@@ -361,7 +355,10 @@ export default function Group() {
 								return point
 									? new Date(point.date).toLocaleDateString(
 											"en-GB",
-											{ month: "2-digit", day: "2-digit" }
+											{
+												month: "2-digit",
+												day: "2-digit",
+											}
 									  )
 									: "";
 							}}
@@ -406,29 +403,43 @@ export default function Group() {
 
 			{/* LEADERBOARD */}
 			<section className="space-y-2">
-				{leaderboardPlayers.map((p, i) => (
-					<div
-						key={p.id}
-						className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
-					>
-						<div className="flex items-center gap-4">
-							<div className="text-lg font-bold w-8">
-								#{i + 1}
+				{leaderboardPlayers.map((p, i) => {
+					const status = p.is_admin
+						? "Admin"
+						: p.claim_code
+						? "Unclaimed"
+						: "Claimed";
+
+					return (
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+						>
+							<div className="flex items-center gap-4">
+								<div
+									className={`text-lg font-bold w-8 ${rankStyle(
+										i + 1
+									)}`}
+								>
+									#{i + 1}
+								</div>
+								<div>
+									<div className="font-semibold">
+										{p.player_name}
+									</div>
+									<p className="text-sm text-text-muted">
+										{status}
+									</p>
+								</div>
 							</div>
-							<div>
-								<p className="font-semibold">{p.player_name}</p>
-								<p className="text-sm text-text-muted">
-									{p.is_admin
-										? "Admin"
-										: p.claim_code
-										? "Unclaimed"
-										: "Claimed"}
-								</p>
+							<div className="text-2xl font-bold">
+								{matchType === "singles"
+									? p.singles_elo
+									: p.doubles_elo}
 							</div>
 						</div>
-						<div className="text-2xl font-bold">{eloValue(p)}</div>
-					</div>
-				))}
+					);
+				})}
 			</section>
 		</main>
 	);
