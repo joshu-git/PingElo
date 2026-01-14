@@ -40,7 +40,7 @@ type ChartPoint = {
 };
 
 export default function Group() {
-	const { id } = useParams<{ id: string }>();
+	const { groupname } = useParams<{ groupname: string }>();
 	const router = useRouter();
 
 	const [group, setGroup] = useState<GroupData | null>(null);
@@ -74,7 +74,7 @@ export default function Group() {
 				.select(
 					`id, group_name, players(id, player_name, claim_code, singles_elo, doubles_elo, account_id)`
 				)
-				.eq("id", id)
+				.eq("group_name", decodeURIComponent(groupname))
 				.single();
 
 			if (groupError || !groupData) {
@@ -126,7 +126,7 @@ export default function Group() {
 		return () => {
 			cancelled = true;
 		};
-	}, [id, router, sessionUserId]);
+	}, [groupname, router, sessionUserId]);
 
 	/* ---------- Load matches ---------- */
 	useEffect(() => {
