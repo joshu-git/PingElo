@@ -28,6 +28,7 @@ type GroupPlayer = {
 type GroupData = {
 	id: string;
 	group_name: string;
+	group_description: string | null;
 	players: GroupPlayer[];
 	is_member: boolean;
 	can_leave: boolean;
@@ -72,7 +73,7 @@ export default function Group() {
 			const { data: groupData, error: groupError } = await supabase
 				.from("groups")
 				.select(
-					`id, group_name, players(id, player_name, claim_code, singles_elo, doubles_elo, account_id)`
+					`id, group_name, group_description, players(id, player_name, claim_code, singles_elo, doubles_elo, account_id)`
 				)
 				.eq("group_name", decodeURIComponent(groupname))
 				.single();
@@ -113,6 +114,7 @@ export default function Group() {
 				setGroup({
 					id: groupData.id,
 					group_name: groupData.group_name,
+					group_description: groupData.group_description ?? null,
 					players,
 					is_member,
 					can_leave: is_member && players.length > 1,
@@ -305,7 +307,7 @@ export default function Group() {
 					{group.group_name}
 				</h1>
 				<p className="text-text-muted">
-					Players: {group.players.length}
+					{group.group_description?.trim() || "No Description"}
 				</p>
 			</section>
 
