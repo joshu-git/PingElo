@@ -1,4 +1,9 @@
 import { supabase } from "../libs/supabase.js";
+import {
+	validateTournamentMatch,
+	advanceBracketRound,
+	markTournamentCompleted,
+} from "./tournaments.services.js";
 
 //elo config
 const BASE_K = 50;
@@ -70,6 +75,19 @@ export async function createSinglesMatch(
 	ratingB: number,
 	tournamentId?: string | null
 ) {
+	let bracketId: string | null = null;
+
+	// Only handle tournament logic if tournamentId exists
+	if (tournamentId) {
+		bracketId = await validateTournamentMatch(
+			tournamentId,
+			[playerAId],
+			[playerBId]
+		);
+		if (!bracketId)
+			throw new Error("Match not allowed in this tournament round");
+	}
+
 	const elo = calculateElo(
 		ratingA,
 		ratingB,
@@ -99,6 +117,7 @@ export async function createSinglesMatch(
 			elo_before_a1: ratingA,
 			elo_before_b1: ratingB,
 			tournament_id: tournamentId ?? null,
+			bracket_id: bracketId,
 		})
 		.select()
 		.single();
@@ -112,6 +131,14 @@ export async function createSinglesMatch(
 		.from("players")
 		.update({ singles_elo: ratingB + elo.eloChangeB })
 		.eq("id", playerBId);
+
+	// Advance bracket only for tournament matches
+	if (tournamentId) {
+		if (bracketId) {
+			await advanceBracketRound(tournamentId, bracketId);
+		}
+		await markTournamentCompleted(tournamentId);
+	}
 
 	return { match, eloData: elo };
 }
@@ -128,6 +155,18 @@ export async function createDoublesMatch(
 	gamePoints: number,
 	tournamentId?: string | null
 ) {
+	let bracketId: string | null = null;
+
+	if (tournamentId) {
+		bracketId = await validateTournamentMatch(
+			tournamentId,
+			[a1, a2],
+			[b1, b2]
+		);
+		if (!bracketId)
+			throw new Error("Match not allowed in this tournament round");
+	}
+
 	const teamARating = (a1.doubles_elo + a2.doubles_elo) / 2;
 	const teamBRating = (b1.doubles_elo + b2.doubles_elo) / 2;
 
@@ -165,6 +204,7 @@ export async function createDoublesMatch(
 			elo_before_b1: b1.doubles_elo,
 			elo_before_b2: b2.doubles_elo,
 			tournament_id: tournamentId ?? null,
+			bracket_id: bracketId,
 		})
 		.select()
 		.single();
@@ -181,6 +221,14 @@ export async function createDoublesMatch(
 			.from("players")
 			.update({ doubles_elo: p.doubles_elo + elo.eloChangeB })
 			.eq("id", p.id);
+	}
+
+	// Advance bracket only for tournament matches
+	if (tournamentId) {
+		if (bracketId) {
+			await advanceBracketRound(tournamentId, bracketId);
+		}
+		await markTournamentCompleted(tournamentId);
 	}
 
 	return { match, eloData: elo };
