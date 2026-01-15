@@ -39,6 +39,7 @@ export interface GroupsRow {
 	id: string;
 	group_name: string;
 	created_at: string;
+	group_description?: string | null;
 }
 
 //manager_reports
@@ -81,6 +82,7 @@ export interface MatchesRow {
 	match_type: MatchType;
 	tournament_id?: string | null;
 	bracket_id?: string | null;
+	group_id?: string | null;
 }
 
 //player_bans
