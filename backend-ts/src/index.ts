@@ -11,6 +11,9 @@ import matchesRoutes from "./routes/matches.routes.js";
 //Gives access to groups routes
 import groupsRoutes from "./routes/matches.routes.js";
 
+//Gives access to groups routes
+import tournamentsRoutes from "./routes/tournaments.routes.js";
+
 //Load environment variables
 dotenv.config();
 
@@ -33,6 +36,7 @@ app.use(
 app.use("/players", playersRoutes);
 app.use("/matches", matchesRoutes);
 app.use("/groups", groupsRoutes);
+app.use("/tournaments", tournamentsRoutes);
 
 //Health check to confirm the backend is running
 app.get("/", (_req, res) => {
