@@ -170,8 +170,9 @@ export default function Group() {
 		const matchesCount = filteredMatches.length;
 
 		const totalElo = group.players.reduce((sum, p) => {
-			const elo = matchType === "singles" ? p.singles_elo : p.doubles_elo;
-			return sum + elo;
+			return (
+				sum + (matchType === "singles" ? p.singles_elo : p.doubles_elo)
+			);
 		}, 0);
 
 		const averageElo =
