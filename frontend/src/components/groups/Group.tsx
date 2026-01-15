@@ -156,6 +156,34 @@ export default function Group() {
 		return m;
 	}, [matches, matchType, range]);
 
+	/* ---------- Stats ---------- */
+	const stats = useMemo(() => {
+		if (!group) {
+			return {
+				players: 0,
+				matches: 0,
+				averageElo: 0,
+			};
+		}
+
+		const playersCount = group.players.length;
+		const matchesCount = filteredMatches.length;
+
+		const totalElo = group.players.reduce((sum, p) => {
+			const elo = matchType === "singles" ? p.singles_elo : p.doubles_elo;
+			return sum + elo;
+		}, 0);
+
+		const averageElo =
+			playersCount > 0 ? Math.round(totalElo / playersCount) : 0;
+
+		return {
+			players: playersCount,
+			matches: matchesCount,
+			averageElo,
+		};
+	}, [group, filteredMatches, matchType]);
+
 	/* ---------- Chart Data ---------- */
 	const chartData: ChartPoint[] = useMemo(() => {
 		if (!filteredMatches.length) return [];
@@ -278,6 +306,13 @@ export default function Group() {
 				<p className="text-text-muted">
 					Players: {group.players.length}
 				</p>
+			</section>
+
+			{/* STATS */}
+			<section className="grid grid-cols-3 gap-4 text-center">
+				<Stat label="Players" value={stats.players} />
+				<Stat label="Matches" value={stats.matches} />
+				<Stat label="Average" value={stats.averageElo} />
 			</section>
 
 			{/* CONTROLS */}
@@ -451,5 +486,14 @@ export default function Group() {
 				})}
 			</section>
 		</main>
+	);
+}
+
+function Stat({ label, value }: { label: string; value: number | string }) {
+	return (
+		<div className="text-center">
+			<p className="text-sm text-text-muted">{label}</p>
+			<p className="text-2xl font-bold">{value}</p>
+		</div>
 	);
 }
