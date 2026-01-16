@@ -2,7 +2,6 @@ import { supabase } from "../libs/supabase.js";
 import {
 	validateTournamentMatch,
 	advanceBracketRound,
-	markTournamentCompleted,
 } from "./tournaments.services.js";
 
 //elo config
@@ -137,7 +136,6 @@ export async function createSinglesMatch(
 		if (bracketId) {
 			await advanceBracketRound(tournamentId, bracketId);
 		}
-		await markTournamentCompleted(tournamentId);
 	}
 
 	return { match, eloData: elo };
@@ -228,7 +226,6 @@ export async function createDoublesMatch(
 		if (bracketId) {
 			await advanceBracketRound(tournamentId, bracketId);
 		}
-		await markTournamentCompleted(tournamentId);
 	}
 
 	return { match, eloData: elo };
