@@ -12,26 +12,35 @@ export default function CreateTournament() {
 	async function createTournament() {
 		setLoading(true);
 
-		const session = await supabase.auth.getSession();
-		const token = session.data.session?.access_token;
+		try {
+			const session = await supabase.auth.getSession();
+			if (!session.data.session) throw new Error("Not signed in");
 
-		await fetch(
-			`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/create`,
-			{
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
-					Authorization: `Bearer ${token}`,
-				},
-				body: JSON.stringify({
-					tournament_name: name,
-					start_date: startDate,
-					match_type: type,
-				}),
-			}
-		);
+			const res = await fetch(
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/create`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${session.data.session.access_token}`,
+					},
+					body: JSON.stringify({
+						tournament_name: name,
+						start_date: startDate,
+						match_type: type,
+					}),
+				}
+			);
 
-		setLoading(false);
+			if (!res.ok) throw new Error(await res.text());
+
+			alert("Tournament created successfully");
+			setName("");
+			setStartDate("");
+			setType("singles");
+		} finally {
+			setLoading(false);
+		}
 	}
 
 	return (
