@@ -42,8 +42,7 @@ type BracketRow = BracketRowDB & {
 /* -------------------- COMPONENT -------------------- */
 
 export default function TournamentPage() {
-	const params = useParams();
-	const tournamentId = params.id as string;
+	const { id: tournamentId } = useParams<{ id: string }>();
 
 	const [tournament, setTournament] = useState<Tournament | null>(null);
 	const [signups, setSignups] = useState<Player[]>([]);
@@ -53,8 +52,8 @@ export default function TournamentPage() {
 	const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
 
 	const [loading, setLoading] = useState(true);
-	const [starting, setStarting] = useState(false);
 	const [signingUp, setSigningUp] = useState(false);
+	const [starting, setStarting] = useState(false);
 
 	/* -------------------- LOAD AUTH + PLAYER -------------------- */
 	useEffect(() => {
@@ -90,20 +89,20 @@ export default function TournamentPage() {
 			if (!t) throw new Error("Tournament not found");
 			setTournament(t);
 
-			/* ---- SIGNUPS ---- */
+			// SIGNUPS
 			if (!t.started) {
-				const { data: signupRows } = await supabase
+				const { data: rows } = await supabase
 					.from("tournament_signups")
 					.select("player_id")
 					.eq("tournament_id", tournamentId);
 
-				const playerIds = signupRows?.map((s) => s.player_id) ?? [];
+				const ids = rows?.map((r) => r.player_id) ?? [];
 
-				if (playerIds.length > 0) {
+				if (ids.length) {
 					const { data: players } = await supabase
 						.from("players")
 						.select("id, player_name, account_id")
-						.in("id", playerIds);
+						.in("id", ids);
 
 					setSignups(players ?? []);
 				} else {
@@ -111,7 +110,7 @@ export default function TournamentPage() {
 				}
 			}
 
-			/* ---- BRACKETS ---- */
+			// BRACKETS
 			const { data: rawBrackets } = await supabase
 				.from("tournament_brackets")
 				.select("*")
@@ -119,11 +118,11 @@ export default function TournamentPage() {
 				.order("round")
 				.order("bracket_number");
 
-			const bracketsList = rawBrackets ?? [];
+			const list = rawBrackets ?? [];
 
-			const playerIdsInBrackets = Array.from(
+			const playerIds = Array.from(
 				new Set(
-					bracketsList
+					list
 						.flatMap((b) => [
 							b.player_a1_id,
 							b.player_a2_id,
@@ -134,16 +133,16 @@ export default function TournamentPage() {
 				)
 			);
 
-			if (playerIdsInBrackets.length > 0) {
-				const { data: allPlayers } = await supabase
+			if (playerIds.length) {
+				const { data: players } = await supabase
 					.from("players")
 					.select("id, player_name")
-					.in("id", playerIdsInBrackets);
+					.in("id", playerIds);
 
-				const map = new Map(allPlayers?.map((p) => [p.id, p]) ?? []);
+				const map = new Map(players?.map((p) => [p.id, p]) ?? []);
 
 				setBrackets(
-					bracketsList.map((b) => ({
+					list.map((b) => ({
 						...b,
 						players_a1: b.player_a1_id
 							? map.get(b.player_a1_id) ?? null
@@ -162,8 +161,6 @@ export default function TournamentPage() {
 			} else {
 				setBrackets([]);
 			}
-		} catch (err) {
-			console.error(err);
 		} finally {
 			setLoading(false);
 		}
@@ -195,13 +192,31 @@ export default function TournamentPage() {
 		if (!currentPlayer || signupDisabled) return;
 
 		setSigningUp(true);
-		const { error } = await supabase.from("tournament_signups").insert({
-			tournament_id: tournament.id,
-			player_id: currentPlayer.id,
-		});
 
-		if (!error) await loadTournament();
-		else alert(error.message);
+		const { data } = await supabase.auth.getSession();
+		const token = data.session?.access_token;
+
+		const res = await fetch(
+			`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/signup`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({
+					tournament_id: tournament.id,
+					player_id: currentPlayer.id,
+				}),
+			}
+		);
+
+		if (!res.ok) {
+			const e = await res.json();
+			alert(e.error ?? "Signup failed");
+		} else {
+			await loadTournament();
+		}
 
 		setSigningUp(false);
 	};
@@ -245,46 +260,30 @@ export default function TournamentPage() {
 					{tournament.tournament_name}
 				</h1>
 
-				{isOwner && (
-					<button
-						onClick={startTournament}
-						disabled={!canStart || starting}
-						className={`px-5 py-2 rounded font-semibold
-							${
-								canStart
-									? "bg-white text-black"
-									: "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-							}`}
-					>
-						{starting ? "Starting…" : "Start Tournament"}
-					</button>
-				)}
+				<button
+					onClick={startTournament}
+					disabled={!canStart || starting}
+					className={`px-5 py-2 rounded font-semibold ${
+						canStart
+							? "bg-white text-black"
+							: "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+					}`}
+				>
+					{starting ? "Starting…" : "Start Tournament"}
+				</button>
 			</div>
 
-			{/* SIGN UP */}
 			<button
 				onClick={signup}
 				disabled={signupDisabled}
-				className={`px-5 py-2 rounded font-semibold
-					${
-						signupDisabled
-							? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-							: "bg-green-500 text-black"
-					}`}
+				className={`px-5 py-2 rounded font-semibold ${
+					signupDisabled
+						? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+						: "bg-green-500 text-black"
+				}`}
 			>
 				{isSignedUp ? "Signed Up" : "Sign Up"}
 			</button>
-
-			{/* PLAYERS */}
-			{signups.length > 0 && (
-				<ul className="grid grid-cols-2 md:grid-cols-3 gap-2">
-					{signups.map((p) => (
-						<li key={p.id} className="bg-zinc-900 p-2 rounded">
-							{p.player_name}
-						</li>
-					))}
-				</ul>
-			)}
 		</div>
 	);
 }
