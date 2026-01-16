@@ -46,7 +46,7 @@ type BracketRow = BracketRowDB & {
 
 export default function TournamentPage() {
 	const params = useParams();
-	const tournamentId = params.id as string;
+	const tournamentId = params.id;
 
 	const [tournament, setTournament] = useState<Tournament | null>(null);
 	const [signups, setSignups] = useState<Player[]>([]);
