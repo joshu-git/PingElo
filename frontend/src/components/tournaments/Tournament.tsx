@@ -80,23 +80,21 @@ export default function TournamentPage() {
 			setTournament(t);
 
 			// fetch signups
-			if (!t.started) {
-				const { data: signupRows } = await supabase
-					.from("tournament_signups")
-					.select("player_id")
-					.eq("tournament_id", tournamentId);
+			const { data: signupRows } = await supabase
+				.from("tournament_signups")
+				.select("player_id")
+				.eq("tournament_id", tournamentId);
 
-				const playerIds = signupRows?.map((s) => s.player_id) ?? [];
-				if (playerIds.length > 0) {
-					const { data: playersData } = await supabase
-						.from("players")
-						.select("id, player_name")
-						.in("id", playerIds);
+			const playerIds = signupRows?.map((s) => s.player_id) ?? [];
+			if (playerIds.length > 0) {
+				const { data: playersData } = await supabase
+					.from("players")
+					.select("id, player_name")
+					.in("id", playerIds);
 
-					setSignups(playersData ?? []);
-				} else {
-					setSignups([]);
-				}
+				setSignups(playersData ?? []);
+			} else {
+				setSignups([]);
 			}
 
 			// fetch raw brackets
