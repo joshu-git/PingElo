@@ -15,18 +15,21 @@ export default function CreateTournament() {
 		const session = await supabase.auth.getSession();
 		const token = session.data.session?.access_token;
 
-		await fetch(`${process.env.NEXT_PUBLIC_API_URL}/tournaments/create`, {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				Authorization: `Bearer ${token}`,
-			},
-			body: JSON.stringify({
-				tournament_name: name,
-				start_date: startDate,
-				match_type: type,
-			}),
-		});
+		await fetch(
+			`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/create`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${token}`,
+				},
+				body: JSON.stringify({
+					tournament_name: name,
+					start_date: startDate,
+					match_type: type,
+				}),
+			}
+		);
 
 		setLoading(false);
 	}
