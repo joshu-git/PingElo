@@ -6,7 +6,6 @@ export async function createTournament(
 	tournament_name: string,
 	created_by: string,
 	start_date: string,
-	end_date: string,
 	match_type: "singles" | "doubles"
 ) {
 	const { data, error } = await supabase
@@ -15,7 +14,6 @@ export async function createTournament(
 			tournament_name,
 			created_by,
 			start_date,
-			end_date,
 			match_type,
 			started: false,
 			completed: false,

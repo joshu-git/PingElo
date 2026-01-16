@@ -18,7 +18,7 @@ const router = Router();
  */
 router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 	try {
-		const { tournament_name, start_date, end_date, match_type } = req.body;
+		const { tournament_name, start_date, match_type } = req.body;
 
 		if (!tournament_name || !start_date || !match_type) {
 			return res.status(400).json({ error: "Missing required fields" });
@@ -28,7 +28,6 @@ router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 			tournament_name,
 			req.user!.id,
 			start_date,
-			end_date,
 			match_type
 		);
 
