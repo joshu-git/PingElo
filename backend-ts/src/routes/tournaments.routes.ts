@@ -16,7 +16,7 @@ const router = Router();
 /**
  * CREATE TOURNAMENT (ADMIN ONLY)
  */
-router.post("/", requireAdmin, async (req: AuthenticatedRequest, res) => {
+router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 	try {
 		const { tournament_name, start_date, end_date, match_type } = req.body;
 
