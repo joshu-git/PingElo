@@ -29,7 +29,6 @@ export default function CreateTournament() {
 		});
 
 		setLoading(false);
-		window.location.href = "/tournaments";
 	}
 
 	return (
