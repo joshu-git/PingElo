@@ -42,7 +42,7 @@ export async function claimPlayer(account_id: string, claim_code: string) {
 		.from("players")
 		.select("*")
 		.eq("claim_code", claim_code)
-		.is("user_id", null)
+		.is("account_id", null)
 		.single();
 
 	//If the code could not be found or the user_id was not null
