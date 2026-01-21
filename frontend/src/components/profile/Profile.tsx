@@ -16,22 +16,22 @@ import {
 import type { MatchType, MatchesRow, PlayersRow } from "@/types/database";
 
 export default function Profile() {
-	const { username } = useParams<{ username: string }>();
+	const { playerName } = useParams<{ playerName: string }>();
 	const router = useRouter();
 
 	const [player, setPlayer] = useState<PlayersRow | null>(null);
 	const [groupName, setGroupName] = useState<string | null>(null);
 	const [matches, setMatches] = useState<MatchesRow[]>([]);
 	const [matchType, setMatchType] = useState<MatchType>("singles");
-	const [range, setRange] = useState<number | null>(null); // days: 7, 30, null for all
+	const [range, setRange] = useState<number | null>(null);
 
-	/* ---------- Load player ---------- */
+	//Load the player
 	useEffect(() => {
 		const loadPlayer = async () => {
 			const { data } = await supabase
 				.from("players")
 				.select("*")
-				.eq("player_name", username)
+				.eq("player_name", playerName)
 				.single();
 
 			if (!data) {
@@ -41,9 +41,9 @@ export default function Profile() {
 			setPlayer(data);
 		};
 		loadPlayer();
-	}, [username, router]);
+	}, [playerName, router]);
 
-	/* ---------- Load group ---------- */
+	//Load the player's group
 	useEffect(() => {
 		if (!player?.group_id) return;
 		const loadGroup = async () => {
@@ -57,7 +57,7 @@ export default function Profile() {
 		loadGroup();
 	}, [player?.group_id]);
 
-	/* ---------- Load matches ---------- */
+	//Load the player's matches
 	useEffect(() => {
 		if (!player) return;
 
@@ -75,7 +75,7 @@ export default function Profile() {
 		loadMatches();
 	}, [player]);
 
-	/* ---------- Filtered matches by type and range ---------- */
+	//Filter the matches by type and range
 	const filteredMatches = useMemo(() => {
 		if (!matches) return [];
 		let m = matches.filter((m) => m.match_type === matchType);
@@ -89,7 +89,7 @@ export default function Profile() {
 		return m;
 	}, [matches, matchType, range]);
 
-	/* ---------- Stats ---------- */
+	//Calculates player statistics
 	const stats = useMemo(() => {
 		if (!player) return { wins: 0, losses: 0, rate: 0 };
 		let wins = 0;
@@ -109,11 +109,11 @@ export default function Profile() {
 		};
 	}, [filteredMatches, player]);
 
-	/* ---------- Elo history per match with fixed day spacing ---------- */
+	//Calculates player's match data for the chart
 	const chartData = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
-		// Group matches by local day
+		//Group matches by local day
 		const matchesByDay: Record<string, MatchesRow[]> = {};
 		filteredMatches.forEach((m) => {
 			const dateObj = new Date(m.created_at);
@@ -128,7 +128,7 @@ export default function Profile() {
 			matchesByDay[dayStr].push(m);
 		});
 
-		// Full day range
+		//Full day range
 		const minDate = new Date(filteredMatches[0].created_at);
 		const maxDate = new Date(
 			filteredMatches[filteredMatches.length - 1].created_at
@@ -151,7 +151,7 @@ export default function Profile() {
 		dayArray.forEach((day, dayIndex) => {
 			const dayMatches = matchesByDay[day] ?? [];
 
-			// Only push points for actual matches
+			//Only push points for actual matches
 			dayMatches.forEach((match, i) => {
 				let elo = 0;
 				if (match.player_a1_id === player?.id)
@@ -194,7 +194,7 @@ export default function Profile() {
 			? new Date(day.date).toLocaleDateString("en-GB", {
 					month: "2-digit",
 					day: "2-digit",
-			  })
+				})
 			: "";
 	};
 
