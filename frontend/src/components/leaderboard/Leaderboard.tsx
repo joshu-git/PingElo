@@ -8,15 +8,13 @@ import { PlayersRow, GroupsRow, MatchType, MatchesRow } from "@/types/database";
 const PAGE_SIZE = 50;
 
 const RANKS = [
+	{ min: 1600, label: "Super Grand Master" },
 	{ min: 1400, label: "Grand Master" },
-	{ min: 1300, label: "Master" },
-	{ min: 1200, label: "Expert" },
-	{ min: 1100, label: "Advanced" },
+	{ min: 1200, label: "Master" },
 	{ min: 1000, label: "Competitor" },
-	{ min: 900, label: "Amateur" },
-	{ min: 800, label: "Beginner" },
-	{ min: 700, label: "Novice" },
-	{ min: 0, label: "Rookie" },
+	{ min: 800, label: "Advanced Beginner" },
+	{ min: 600, label: "Beginner" },
+	{ min: 0, label: "Bikini Bottom" },
 ];
 
 export default function Leaderboard() {
