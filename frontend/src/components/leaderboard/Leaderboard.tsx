@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { PlayersRow, GroupsRow, MatchType } from "@/types/database";
+import { PlayersRow, GroupsRow, MatchType, MatchesRow } from "@/types/database";
 
 const PAGE_SIZE = 50;
 
@@ -20,11 +20,15 @@ const RANKS = [
 export default function Leaderboard() {
 	const [players, setPlayers] = useState<PlayersRow[]>([]);
 	const [groups, setGroups] = useState<GroupsRow[]>([]);
+	const [matches, setMatches] = useState<MatchesRow[]>([]);
+
 	const [matchType, setMatchType] = useState<MatchType>("singles");
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
+
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(true);
+
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
 	// Metadata
@@ -34,6 +38,7 @@ export default function Leaderboard() {
 				supabase.from("groups").select("*").order("group_name"),
 				supabase.auth.getSession(),
 			]);
+
 			if (groupData) setGroups(groupData);
 
 			if (session.data.session) {
@@ -42,19 +47,29 @@ export default function Leaderboard() {
 					.select("group_id")
 					.eq("account_id", session.data.session.user.id)
 					.maybeSingle();
+
 				if (player?.group_id) setMyGroupId(player.group_id);
 			}
 		};
+
 		loadMeta();
 	}, []);
 
-	// Group map
+	// Matches
+	useEffect(() => {
+		const loadMatches = async () => {
+			const { data } = await supabase.from("matches").select("*");
+			if (data) setMatches(data);
+		};
+		loadMatches();
+	}, []);
+
+	// Derived helpers
 	const groupMap = useMemo(
 		() => new Map(groups.map((g) => [g.id, g.group_name])),
 		[groups]
 	);
 
-	// Elo value helper
 	const eloValue = useCallback(
 		(p: PlayersRow) =>
 			matchType === "singles" ? p.singles_elo : p.doubles_elo,
@@ -68,7 +83,7 @@ export default function Leaderboard() {
 		return "text-text-muted";
 	};
 
-	// Fetch match count for a player from Supabase
+	// Get matches played per player (fetch from Supabase to be accurate)
 	const getMatchesPlayed = useCallback(
 		async (playerId: string): Promise<number> => {
 			let query = supabase
@@ -98,7 +113,7 @@ export default function Leaderboard() {
 		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	}, []);
 
-	// Load players
+	// Data loading
 	const loadPlayers = useCallback(
 		async ({ offset }: { offset: number }) => {
 			if (offset === 0) setLoading(true);
@@ -109,28 +124,18 @@ export default function Leaderboard() {
 			const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
 
 			if (data) {
-				// Fetch match counts for all players
-				const playersWithMatches = await Promise.all(
-					data.map(async (p) => {
-						const matchesPlayed = await getMatchesPlayed(p.id);
-						return { ...p, matchesPlayed };
-					})
-				);
-
 				setPlayers((prev) =>
-					offset === 0
-						? playersWithMatches
-						: [...prev, ...playersWithMatches]
+					offset === 0 ? data : [...prev, ...data]
 				);
 				setHasMore(data.length === PAGE_SIZE);
 			}
 
 			if (offset === 0) setLoading(false);
 		},
-		[groupId, getMatchesPlayed]
+		[groupId]
 	);
 
-	// Filter change
+	// Filter change handler
 	const handleFilterChange = (
 		newType: MatchType,
 		newGroupId: string | null
@@ -158,21 +163,36 @@ export default function Leaderboard() {
 	}, [loadPlayers, players.length, loading, hasMore]);
 
 	// Split ranked/unranked
-	const { rankedPlayers, unrankedPlayers } = useMemo(() => {
-		const ranked: typeof players = [];
-		const unranked: typeof players = [];
-		for (const p of players) {
-			if ((p as any).matchesPlayed < 5) unranked.push(p);
-			else ranked.push(p);
-		}
-		ranked.sort((a, b) => eloValue(b) - eloValue(a));
-		unranked.sort((a, b) => eloValue(b) - eloValue(a));
-		return { rankedPlayers: ranked, unrankedPlayers: unranked };
-	}, [players, eloValue]);
+	const [rankedPlayers, setRankedPlayers] = useState<PlayersRow[]>([]);
+	const [unrankedPlayers, setUnrankedPlayers] = useState<PlayersRow[]>([]);
+
+	useEffect(() => {
+		const computeRanking = async () => {
+			const ranked: PlayersRow[] = [];
+			const unranked: PlayersRow[] = [];
+
+			for (const p of players) {
+				const matchesPlayed = await getMatchesPlayed(p.id);
+				if (matchesPlayed < 5) unranked.push(p);
+				else ranked.push(p);
+			}
+
+			ranked.sort((a, b) => eloValue(b) - eloValue(a));
+			unranked.sort((a, b) => eloValue(b) - eloValue(a));
+
+			setRankedPlayers(ranked);
+			setUnrankedPlayers(unranked);
+		};
+
+		computeRanking();
+	}, [players, getMatchesPlayed, eloValue]);
 
 	// Load initial leaderboard
 	useEffect(() => {
-		loadPlayers({ offset: 0 });
+		const loadInitial = async () => {
+			await loadPlayers({ offset: 0 });
+		};
+		loadInitial();
 	}, [loadPlayers]);
 
 	return (
@@ -242,43 +262,54 @@ export default function Leaderboard() {
 			</div>
 
 			<section className="space-y-2">
-				{/* Ranked */}
-				{rankedPlayers.map((p, i) => (
-					<div
-						key={p.id}
-						className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
-					>
-						<div className="flex items-center gap-4">
-							<div
-								className={`text-lg font-bold w-8 ${rankStyle(i + 1)}`}
-							>
-								#{i + 1}
-							</div>
-							<div>
-								<Link
-									href={`/profile/${p.player_name}`}
-									className="font-semibold hover:underline"
-								>
-									{p.player_name}
-								</Link>
-								<p className="text-sm text-text-muted">
-									{groupMap.get(p.group_id!)} ·{" "}
-									{getRank(
-										eloValue(p),
-										(p as any).matchesPlayed
-									)}{" "}
-									·{" "}
-									<span className="text-xs">
-										(Matches: {(p as any).matchesPlayed})
-									</span>
-								</p>
-							</div>
-						</div>
-						<div className="text-2xl font-bold">{eloValue(p)}</div>
-					</div>
-				))}
+				{/* Ranked players */}
+				{rankedPlayers.map((p, i) => {
+					const elo = eloValue(p);
 
-				{/* Gap & unranked */}
+					const [matchesPlayed, setMatchesPlayed] =
+						useState<number>(0);
+					useEffect(() => {
+						getMatchesPlayed(p.id).then(setMatchesPlayed);
+					}, [p.id]);
+
+					return (
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+						>
+							<div className="flex items-center gap-4">
+								<div
+									className={`text-lg font-bold w-8 ${rankStyle(i + 1)}`}
+								>
+									#{i + 1}
+								</div>
+
+								<div>
+									<Link
+										href={`/profile/${p.player_name}`}
+										className="font-semibold hover:underline"
+									>
+										{p.player_name}
+									</Link>
+									<p className="text-sm text-text-muted">
+										{groupMap.get(p.group_id!)} ·{" "}
+										<span>
+											{getRank(elo, matchesPlayed)}
+										</span>{" "}
+										·{" "}
+										<span className="text-xs">
+											(Matches: {matchesPlayed})
+										</span>
+									</p>
+								</div>
+							</div>
+
+							<div className="text-2xl font-bold">{elo}</div>
+						</div>
+					);
+				})}
+
+				{/* Gap and unranked header */}
 				{unrankedPlayers.length > 0 && (
 					<>
 						<div className="py-8" />
@@ -288,41 +319,53 @@ export default function Leaderboard() {
 					</>
 				)}
 
-				{/* Unranked */}
-				{unrankedPlayers.map((p) => (
-					<div
-						key={p.id}
-						className="flex items-center justify-between bg-card p-4 rounded-xl hover-card opacity-70"
-					>
-						<div className="flex items-center gap-4">
-							<div className="text-lg font-bold w-8 text-text-muted">
-								-
+				{/* Unranked players */}
+				{unrankedPlayers.map((p) => {
+					const elo = eloValue(p);
+
+					const [matchesPlayed, setMatchesPlayed] =
+						useState<number>(0);
+					useEffect(() => {
+						getMatchesPlayed(p.id).then(setMatchesPlayed);
+					}, [p.id]);
+
+					return (
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card opacity-70"
+						>
+							<div className="flex items-center gap-4">
+								<div className="text-lg font-bold w-8 text-text-muted">
+									-
+								</div>
+
+								<div>
+									<Link
+										href={`/profile/${p.player_name}`}
+										className="font-semibold hover:underline"
+									>
+										{p.player_name}
+									</Link>
+									<p className="text-sm text-text-muted">
+										{groupMap.get(p.group_id!)} ·{" "}
+										<span>
+											{getRank(elo, matchesPlayed)}
+										</span>{" "}
+										·{" "}
+										<span className="text-xs">
+											(Matches: {matchesPlayed})
+										</span>
+									</p>
+								</div>
 							</div>
-							<div>
-								<Link
-									href={`/profile/${p.player_name}`}
-									className="font-semibold hover:underline"
-								>
-									{p.player_name}
-								</Link>
-								<p className="text-sm text-text-muted">
-									{groupMap.get(p.group_id!)} ·{" "}
-									{getRank(
-										eloValue(p),
-										(p as any).matchesPlayed
-									)}{" "}
-									·{" "}
-									<span className="text-xs">
-										(Matches: {(p as any).matchesPlayed})
-									</span>
-								</p>
-							</div>
+
+							<div className="text-2xl font-bold">{elo}</div>
 						</div>
-						<div className="text-2xl font-bold">{eloValue(p)}</div>
-					</div>
-				))}
+					);
+				})}
 
 				<div ref={loadMoreRef} />
+
 				{loading && players.length === 0 && (
 					<p className="text-center text-text-muted py-4">Loading…</p>
 				)}
