@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { PlayersRow, GroupsRow, MatchType, MatchesRow } from "@/types/database";
+import { PlayersRow, GroupsRow, MatchType } from "@/types/database";
 
 const PAGE_SIZE = 50;
 
@@ -20,7 +20,9 @@ const RANKS = [
 export default function Leaderboard() {
 	const [players, setPlayers] = useState<PlayersRow[]>([]);
 	const [groups, setGroups] = useState<GroupsRow[]>([]);
-	const [matches, setMatches] = useState<MatchesRow[]>([]);
+	const [matchCounts, setMatchCounts] = useState<Map<string, number>>(
+		new Map()
+	);
 
 	const [matchType, setMatchType] = useState<MatchType>("singles");
 	const [groupId, setGroupId] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export default function Leaderboard() {
 
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-	// Metadata
+	// Load groups and my group
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: groupData }, session] = await Promise.all([
@@ -51,25 +53,16 @@ export default function Leaderboard() {
 				if (player?.group_id) setMyGroupId(player.group_id);
 			}
 		};
-
 		loadMeta();
 	}, []);
 
-	// Matches
-	useEffect(() => {
-		const loadMatches = async () => {
-			const { data } = await supabase.from("matches").select("*");
-			if (data) setMatches(data);
-		};
-		loadMatches();
-	}, []);
-
-	// Derived helpers
+	// Map group IDs to names
 	const groupMap = useMemo(
 		() => new Map(groups.map((g) => [g.id, g.group_name])),
 		[groups]
 	);
 
+	// Elo helper
 	const eloValue = useCallback(
 		(p: PlayersRow) =>
 			matchType === "singles" ? p.singles_elo : p.doubles_elo,
@@ -83,37 +76,26 @@ export default function Leaderboard() {
 		return "text-text-muted";
 	};
 
-	// Get matches played per player (fetch from Supabase to be accurate)
-	const getMatchesPlayed = useCallback(
-		async (playerId: string): Promise<number> => {
-			let query = supabase
+	// Get match count for a player using a Supabase count query
+	const fetchMatchesPlayed = useCallback(
+		async (playerId: string) => {
+			const orFilter =
+				matchType === "singles"
+					? `player_a1_id.eq.${playerId},player_b1_id.eq.${playerId}`
+					: `player_a1_id.eq.${playerId},player_a2_id.eq.${playerId},player_b1_id.eq.${playerId},player_b2_id.eq.${playerId}`;
+
+			const { count } = await supabase
 				.from("matches")
-				.select("id")
+				.select("*", { count: "exact", head: true })
+				.or(orFilter)
 				.eq("match_type", matchType);
 
-			if (matchType === "singles") {
-				query = query.or(
-					`player_a1_id.eq.${playerId},player_b1_id.eq.${playerId}`
-				);
-			} else {
-				query = query.or(
-					`player_a1_id.eq.${playerId},player_a2_id.eq.${playerId},player_b1_id.eq.${playerId},player_b2_id.eq.${playerId}`
-				);
-			}
-
-			const { data } = await query;
-			return data?.length ?? 0;
+			return count ?? 0;
 		},
 		[matchType]
 	);
 
-	// Rank computation
-	const getRank = useCallback((elo: number, matchesPlayed: number) => {
-		if (matchesPlayed < 5) return "Unranked";
-		return RANKS.find((r) => elo >= r.min)?.label ?? "";
-	}, []);
-
-	// Data loading
+	// Load players in batches
 	const loadPlayers = useCallback(
 		async ({ offset }: { offset: number }) => {
 			if (offset === 0) setLoading(true);
@@ -128,22 +110,22 @@ export default function Leaderboard() {
 					offset === 0 ? data : [...prev, ...data]
 				);
 				setHasMore(data.length === PAGE_SIZE);
+
+				// Fetch match counts for all new players
+				const countsMap = new Map(matchCounts); // clone existing
+				await Promise.all(
+					data.map(async (p) => {
+						const count = await fetchMatchesPlayed(p.id);
+						countsMap.set(p.id, count);
+					})
+				);
+				setMatchCounts(countsMap);
 			}
 
 			if (offset === 0) setLoading(false);
 		},
-		[groupId]
+		[groupId, fetchMatchesPlayed, matchCounts]
 	);
-
-	// Filter change handler
-	const handleFilterChange = (
-		newType: MatchType,
-		newGroupId: string | null
-	) => {
-		setMatchType(newType);
-		setGroupId(newGroupId);
-		loadPlayers({ offset: 0 });
-	};
 
 	// Infinite scroll
 	useEffect(() => {
@@ -162,38 +144,46 @@ export default function Leaderboard() {
 		return () => observer.disconnect();
 	}, [loadPlayers, players.length, loading, hasMore]);
 
-	// Split ranked/unranked
-	const [rankedPlayers, setRankedPlayers] = useState<PlayersRow[]>([]);
-	const [unrankedPlayers, setUnrankedPlayers] = useState<PlayersRow[]>([]);
+	// Filter handler
+	const handleFilterChange = (
+		newType: MatchType,
+		newGroupId: string | null
+	) => {
+		setMatchType(newType);
+		setGroupId(newGroupId);
+		loadPlayers({ offset: 0 });
+	};
 
-	useEffect(() => {
-		const computeRanking = async () => {
-			const ranked: PlayersRow[] = [];
-			const unranked: PlayersRow[] = [];
+	// Compute ranked/unranked players
+	const { rankedPlayers, unrankedPlayers } = useMemo(() => {
+		const ranked: PlayersRow[] = [];
+		const unranked: PlayersRow[] = [];
 
-			for (const p of players) {
-				const matchesPlayed = await getMatchesPlayed(p.id);
-				if (matchesPlayed < 5) unranked.push(p);
-				else ranked.push(p);
-			}
+		for (const p of players) {
+			const matchesPlayed = matchCounts.get(p.id) ?? 0;
+			if (matchesPlayed < 5) unranked.push(p);
+			else ranked.push(p);
+		}
 
-			ranked.sort((a, b) => eloValue(b) - eloValue(a));
-			unranked.sort((a, b) => eloValue(b) - eloValue(a));
+		ranked.sort((a, b) => eloValue(b) - eloValue(a));
+		unranked.sort((a, b) => eloValue(b) - eloValue(a));
 
-			setRankedPlayers(ranked);
-			setUnrankedPlayers(unranked);
-		};
+		return { rankedPlayers: ranked, unrankedPlayers: unranked };
+	}, [players, matchCounts, eloValue]);
 
-		computeRanking();
-	}, [players, getMatchesPlayed, eloValue]);
-
-	// Load initial leaderboard
+	// Load initial batch
 	useEffect(() => {
 		const loadInitial = async () => {
 			await loadPlayers({ offset: 0 });
 		};
 		loadInitial();
 	}, [loadPlayers]);
+
+	// Rank label
+	const getRank = useCallback((elo: number, matchesPlayed: number) => {
+		if (matchesPlayed < 5) return "Unranked";
+		return RANKS.find((r) => elo >= r.min)?.label ?? "";
+	}, []);
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -264,13 +254,8 @@ export default function Leaderboard() {
 			<section className="space-y-2">
 				{/* Ranked players */}
 				{rankedPlayers.map((p, i) => {
+					const matchesPlayed = matchCounts.get(p.id) ?? 0;
 					const elo = eloValue(p);
-
-					const [matchesPlayed, setMatchesPlayed] =
-						useState<number>(0);
-					useEffect(() => {
-						getMatchesPlayed(p.id).then(setMatchesPlayed);
-					}, [p.id]);
 
 					return (
 						<div
@@ -283,7 +268,6 @@ export default function Leaderboard() {
 								>
 									#{i + 1}
 								</div>
-
 								<div>
 									<Link
 										href={`/profile/${p.player_name}`}
@@ -303,13 +287,12 @@ export default function Leaderboard() {
 									</p>
 								</div>
 							</div>
-
 							<div className="text-2xl font-bold">{elo}</div>
 						</div>
 					);
 				})}
 
-				{/* Gap and unranked header */}
+				{/* Unranked players */}
 				{unrankedPlayers.length > 0 && (
 					<>
 						<div className="py-8" />
@@ -319,15 +302,9 @@ export default function Leaderboard() {
 					</>
 				)}
 
-				{/* Unranked players */}
 				{unrankedPlayers.map((p) => {
+					const matchesPlayed = matchCounts.get(p.id) ?? 0;
 					const elo = eloValue(p);
-
-					const [matchesPlayed, setMatchesPlayed] =
-						useState<number>(0);
-					useEffect(() => {
-						getMatchesPlayed(p.id).then(setMatchesPlayed);
-					}, [p.id]);
 
 					return (
 						<div
@@ -338,7 +315,6 @@ export default function Leaderboard() {
 								<div className="text-lg font-bold w-8 text-text-muted">
 									-
 								</div>
-
 								<div>
 									<Link
 										href={`/profile/${p.player_name}`}
@@ -358,7 +334,6 @@ export default function Leaderboard() {
 									</p>
 								</div>
 							</div>
-
 							<div className="text-2xl font-bold">{elo}</div>
 						</div>
 					);
