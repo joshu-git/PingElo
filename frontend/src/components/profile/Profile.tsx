@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import {
 	ResponsiveContainer,
@@ -14,11 +15,17 @@ import {
 } from "recharts";
 import type { MatchType, MatchesRow, PlayersRow } from "@/types/database";
 
+type PlayerRow = {
+	id: string;
+	player_name: string;
+};
+
 export default function Profile() {
 	const { playerName } = useParams<{ playerName: string }>();
 	const router = useRouter();
 
 	const [player, setPlayer] = useState<PlayersRow | null>(null);
+	const [players, setPlayers] = useState<Map<string, PlayerRow>>(new Map());
 	const [groupName, setGroupName] = useState<string | null>(null);
 	const [matches, setMatches] = useState<MatchesRow[]>([]);
 	const [matchType, setMatchType] = useState<MatchType>("singles");
@@ -41,6 +48,21 @@ export default function Profile() {
 		};
 		loadPlayer();
 	}, [playerName, router]);
+
+	//Load all players for ID → name mapping
+	useEffect(() => {
+		const loadPlayers = async () => {
+			const { data } = await supabase
+				.from("players")
+				.select("id, player_name");
+			if (data) {
+				setPlayers(
+					new Map((data as PlayerRow[]).map((p) => [p.id, p]))
+				);
+			}
+		};
+		loadPlayers();
+	}, []);
 
 	//Load the player's group
 	useEffect(() => {
@@ -116,7 +138,7 @@ export default function Profile() {
 		};
 	}, [filteredMatches, player]);
 
-	//Chart data and rendering stays the same
+	//Chart data and rendering
 	const chartData = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
@@ -203,6 +225,9 @@ export default function Profile() {
 
 	if (!player) return null;
 
+	const eloAfter = (before?: number | null, change?: number | null) =>
+		before != null && change != null ? before + change : null;
+
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* HERO */}
@@ -228,13 +253,21 @@ export default function Profile() {
 				<div className="flex flex-wrap justify-center gap-2">
 					<button
 						onClick={() => setMatchType("singles")}
-						className={`px-4 py-2 rounded-lg ${matchType === "singles" ? "font-semibold underline" : ""}`}
+						className={`px-4 py-2 rounded-lg ${
+							matchType === "singles"
+								? "font-semibold underline"
+								: ""
+						}`}
 					>
 						Singles
 					</button>
 					<button
 						onClick={() => setMatchType("doubles")}
-						className={`px-4 py-2 rounded-lg ${matchType === "doubles" ? "font-semibold underline" : ""}`}
+						className={`px-4 py-2 rounded-lg ${
+							matchType === "doubles"
+								? "font-semibold underline"
+								: ""
+						}`}
 					>
 						Doubles
 					</button>
@@ -246,14 +279,18 @@ export default function Profile() {
 						<button
 							key={d}
 							onClick={() => setRange(d)}
-							className={`px-4 py-2 rounded-lg ${range === d ? "font-semibold underline" : ""}`}
+							className={`px-4 py-2 rounded-lg ${
+								range === d ? "font-semibold underline" : ""
+							}`}
 						>
 							Last {d} Days
 						</button>
 					))}
 					<button
 						onClick={() => setRange(null)}
-						className={`px-4 py-2 rounded-lg ${range === null ? "font-semibold underline" : ""}`}
+						className={`px-4 py-2 rounded-lg ${
+							range === null ? "font-semibold underline" : ""
+						}`}
 					>
 						All Time
 					</button>
@@ -350,16 +387,12 @@ export default function Profile() {
 							? "text-[clamp(0.7rem,3vw,0.85rem)]"
 							: "text-[clamp(0.65rem,2vw,0.85rem)]";
 
-					const eloAfter = (
-						before?: number | null,
-						change?: number | null
-					) =>
-						before != null && change != null
-							? before + change
-							: null;
-
 					return (
-						<div key={m.id} className="bg-card p-4 rounded-xl">
+						<div
+							key={m.id}
+							onClick={() => router.push(`/matches/${m.id}`)}
+							className="bg-card p-4 rounded-xl hover-card cursor-pointer"
+						>
 							<div className="flex justify-between gap-6">
 								<div className="flex-1 space-y-3">
 									{/* TEAM A */}
@@ -372,13 +405,21 @@ export default function Profile() {
 													key={p.id}
 													className="flex items-center gap-1"
 												>
-													{p.id === player.id ? (
-														<span className="font-semibold">
-															{player.player_name}
-														</span>
-													) : (
-														p.id
-													)}
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name ??
+															p.id
+														}`}
+														onClick={(e) =>
+															e.stopPropagation()
+														}
+														className="hover:underline"
+													>
+														{players.get(p.id)
+															?.player_name ??
+															p.id}
+													</Link>
 													<span
 														className={`${eloSizeClass} text-text-subtle`}
 													>
@@ -416,13 +457,21 @@ export default function Profile() {
 													key={p.id}
 													className="flex items-center gap-1"
 												>
-													{p.id === player.id ? (
-														<span className="font-semibold">
-															{player.player_name}
-														</span>
-													) : (
-														p.id
-													)}
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name ??
+															p.id
+														}`}
+														onClick={(e) =>
+															e.stopPropagation()
+														}
+														className="hover:underline"
+													>
+														{players.get(p.id)
+															?.player_name ??
+															p.id}
+													</Link>
 													<span
 														className={`${eloSizeClass} text-text-subtle`}
 													>
