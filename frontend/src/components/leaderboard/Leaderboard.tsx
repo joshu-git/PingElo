@@ -27,7 +27,7 @@ export default function Leaderboard() {
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
 
 	const [hasMore, setHasMore] = useState(true);
-	const [loading, setLoading] = useState(false);
+	const [loading, setLoading] = useState(true);
 
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
@@ -120,11 +120,10 @@ export default function Leaderboard() {
 
 	//Data loading
 	const loadPlayers = useCallback(
-		async ({ reset, offset }: { reset: boolean; offset: number }) => {
-			setLoading(true);
+		async ({ offset }: { offset: number }) => {
+			if (offset === 0) setLoading(true);
 
 			let query = supabase.from("players").select("*");
-
 			if (groupId) query = query.eq("group_id", groupId);
 
 			const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
@@ -135,21 +134,26 @@ export default function Leaderboard() {
 						? b.singles_elo - a.singles_elo
 						: b.doubles_elo - a.doubles_elo
 				);
-				setPlayers((prev) => (reset ? sorted : [...prev, ...sorted]));
+				setPlayers((prev) =>
+					offset === 0 ? sorted : [...prev, ...sorted]
+				);
 				setHasMore(data.length === PAGE_SIZE);
 			}
 
-			setLoading(false);
+			if (offset === 0) setLoading(false);
 		},
 		[matchType, groupId]
 	);
 
-	//Reload on filters
-	const resetAndLoad = useCallback(() => {
-		setPlayers([]);
-		setHasMore(true);
-		loadPlayers({ reset: true, offset: 0 });
-	}, [loadPlayers]);
+	//Filter change handler
+	const handleFilterChange = (
+		newType: MatchType,
+		newGroupId: string | null
+	) => {
+		setMatchType(newType);
+		setGroupId(newGroupId);
+		loadPlayers({ offset: 0 });
+	};
 
 	//Infinite scroll
 	useEffect(() => {
@@ -159,7 +163,6 @@ export default function Leaderboard() {
 			(entries) => {
 				if (entries[0].isIntersecting && !loading && hasMore) {
 					loadPlayers({
-						reset: false,
 						offset: players.length,
 					});
 				}
@@ -194,10 +197,7 @@ export default function Leaderboard() {
 			<div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
 				<div className="flex gap-2">
 					<button
-						onClick={() => {
-							setMatchType("singles");
-							resetAndLoad();
-						}}
+						onClick={() => handleFilterChange("singles", groupId)}
 						className={
 							matchType === "singles"
 								? "underline font-semibold"
@@ -207,10 +207,7 @@ export default function Leaderboard() {
 						Singles
 					</button>
 					<button
-						onClick={() => {
-							setMatchType("doubles");
-							resetAndLoad();
-						}}
+						onClick={() => handleFilterChange("doubles", groupId)}
 						className={
 							matchType === "doubles"
 								? "underline font-semibold"
@@ -224,10 +221,12 @@ export default function Leaderboard() {
 				<div className="flex gap-2">
 					<select
 						value={groupId ?? ""}
-						onChange={(e) => {
-							setGroupId(e.target.value || null);
-							resetAndLoad();
-						}}
+						onChange={(e) =>
+							handleFilterChange(
+								matchType,
+								e.target.value || null
+							)
+						}
 					>
 						<option value="">Select Group</option>
 						{groups.map((g) => (
@@ -239,20 +238,12 @@ export default function Leaderboard() {
 
 					<button
 						disabled={!myGroupId}
-						onClick={() => {
-							setGroupId(myGroupId);
-							resetAndLoad();
-						}}
+						onClick={() => handleFilterChange(matchType, myGroupId)}
 					>
 						My Group
 					</button>
 
-					<button
-						onClick={() => {
-							setGroupId(null);
-							resetAndLoad();
-						}}
-					>
+					<button onClick={() => handleFilterChange(matchType, null)}>
 						Global
 					</button>
 				</div>
@@ -274,9 +265,7 @@ export default function Leaderboard() {
 						>
 							<div className="flex items-center gap-4">
 								<div
-									className={`text-lg font-bold w-8 ${rankStyle(
-										i + 1
-									)}`}
+									className={`text-lg font-bold w-8 ${rankStyle(i + 1)}`}
 								>
 									#{i + 1}
 								</div>
@@ -310,7 +299,7 @@ export default function Leaderboard() {
 
 				<div ref={loadMoreRef} />
 
-				{loading && (
+				{loading && players.length === 0 && (
 					<p className="text-center text-text-muted py-4">Loading…</p>
 				)}
 			</section>
