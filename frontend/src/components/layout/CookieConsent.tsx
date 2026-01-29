@@ -9,21 +9,21 @@ export default function CookieConsent() {
 		null
 	);
 	const [theme, setTheme] = useState<"light" | "dark">("light");
-	const [visible, setVisible] = useState(false); // for fade-in
+	const [visible, setVisible] = useState(false);
 
-	// Initialize theme & consent safely
+	//Initialize theme & consent safely
 	useEffect(() => {
 		const storedTheme = localStorage.getItem("theme");
 		const storedConsent = localStorage.getItem("cookieConsent");
 
-		// Defer state updates to next tick to avoid cascading renders
+		//Defer state updates to next tick to avoid cascading renders
 		setTimeout(() => {
 			if (storedTheme === "light" || storedTheme === "dark")
 				setTheme(storedTheme as "light" | "dark");
 
 			if (storedConsent === "true") setConsent("accepted");
 			else if (storedConsent === "false") setConsent("declined");
-			else setVisible(true); // show banner only if not yet accepted/declined
+			else setVisible(true);
 		}, 0);
 	}, []);
 
@@ -39,7 +39,7 @@ export default function CookieConsent() {
 		setVisible(false);
 	};
 
-	// Only render analytics if consent accepted
+	//Only render analytics if consent accepted
 	if (consent === "accepted") {
 		return (
 			<>
@@ -49,7 +49,7 @@ export default function CookieConsent() {
 		);
 	}
 
-	// Don't render anything if user declined or banner hidden
+	//Don't render anything if user declined or banner hidden
 	if (consent === "declined" || !visible) return null;
 
 	const overlayColor =
