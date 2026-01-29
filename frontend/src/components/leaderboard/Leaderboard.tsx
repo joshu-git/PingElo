@@ -267,11 +267,11 @@ export default function Leaderboard() {
 					return (
 						<div
 							key={p.id}
-							className="flex justify-between p-4 bg-card rounded-xl"
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
 						>
-							<div className="flex gap-4">
+							<div className="flex items-center gap-4">
 								<div
-									className={`w-8 font-bold ${rankStyle(
+									className={`text-lg font-bold w-8 ${rankStyle(
 										i + 1
 									)}`}
 								>
@@ -281,7 +281,7 @@ export default function Leaderboard() {
 								<div>
 									<Link
 										href={`/profile/${p.player_name}`}
-										className="font-semibold"
+										className="font-semibold hover:underline"
 									>
 										{p.player_name}
 									</Link>
@@ -308,7 +308,7 @@ export default function Leaderboard() {
 				<div ref={loadMoreRef} />
 
 				{loading && (
-					<p className="text-center text-text-muted">Loading…</p>
+					<p className="text-center text-text-muted py-4">Loading…</p>
 				)}
 			</section>
 		</main>
