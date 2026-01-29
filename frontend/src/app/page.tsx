@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
-// Feature card
+//Feature card
 function Feature({
 	title,
 	description,
@@ -19,7 +19,7 @@ function Feature({
 	);
 }
 
-// Quick Stats (LIVE)
+//Quick Stats
 async function QuickStats() {
 	const [
 		{ count: matchCount },
@@ -49,7 +49,7 @@ async function QuickStats() {
 	);
 }
 
-// Home Page
+//Home Page
 export default function HomePage() {
 	return (
 		<div className="max-w-5xl mx-auto px-4 py-16 space-y-16">
