@@ -183,6 +183,14 @@ export default function Leaderboard() {
 		);
 	}, [players, matchType]);
 
+	// Load initial leaderboard on mount
+	useEffect(() => {
+		const loadInitial = async () => {
+			await loadPlayers({ offset: 0 });
+		};
+		loadInitial();
+	}, [loadPlayers]);
+
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			<section className="text-center space-y-4">
