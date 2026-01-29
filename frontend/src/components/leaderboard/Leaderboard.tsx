@@ -120,7 +120,15 @@ export default function Leaderboard() {
 
 	//Data loading
 	const loadPlayers = useCallback(
-		async ({ reset, offset }: { reset: boolean; offset: number }) => {
+		async ({
+			reset,
+			offset,
+			type,
+		}: {
+			reset: boolean;
+			offset: number;
+			type: MatchType;
+		}) => {
 			setLoading(true);
 
 			let query = supabase.from("players").select("*");
@@ -130,28 +138,30 @@ export default function Leaderboard() {
 			const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
 
 			if (data) {
-				//Sort the chunk after fetching
+				//Sort explicitly based on type
 				const sorted = [...data].sort((a, b) =>
-					matchType === "singles"
+					type === "singles"
 						? b.singles_elo - a.singles_elo
 						: b.doubles_elo - a.doubles_elo
 				);
-
 				setPlayers((prev) => (reset ? sorted : [...prev, ...sorted]));
 				setHasMore(data.length === PAGE_SIZE);
 			}
 
 			setLoading(false);
 		},
-		[matchType, groupId]
+		[groupId]
 	);
 
 	//Reload on filters
-	const resetAndLoad = useCallback(() => {
-		setPlayers([]);
-		setHasMore(true);
-		loadPlayers({ reset: true, offset: 0 });
-	}, [loadPlayers]);
+	const resetAndLoad = useCallback(
+		(type: MatchType) => {
+			setPlayers([]);
+			setHasMore(true);
+			loadPlayers({ reset: true, offset: 0, type });
+		},
+		[loadPlayers]
+	);
 
 	//Infinite scroll
 	useEffect(() => {
@@ -163,6 +173,7 @@ export default function Leaderboard() {
 					loadPlayers({
 						reset: false,
 						offset: players.length,
+						type: matchType,
 					});
 				}
 			},
@@ -171,7 +182,7 @@ export default function Leaderboard() {
 
 		observer.observe(loadMoreRef.current);
 		return () => observer.disconnect();
-	}, [loadPlayers, players.length, loading, hasMore]);
+	}, [loadPlayers, players.length, loading, hasMore, matchType]);
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -189,7 +200,7 @@ export default function Leaderboard() {
 					<button
 						onClick={() => {
 							setMatchType("singles");
-							resetAndLoad();
+							resetAndLoad("singles");
 						}}
 						className={
 							matchType === "singles"
@@ -202,7 +213,7 @@ export default function Leaderboard() {
 					<button
 						onClick={() => {
 							setMatchType("doubles");
-							resetAndLoad();
+							resetAndLoad("doubles");
 						}}
 						className={
 							matchType === "doubles"
@@ -219,7 +230,7 @@ export default function Leaderboard() {
 						value={groupId ?? ""}
 						onChange={(e) => {
 							setGroupId(e.target.value || null);
-							resetAndLoad();
+							resetAndLoad(matchType);
 						}}
 					>
 						<option value="">Select Group</option>
@@ -234,7 +245,7 @@ export default function Leaderboard() {
 						disabled={!myGroupId}
 						onClick={() => {
 							setGroupId(myGroupId);
-							resetAndLoad();
+							resetAndLoad(matchType);
 						}}
 					>
 						My Group
@@ -243,7 +254,7 @@ export default function Leaderboard() {
 					<button
 						onClick={() => {
 							setGroupId(null);
-							resetAndLoad();
+							resetAndLoad(matchType);
 						}}
 					>
 						Global
@@ -267,9 +278,7 @@ export default function Leaderboard() {
 						>
 							<div className="flex items-center gap-4">
 								<div
-									className={`text-lg font-bold w-8 ${rankStyle(
-										i + 1
-									)}`}
+									className={`text-lg font-bold w-8 ${rankStyle(i + 1)}`}
 								>
 									#{i + 1}
 								</div>
