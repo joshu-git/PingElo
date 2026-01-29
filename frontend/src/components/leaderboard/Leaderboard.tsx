@@ -296,6 +296,9 @@ export default function Leaderboard() {
 										<span>
 											{getRank(elo, matchesPlayed)}
 										</span>
+										<span className="text-xs">
+											(Matches: {matchesPlayed})
+										</span>
 									</p>
 								</div>
 							</div>
@@ -341,6 +344,9 @@ export default function Leaderboard() {
 										{groupMap.get(p.group_id!)} ·{" "}
 										<span>
 											{getRank(elo, matchesPlayed)}
+										</span>
+										<span className="text-xs">
+											(Matches: {matchesPlayed})
 										</span>
 									</p>
 								</div>
