@@ -45,10 +45,8 @@ type GroupRow = {
 const PAGE_SIZE = 50;
 
 export default function Matches({
-	profilePlayerId,
 	matchType: controlledMatchType,
 }: {
-	profilePlayerId?: string;
 	matchType?: MatchType;
 }) {
 	const router = useRouter();
@@ -58,7 +56,6 @@ export default function Matches({
 	const [groups, setGroups] = useState<GroupRow[]>([]);
 
 	const [localMatchType, setLocalMatchType] = useState<MatchType>("singles");
-
 	const matchType = controlledMatchType ?? localMatchType;
 
 	const [scope, setScope] = useState<"global" | "group">("global");
@@ -68,7 +65,6 @@ export default function Matches({
 	const pageRef = useRef(0);
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
-
 	const loadingRef = useRef(false);
 
 	/* -------------------- Load meta -------------------- */
@@ -117,12 +113,6 @@ export default function Matches({
 					currentPage * PAGE_SIZE + PAGE_SIZE - 1
 				);
 
-			if (profilePlayerId) {
-				query = query.or(
-					`player_a1_id.eq.${profilePlayerId},player_a2_id.eq.${profilePlayerId},player_b1_id.eq.${profilePlayerId},player_b2_id.eq.${profilePlayerId}`
-				);
-			}
-
 			if (scope === "group" && groupId) {
 				const { data: groupPlayers } = await supabase
 					.from("players")
@@ -131,9 +121,7 @@ export default function Matches({
 				const ids = (groupPlayers ?? []).map((p) => p.id);
 				if (ids.length) {
 					query = query.or(
-						`player_a1_id.in.(${ids.join(
-							","
-						)}),player_b1_id.in.(${ids.join(",")})`
+						`player_a1_id.in.(${ids.join(",")}),player_b1_id.in.(${ids.join(",")})`
 					);
 				}
 			}
@@ -149,7 +137,7 @@ export default function Matches({
 			loadingRef.current = false;
 			setLoading(false);
 		},
-		[matchType, scope, groupId, profilePlayerId]
+		[matchType, scope, groupId]
 	);
 
 	/* -------------------- Initial load -------------------- */
@@ -159,7 +147,7 @@ export default function Matches({
 			await loadMatches(true);
 		};
 		run();
-	}, [matchType, scope, groupId, profilePlayerId, loadMatches]);
+	}, [matchType, scope, groupId, loadMatches]);
 
 	/* -------------------- Infinite scroll -------------------- */
 	useEffect(() => {
@@ -179,117 +167,78 @@ export default function Matches({
 		return () => window.removeEventListener("scroll", onScroll);
 	}, [hasMore, loadMatches]);
 
-	/* -------------------- Helpers -------------------- */
-	const eloAfter = (
-		before?: number | null,
-		change?: number | null
-	): number | null =>
-		before != null && change != null ? before + change : null;
-
-	const didPlayerWin = (m: MatchRow): boolean | null => {
-		if (!profilePlayerId) return null;
-		const teamAWon = m.score_a > m.score_b;
-		const isOnTeamA = [m.player_a1_id, m.player_a2_id].includes(
-			profilePlayerId
-		);
-		const isOnTeamB = [m.player_b1_id, m.player_b2_id].includes(
-			profilePlayerId
-		);
-		if (isOnTeamA) return teamAWon;
-		if (isOnTeamB) return !teamAWon;
-		return null;
-	};
-
 	/* -------------------- Render -------------------- */
 	return (
-		<main
-			className={`${
-				profilePlayerId ? "" : "max-w-5xl mx-auto px-4 py-16 space-y-12"
-			}`}
-		>
-			{/* HEADER only on standalone page */}
-			{!profilePlayerId && (
-				<section className="text-center space-y-4">
-					<h1 className="text-4xl md:text-5xl font-extrabold">
-						Matches
-					</h1>
-					<p className="text-text-muted">
-						Match history with Elo changes.
-					</p>
-				</section>
-			)}
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			{/* HEADER */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold">Matches</h1>
+				<p className="text-text-muted">
+					Match history with Elo changes.
+				</p>
+			</section>
 
-			{/* CONTROLS only on standalone page */}
-			{!profilePlayerId && (
-				<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-					<div className="flex flex-wrap justify-center gap-2">
-						<button
-							onClick={() => setLocalMatchType("singles")}
-							className={`px-4 py-2 rounded-lg ${
-								matchType === "singles"
-									? "font-semibold underline"
-									: ""
-							}`}
-						>
-							Singles
+			{/* CONTROLS */}
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-wrap justify-center gap-2">
+					<button
+						onClick={() => setLocalMatchType("singles")}
+						className={`px-4 py-2 rounded-lg ${matchType === "singles" ? "font-semibold underline" : ""}`}
+					>
+						Singles
+					</button>
+					<button
+						onClick={() => setLocalMatchType("doubles")}
+						className={`px-4 py-2 rounded-lg ${matchType === "doubles" ? "font-semibold underline" : ""}`}
+					>
+						Doubles
+					</button>
+					<Link href="/matches/submit">
+						<button className="px-4 py-2 rounded-lg">
+							Submit Match
 						</button>
-						<button
-							onClick={() => setLocalMatchType("doubles")}
-							className={`px-4 py-2 rounded-lg ${
-								matchType === "doubles"
-									? "font-semibold underline"
-									: ""
-							}`}
-						>
-							Doubles
-						</button>
-						<Link href="/matches/submit">
-							<button className="px-4 py-2 rounded-lg">
-								Submit Match
-							</button>
-						</Link>
-					</div>
-
-					<div className="flex flex-wrap justify-center gap-2">
-						<select
-							value={groupId ?? ""}
-							onChange={(e) => {
-								setScope("group");
-								setGroupId(e.target.value || null);
-							}}
-							className="px-4 py-2 rounded-lg border border-border bg-transparent"
-						>
-							<option value="">Select Group</option>
-							{groups.map((g) => (
-								<option key={g.id} value={g.id}>
-									{g.group_name}
-								</option>
-							))}
-						</select>
-
-						<button
-							disabled={!myGroupId}
-							onClick={() => {
-								setScope("group");
-								setGroupId(myGroupId);
-							}}
-							className="px-4 py-2 rounded-lg disabled:opacity-50"
-						>
-							My Group
-						</button>
-
-						<button
-							onClick={() => {
-								setScope("global");
-								setGroupId(null);
-							}}
-							className="px-4 py-2 rounded-lg"
-						>
-							Global
-						</button>
-					</div>
+					</Link>
 				</div>
-			)}
+
+				<div className="flex flex-wrap justify-center gap-2">
+					<select
+						value={groupId ?? ""}
+						onChange={(e) => {
+							setScope("group");
+							setGroupId(e.target.value || null);
+						}}
+						className="px-4 py-2 rounded-lg border border-border bg-transparent"
+					>
+						<option value="">Select Group</option>
+						{groups.map((g) => (
+							<option key={g.id} value={g.id}>
+								{g.group_name}
+							</option>
+						))}
+					</select>
+
+					<button
+						disabled={!myGroupId}
+						onClick={() => {
+							setScope("group");
+							setGroupId(myGroupId);
+						}}
+						className="px-4 py-2 rounded-lg disabled:opacity-50"
+					>
+						My Group
+					</button>
+
+					<button
+						onClick={() => {
+							setScope("global");
+							setGroupId(null);
+						}}
+						className="px-4 py-2 rounded-lg"
+					>
+						Global
+					</button>
+				</div>
+			</div>
 
 			{/* MATCH CARDS */}
 			<section className="space-y-3">
@@ -316,7 +265,6 @@ export default function Matches({
 						before?: number | null;
 					}[];
 
-					const playerWon = didPlayerWin(m);
 					const teamAWon = m.score_a > m.score_b;
 
 					const nameSizeClass =
@@ -328,13 +276,19 @@ export default function Matches({
 							? "text-[clamp(0.7rem,3vw,0.85rem)]"
 							: "text-[clamp(0.65rem,2vw,0.85rem)]";
 
+					const eloAfter = (
+						before?: number | null,
+						change?: number | null
+					) =>
+						before != null && change != null
+							? before + change
+							: null;
+
 					return (
 						<div
 							key={m.id}
 							onClick={() => router.push(`/matches/${m.id}`)}
-							className={`bg-card p-4 rounded-xl hover-card cursor-pointer ${
-								profilePlayerId ? "" : "max-w-5xl mx-auto"
-							}`}
+							className="bg-card p-4 rounded-xl hover-card cursor-pointer"
 						>
 							<div className="flex justify-between gap-6">
 								<div className="flex-1 space-y-3">
@@ -349,13 +303,10 @@ export default function Matches({
 													className="flex items-center gap-1"
 												>
 													<Link
-														href={`/profile/${
-															players.get(p.id)
-																?.player_name
-														}`}
+														href={`/profile/${players.get(p.id)?.player_name}`}
 														onClick={(e) =>
 															e.stopPropagation()
-														} // prevent match card click
+														}
 														className="hover:underline cursor-pointer"
 													>
 														{
@@ -402,10 +353,7 @@ export default function Matches({
 													className="flex items-center gap-1"
 												>
 													<Link
-														href={`/profile/${
-															players.get(p.id)
-																?.player_name
-														}`}
+														href={`/profile/${players.get(p.id)?.player_name}`}
 														onClick={(e) =>
 															e.stopPropagation()
 														}
@@ -447,16 +395,9 @@ export default function Matches({
 
 								{/* META */}
 								<div className="text-sm text-text-muted text-right shrink-0">
-									{profilePlayerId && playerWon != null && (
-										<div>{playerWon ? "Win" : "Loss"}</div>
-									)}
-									{!profilePlayerId && (
-										<div>
-											{teamAWon
-												? "Team A Won"
-												: "Team B Won"}
-										</div>
-									)}
+									<div>
+										{teamAWon ? "Team A Won" : "Team B Won"}
+									</div>
 									<div>
 										{new Date(
 											m.created_at

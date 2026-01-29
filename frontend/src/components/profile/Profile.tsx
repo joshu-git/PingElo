@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import Matches from "@/components/matches/Matches";
 import {
 	ResponsiveContainer,
 	LineChart,
@@ -68,7 +67,7 @@ export default function Profile() {
 				.or(
 					`player_a1_id.eq.${player.id},player_a2_id.eq.${player.id},player_b1_id.eq.${player.id},player_b2_id.eq.${player.id}`
 				)
-				.order("created_at", { ascending: true });
+				.order("created_at", { ascending: false });
 
 			setMatches((data ?? []) as MatchesRow[]);
 		};
@@ -96,10 +95,18 @@ export default function Profile() {
 		let losses = 0;
 
 		for (const m of filteredMatches) {
-			const winners = [m.winner1, m.winner2].filter(Boolean);
-			if (!winners.length) continue;
-			if (winners.includes(player.id)) wins++;
-			else losses++;
+			const teamAWon = m.score_a > m.score_b;
+			const isOnTeamA = [m.player_a1_id, m.player_a2_id].includes(
+				player.id
+			);
+			const isOnTeamB = [m.player_b1_id, m.player_b2_id].includes(
+				player.id
+			);
+
+			if (isOnTeamA || isOnTeamB) {
+				if ((teamAWon && isOnTeamA) || (!teamAWon && isOnTeamB)) wins++;
+				else losses++;
+			}
 		}
 
 		return {
@@ -109,30 +116,27 @@ export default function Profile() {
 		};
 	}, [filteredMatches, player]);
 
-	//Calculates player's match data for the chart
+	//Chart data and rendering stays the same
 	const chartData = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
-		//Group matches by local day
 		const matchesByDay: Record<string, MatchesRow[]> = {};
 		filteredMatches.forEach((m) => {
 			const dateObj = new Date(m.created_at);
 			const dayStr = `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1)
 				.toString()
-				.padStart(2, "0")}-${dateObj
-				.getDate()
-				.toString()
-				.padStart(2, "0")}`;
-
+				.padStart(
+					2,
+					"0"
+				)}-${dateObj.getDate().toString().padStart(2, "0")}`;
 			if (!matchesByDay[dayStr]) matchesByDay[dayStr] = [];
 			matchesByDay[dayStr].push(m);
 		});
 
-		//Full day range
-		const minDate = new Date(filteredMatches[0].created_at);
-		const maxDate = new Date(
+		const minDate = new Date(
 			filteredMatches[filteredMatches.length - 1].created_at
 		);
+		const maxDate = new Date(filteredMatches[0].created_at);
 		minDate.setHours(0, 0, 0, 0);
 		maxDate.setHours(0, 0, 0, 0);
 
@@ -151,7 +155,6 @@ export default function Profile() {
 		dayArray.forEach((day, dayIndex) => {
 			const dayMatches = matchesByDay[day] ?? [];
 
-			//Only push points for actual matches
 			dayMatches.forEach((match, i) => {
 				let elo = 0;
 				if (match.player_a1_id === player?.id)
@@ -222,49 +225,35 @@ export default function Profile() {
 
 			{/* CONTROLS */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				{/* Left: Match Type Buttons */}
 				<div className="flex flex-wrap justify-center gap-2">
 					<button
 						onClick={() => setMatchType("singles")}
-						className={`px-4 py-2 rounded-lg ${
-							matchType === "singles"
-								? "font-semibold underline"
-								: ""
-						}`}
+						className={`px-4 py-2 rounded-lg ${matchType === "singles" ? "font-semibold underline" : ""}`}
 					>
 						Singles
 					</button>
 					<button
 						onClick={() => setMatchType("doubles")}
-						className={`px-4 py-2 rounded-lg ${
-							matchType === "doubles"
-								? "font-semibold underline"
-								: ""
-						}`}
+						className={`px-4 py-2 rounded-lg ${matchType === "doubles" ? "font-semibold underline" : ""}`}
 					>
 						Doubles
 					</button>
 					<button className="px-4 py-2 rounded-lg">Report</button>
 				</div>
 
-				{/* Right: Range Buttons */}
 				<div className="flex flex-wrap justify-center gap-2">
 					{[7, 30].map((d) => (
 						<button
 							key={d}
 							onClick={() => setRange(d)}
-							className={`px-4 py-2 rounded-lg ${
-								range === d ? "font-semibold underline" : ""
-							}`}
+							className={`px-4 py-2 rounded-lg ${range === d ? "font-semibold underline" : ""}`}
 						>
 							Last {d} Days
 						</button>
 					))}
 					<button
 						onClick={() => setRange(null)}
-						className={`px-4 py-2 rounded-lg ${
-							range === null ? "font-semibold underline" : ""
-						}`}
+						className={`px-4 py-2 rounded-lg ${range === null ? "font-semibold underline" : ""}`}
 					>
 						All Time
 					</button>
@@ -322,8 +311,167 @@ export default function Profile() {
 				</ResponsiveContainer>
 			</section>
 
-			{/* MATCHES */}
-			<Matches profilePlayerId={player.id} matchType={matchType} />
+			{/* PLAYER MATCHES */}
+			<section className="space-y-3">
+				{filteredMatches.map((m) => {
+					const teamA = [
+						{ id: m.player_a1_id, before: m.elo_before_a1 },
+						m.player_a2_id && {
+							id: m.player_a2_id,
+							before: m.elo_before_a2,
+						},
+					].filter(Boolean) as {
+						id: string;
+						before?: number | null;
+					}[];
+
+					const teamB = [
+						{ id: m.player_b1_id, before: m.elo_before_b1 },
+						m.player_b2_id && {
+							id: m.player_b2_id,
+							before: m.elo_before_b2,
+						},
+					].filter(Boolean) as {
+						id: string;
+						before?: number | null;
+					}[];
+
+					const teamAWon = m.score_a > m.score_b;
+					const playerWon =
+						(teamAWon && teamA.some((p) => p.id === player.id)) ||
+						(!teamAWon && teamB.some((p) => p.id === player.id));
+
+					const nameSizeClass =
+						matchType === "singles"
+							? "text-[clamp(0.85rem,4vw,1rem)]"
+							: "text-[clamp(0.75rem,2.5vw,1rem)]";
+					const eloSizeClass =
+						matchType === "singles"
+							? "text-[clamp(0.7rem,3vw,0.85rem)]"
+							: "text-[clamp(0.65rem,2vw,0.85rem)]";
+
+					const eloAfter = (
+						before?: number | null,
+						change?: number | null
+					) =>
+						before != null && change != null
+							? before + change
+							: null;
+
+					return (
+						<div key={m.id} className="bg-card p-4 rounded-xl">
+							<div className="flex justify-between gap-6">
+								<div className="flex-1 space-y-3">
+									{/* TEAM A */}
+									<div className="flex justify-between items-center">
+										<div
+											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
+										>
+											{teamA.map((p, i) => (
+												<span
+													key={p.id}
+													className="flex items-center gap-1"
+												>
+													{p.id === player.id ? (
+														<span className="font-semibold">
+															{player.player_name}
+														</span>
+													) : (
+														p.id
+													)}
+													<span
+														className={`${eloSizeClass} text-text-subtle`}
+													>
+														(
+														{eloAfter(
+															p.before,
+															m.elo_change_a
+														) ?? "—"}
+														)
+													</span>
+													{i === 0 &&
+														teamA.length > 1 &&
+														" & "}
+												</span>
+											))}
+										</div>
+										<div className="flex items-center gap-2 shrink-0">
+											<span className="text-sm text-text-muted">
+												{m.elo_change_a >= 0 && "+"}
+												{m.elo_change_a}
+											</span>
+											<span className="text-lg font-bold">
+												{m.score_a}
+											</span>
+										</div>
+									</div>
+
+									{/* TEAM B */}
+									<div className="flex justify-between items-center">
+										<div
+											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
+										>
+											{teamB.map((p, i) => (
+												<span
+													key={p.id}
+													className="flex items-center gap-1"
+												>
+													{p.id === player.id ? (
+														<span className="font-semibold">
+															{player.player_name}
+														</span>
+													) : (
+														p.id
+													)}
+													<span
+														className={`${eloSizeClass} text-text-subtle`}
+													>
+														(
+														{eloAfter(
+															p.before,
+															m.elo_change_b
+														) ?? "—"}
+														)
+													</span>
+													{i === 0 &&
+														teamB.length > 1 &&
+														" & "}
+												</span>
+											))}
+										</div>
+										<div className="flex items-center gap-2 shrink-0">
+											<span className="text-sm text-text-muted">
+												{m.elo_change_b >= 0 && "+"}
+												{m.elo_change_b}
+											</span>
+											<span className="text-lg font-bold">
+												{m.score_b}
+											</span>
+										</div>
+									</div>
+								</div>
+
+								{/* META */}
+								<div className="text-sm text-text-muted text-right shrink-0">
+									{playerWon != null && (
+										<div>{playerWon ? "Win" : "Loss"}</div>
+									)}
+									<div>
+										{new Date(
+											m.created_at
+										).toLocaleDateString()}
+									</div>
+									{m.tournament_id && (
+										<div className="inline-block mt-1 px-2 py-0.5 text-xs rounded-md bg-border text-text-muted">
+											Tournament
+										</div>
+									)}
+								</div>
+							</div>
+						</div>
+					);
+				})}
+			</section>
 		</main>
 	);
 }
