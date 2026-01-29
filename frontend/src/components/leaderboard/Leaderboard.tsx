@@ -31,7 +31,7 @@ export default function Leaderboard() {
 
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-	//Metadata
+	// Metadata
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: groupData }, session] = await Promise.all([
@@ -48,16 +48,14 @@ export default function Leaderboard() {
 					.eq("account_id", session.data.session.user.id)
 					.maybeSingle();
 
-				if (player?.group_id) {
-					setMyGroupId(player.group_id);
-				}
+				if (player?.group_id) setMyGroupId(player.group_id);
 			}
 		};
 
 		loadMeta();
 	}, []);
 
-	//Matches
+	// Matches
 	useEffect(() => {
 		const loadMatches = async () => {
 			const { data } = await supabase.from("matches").select("*");
@@ -67,7 +65,7 @@ export default function Leaderboard() {
 		loadMatches();
 	}, []);
 
-	//Derived helpers
+	// Derived helpers
 	const groupMap = useMemo(
 		() => new Map(groups.map((g) => [g.id, g.group_name])),
 		[groups]
@@ -86,7 +84,7 @@ export default function Leaderboard() {
 		return "text-text-muted";
 	};
 
-	//Match count maps
+	// Match count maps
 	const { singlesMap, doublesMap } = useMemo(() => {
 		const singles = new Map<string, number>();
 		const doubles = new Map<string, number>();
@@ -112,13 +110,22 @@ export default function Leaderboard() {
 		return { singlesMap: singles, doublesMap: doubles };
 	}, [matches]);
 
-	//Rank computation
+	// Rank computation
 	const getRank = useCallback((elo: number, matchesPlayed: number) => {
 		if (matchesPlayed < 5) return "Unranked";
-		return RANKS.find((r) => elo >= r.min)?.label ?? "Rookie";
+		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	}, []);
 
-	//Data loading
+	// Get matches played for the current type
+	const getMatchesPlayed = useCallback(
+		(p: PlayersRow) =>
+			matchType === "singles"
+				? (singlesMap.get(p.id) ?? 0)
+				: (doublesMap.get(p.id) ?? 0),
+		[matchType, singlesMap, doublesMap]
+	);
+
+	// Data loading
 	const loadPlayers = useCallback(
 		async ({ offset }: { offset: number }) => {
 			if (offset === 0) setLoading(true);
@@ -129,23 +136,18 @@ export default function Leaderboard() {
 			const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
 
 			if (data) {
-				const sorted = data.sort((a, b) =>
-					matchType === "singles"
-						? b.singles_elo - a.singles_elo
-						: b.doubles_elo - a.doubles_elo
-				);
 				setPlayers((prev) =>
-					offset === 0 ? sorted : [...prev, ...sorted]
+					offset === 0 ? data : [...prev, ...data]
 				);
 				setHasMore(data.length === PAGE_SIZE);
 			}
 
 			if (offset === 0) setLoading(false);
 		},
-		[matchType, groupId]
+		[groupId]
 	);
 
-	//Filter change handler
+	// Filter change handler
 	const handleFilterChange = (
 		newType: MatchType,
 		newGroupId: string | null
@@ -155,16 +157,14 @@ export default function Leaderboard() {
 		loadPlayers({ offset: 0 });
 	};
 
-	//Infinite scroll
+	// Infinite scroll
 	useEffect(() => {
 		if (!loadMoreRef.current) return;
 
 		const observer = new IntersectionObserver(
 			(entries) => {
 				if (entries[0].isIntersecting && !loading && hasMore) {
-					loadPlayers({
-						offset: players.length,
-					});
+					loadPlayers({ offset: players.length });
 				}
 			},
 			{ rootMargin: "300px" }
@@ -174,14 +174,23 @@ export default function Leaderboard() {
 		return () => observer.disconnect();
 	}, [loadPlayers, players.length, loading, hasMore]);
 
-	//Sorted players for rendering
-	const sortedPlayers = useMemo(() => {
-		return [...players].sort((a, b) =>
-			matchType === "singles"
-				? b.singles_elo - a.singles_elo
-				: b.doubles_elo - a.doubles_elo
-		);
-	}, [players, matchType]);
+	// Sorted players for rendering
+	const { rankedPlayers, unrankedPlayers } = useMemo(() => {
+		const ranked: PlayersRow[] = [];
+		const unranked: PlayersRow[] = [];
+
+		for (const p of players) {
+			const matchesPlayed = getMatchesPlayed(p);
+			if (matchesPlayed < 5) unranked.push(p);
+			else ranked.push(p);
+		}
+
+		// Sort each group by Elo
+		ranked.sort((a, b) => eloValue(b) - eloValue(a));
+		unranked.sort((a, b) => eloValue(b) - eloValue(a));
+
+		return { rankedPlayers: ranked, unrankedPlayers: unranked };
+	}, [players, getMatchesPlayed, eloValue]);
 
 	// Load initial leaderboard on mount
 	useEffect(() => {
@@ -258,12 +267,9 @@ export default function Leaderboard() {
 			</div>
 
 			<section className="space-y-2">
-				{sortedPlayers.map((p, i) => {
-					const matchesPlayed =
-						matchType === "singles"
-							? (singlesMap.get(p.id) ?? 0)
-							: (doublesMap.get(p.id) ?? 0);
-
+				{/* Ranked players */}
+				{rankedPlayers.map((p, i) => {
+					const matchesPlayed = getMatchesPlayed(p);
 					const elo = eloValue(p);
 
 					return (
@@ -287,13 +293,53 @@ export default function Leaderboard() {
 									</Link>
 									<p className="text-sm text-text-muted">
 										{groupMap.get(p.group_id!)} ·{" "}
-										<span
-											className={
-												matchesPlayed < 5
-													? "text-text-subtle"
-													: ""
-											}
-										>
+										<span>
+											{getRank(elo, matchesPlayed)}
+										</span>
+									</p>
+								</div>
+							</div>
+
+							<div className="text-2xl font-bold">{elo}</div>
+						</div>
+					);
+				})}
+
+				{/* Gap and unranked header */}
+				{unrankedPlayers.length > 0 && (
+					<>
+						<div className="py-8" />
+						<h2 className="text-xl font-bold text-center text-text-muted mb-4">
+							Unranked
+						</h2>
+					</>
+				)}
+
+				{/* Unranked players */}
+				{unrankedPlayers.map((p) => {
+					const matchesPlayed = getMatchesPlayed(p);
+					const elo = eloValue(p);
+
+					return (
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card opacity-70"
+						>
+							<div className="flex items-center gap-4">
+								<div className="text-lg font-bold w-8 text-text-muted">
+									-
+								</div>
+
+								<div>
+									<Link
+										href={`/profile/${p.player_name}`}
+										className="font-semibold hover:underline"
+									>
+										{p.player_name}
+									</Link>
+									<p className="text-sm text-text-muted">
+										{groupMap.get(p.group_id!)} ·{" "}
+										<span>
 											{getRank(elo, matchesPlayed)}
 										</span>
 									</p>
