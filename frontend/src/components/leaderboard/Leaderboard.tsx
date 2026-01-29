@@ -123,20 +123,21 @@ export default function Leaderboard() {
 		async ({ reset, offset }: { reset: boolean; offset: number }) => {
 			setLoading(true);
 
-			let query = supabase
-				.from("players")
-				.select("*")
-				.order(
-					matchType === "singles" ? "singles_elo" : "doubles_elo",
-					{ ascending: false }
-				);
+			let query = supabase.from("players").select("*");
 
 			if (groupId) query = query.eq("group_id", groupId);
 
 			const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
 
 			if (data) {
-				setPlayers((prev) => (reset ? data : [...prev, ...data]));
+				//Sort the chunk after fetching
+				const sorted = [...data].sort((a, b) =>
+					matchType === "singles"
+						? b.singles_elo - a.singles_elo
+						: b.doubles_elo - a.doubles_elo
+				);
+
+				setPlayers((prev) => (reset ? sorted : [...prev, ...sorted]));
 				setHasMore(data.length === PAGE_SIZE);
 			}
 
