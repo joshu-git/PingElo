@@ -18,7 +18,7 @@ async function adminFetch(path: string, body?: Record<string, unknown>) {
 }
 
 //Shows bootstraps and match table with admin options
-export default function AdminDashboard() {
+export default function Manager() {
 	//Runs dry and normal bootstrap with warning
 	async function runBootstrap(real: boolean) {
 		if (real && !confirm("This will recalculate all elo values. Continue?"))
