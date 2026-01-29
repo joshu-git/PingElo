@@ -1,31 +1,39 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { PlayersRow, GroupsRow, MatchType, MatchesRow } from "@/types/database";
 
 const PAGE_SIZE = 50;
 
+const RANKS = [
+	{ min: 1400, label: "Grand Master" },
+	{ min: 1300, label: "Master" },
+	{ min: 1200, label: "Expert" },
+	{ min: 1100, label: "Advanced" },
+	{ min: 1000, label: "Competitor" },
+	{ min: 900, label: "Amateur" },
+	{ min: 800, label: "Beginner" },
+	{ min: 700, label: "Novice" },
+	{ min: 0, label: "Rookie" },
+];
+
 export default function Leaderboard() {
 	const [players, setPlayers] = useState<PlayersRow[]>([]);
 	const [groups, setGroups] = useState<GroupsRow[]>([]);
-	const [matches, setMatches] = useState<MatchesRow[]>([]); // NEW: all matches
+	const [matches, setMatches] = useState<MatchesRow[]>([]);
 
 	const [matchType, setMatchType] = useState<MatchType>("singles");
-	const [scope, setScope] = useState<"global" | "group">("global");
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
 
-	const groupMap = new Map(groups.map((g) => [g.id, g.group_name]));
-
-	const [page, setPage] = useState(0);
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
 
-	/* ----------------------------------------
-	 * Load groups + user group
-	 * ---------------------------------------- */
+	const loadMoreRef = useRef<HTMLDivElement | null>(null);
+
+	//Metadata
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: groupData }, session] = await Promise.all([
@@ -51,86 +59,27 @@ export default function Leaderboard() {
 		loadMeta();
 	}, []);
 
-	/* ----------------------------------------
-	 * Load all matches
-	 * ---------------------------------------- */
+	//Matches
 	useEffect(() => {
 		const loadMatches = async () => {
-			const { data, error } = await supabase.from("matches").select("*");
-			if (data && !error) setMatches(data);
+			const { data } = await supabase.from("matches").select("*");
+			if (data) setMatches(data);
 		};
 
 		loadMatches();
 	}, []);
 
-	/* ----------------------------------------
-	 * Load leaderboard data
-	 * ---------------------------------------- */
-	const loadPlayers = useCallback(
-		async (reset: boolean) => {
-			if (loading) return;
-			setLoading(true);
-
-			const currentPage = reset ? 0 : page;
-
-			let query = supabase
-				.from("players")
-				.select("*")
-				.order(
-					matchType === "singles" ? "singles_elo" : "doubles_elo",
-					{ ascending: false }
-				)
-				.range(
-					currentPage * PAGE_SIZE,
-					currentPage * PAGE_SIZE + PAGE_SIZE - 1
-				);
-
-			if (scope === "group" && groupId) {
-				query = query.eq("group_id", groupId);
-			}
-
-			const { data, error } = await query;
-
-			if (!error && data) {
-				setPlayers((prev) => (reset ? data : [...prev, ...data]));
-				setHasMore(data.length === PAGE_SIZE);
-				if (reset) setPage(1);
-			}
-
-			setLoading(false);
-		},
-		[loading, page, matchType, scope, groupId]
+	//Derived helpers
+	const groupMap = useMemo(
+		() => new Map(groups.map((g) => [g.id, g.group_name])),
+		[groups]
 	);
 
-	/* Reload on filter change */
-	useEffect(() => {
-		loadPlayers(true);
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [matchType, scope, groupId]);
-
-	/* Infinite scroll */
-	useEffect(() => {
-		if (!hasMore || loading) return;
-
-		const onScroll = () => {
-			if (
-				window.innerHeight + window.scrollY >=
-				document.body.offsetHeight - 300
-			) {
-				loadPlayers(false);
-				setPage((p) => p + 1);
-			}
-		};
-
-		window.addEventListener("scroll", onScroll);
-		return () => window.removeEventListener("scroll", onScroll);
-	}, [hasMore, loading, loadPlayers]);
-
-	/* ----------------------------------------
-	 * UI helpers
-	 * ---------------------------------------- */
-	const eloValue = (p: PlayersRow) =>
-		matchType === "singles" ? p.singles_elo : p.doubles_elo;
+	const eloValue = useCallback(
+		(p: PlayersRow) =>
+			matchType === "singles" ? p.singles_elo : p.doubles_elo,
+		[matchType]
+	);
 
 	const rankStyle = (rank: number) => {
 		if (rank === 1) return "text-yellow-500";
@@ -139,104 +88,143 @@ export default function Leaderboard() {
 		return "text-text-muted";
 	};
 
-	// NEW: compute match counts per type
-	const singlesMatchCountMap = new Map<string, number>();
-	const doublesMatchCountMap = new Map<string, number>();
-	matches.forEach((m) => {
-		if (m.match_type === "singles") {
-			[m.player_a1_id, m.player_b1_id].forEach((pid) => {
-				if (!pid) return;
-				singlesMatchCountMap.set(
-					pid,
-					(singlesMatchCountMap.get(pid) || 0) + 1
-				);
-			});
-		} else if (m.match_type === "doubles") {
-			[
-				m.player_a1_id,
-				m.player_b1_id,
-				m.player_a2_id,
-				m.player_b2_id,
-			].forEach((pid) => {
-				if (!pid) return;
-				doublesMatchCountMap.set(
-					pid,
-					(doublesMatchCountMap.get(pid) || 0) + 1
-				);
-			});
+	//Match count maps
+	const { singlesMap, doublesMap } = useMemo(() => {
+		const singles = new Map<string, number>();
+		const doubles = new Map<string, number>();
+
+		for (const m of matches) {
+			const ids =
+				m.match_type === "singles"
+					? [m.player_a1_id, m.player_b1_id]
+					: [
+							m.player_a1_id,
+							m.player_b1_id,
+							m.player_a2_id,
+							m.player_b2_id,
+						];
+
+			for (const id of ids) {
+				if (!id) continue;
+				const map = m.match_type === "singles" ? singles : doubles;
+				map.set(id, (map.get(id) ?? 0) + 1);
+			}
 		}
-	});
 
-	const getRank = (elo: number, matchesPlayed: number) => {
+		return { singlesMap: singles, doublesMap: doubles };
+	}, [matches]);
+
+	//Rank computation
+	const getRank = useCallback((elo: number, matchesPlayed: number) => {
 		if (matchesPlayed < 5) return "Unranked";
+		return RANKS.find((r) => elo >= r.min)?.label ?? "Rookie";
+	}, []);
 
-		if (elo >= 1400) return "Grand Master";
-		if (elo >= 1300) return "Master";
-		if (elo >= 1200) return "Expert";
-		if (elo >= 1100) return "Advanced";
-		if (elo >= 1000) return "Competitor";
-		if (elo >= 900) return "Amateur";
-		if (elo >= 800) return "Beginner";
-		if (elo >= 700) return "Novice";
-		return "Rookie";
-	};
+	//Data loading
+	const loadPlayers = useCallback(
+		async ({ reset, offset }: { reset: boolean; offset: number }) => {
+			setLoading(true);
 
-	/* ----------------------------------------
-	 * Render
-	 * ---------------------------------------- */
+			let query = supabase
+				.from("players")
+				.select("*")
+				.order(
+					matchType === "singles" ? "singles_elo" : "doubles_elo",
+					{ ascending: false }
+				)
+				.range(offset, offset + PAGE_SIZE - 1);
+
+			if (groupId) {
+				query = query.eq("group_id", groupId);
+			}
+
+			const { data } = await query;
+
+			if (data) {
+				setPlayers((prev) => (reset ? data : [...prev, ...data]));
+				setHasMore(data.length === PAGE_SIZE);
+			}
+
+			setLoading(false);
+		},
+		[matchType, groupId]
+	);
+
+	//Reload on filters
+	const resetAndLoad = useCallback(() => {
+		setPlayers([]);
+		setHasMore(true);
+		loadPlayers({ reset: true, offset: 0 });
+	}, [loadPlayers]);
+
+	//Infinite scroll
+	useEffect(() => {
+		if (!loadMoreRef.current) return;
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				if (entries[0].isIntersecting && !loading && hasMore) {
+					loadPlayers({
+						reset: false,
+						offset: players.length,
+					});
+				}
+			},
+			{ rootMargin: "300px" }
+		);
+
+		observer.observe(loadMoreRef.current);
+		return () => observer.disconnect();
+	}, [loadPlayers, players.length, loading, hasMore]);
+
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
-			{/* HEADER */}
 			<section className="text-center space-y-4">
-				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
+				<h1 className="text-4xl md:text-5xl font-extrabold">
 					Leaderboard
 				</h1>
-				<p className="text-lg max-w-2xl mx-auto text-text-muted">
+				<p className="text-lg text-text-muted">
 					Rankings based on competitive Elo performance.
 				</p>
 			</section>
 
-			{/* CONTROLS */}
-			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				{/* Match type */}
-				<div className="flex flex-wrap justify-center gap-2">
+			<div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
+				<div className="flex gap-2">
 					<button
-						onClick={() => setMatchType("singles")}
-						className={`px-4 py-2 rounded-lg ${
+						onClick={() => {
+							setMatchType("singles");
+							resetAndLoad();
+						}}
+						className={
 							matchType === "singles"
-								? "font-semibold underline"
+								? "underline font-semibold"
 								: ""
-						}`}
+						}
 					>
 						Singles
 					</button>
-
 					<button
-						onClick={() => setMatchType("doubles")}
-						className={`px-4 py-2 rounded-lg ${
+						onClick={() => {
+							setMatchType("doubles");
+							resetAndLoad();
+						}}
+						className={
 							matchType === "doubles"
-								? "font-semibold underline"
+								? "underline font-semibold"
 								: ""
-						}`}
+						}
 					>
 						Doubles
 					</button>
 				</div>
 
-				{/* Scope / group */}
-				<div className="flex flex-wrap justify-center gap-2">
+				<div className="flex gap-2">
 					<select
 						value={groupId ?? ""}
 						onChange={(e) => {
-							setScope("group");
 							setGroupId(e.target.value || null);
+							resetAndLoad();
 						}}
-						className="
-			px-4 py-2 rounded-lg
-			border border-border
-			bg-transparent
-			text-text
-		"
 					>
 						<option value="">Select Group</option>
 						{groups.map((g) => (
@@ -249,42 +237,41 @@ export default function Leaderboard() {
 					<button
 						disabled={!myGroupId}
 						onClick={() => {
-							setScope("group");
 							setGroupId(myGroupId);
+							resetAndLoad();
 						}}
-						className="px-4 py-2 rounded-lg disabled:opacity-50"
 					>
 						My Group
 					</button>
 
 					<button
 						onClick={() => {
-							setScope("global");
 							setGroupId(null);
+							resetAndLoad();
 						}}
-						className="px-4 py-2 rounded-lg"
 					>
 						Global
 					</button>
 				</div>
 			</div>
 
-			{/* LEADERBOARD */}
 			<section className="space-y-2">
 				{players.map((p, i) => {
 					const matchesPlayed =
 						matchType === "singles"
-							? singlesMatchCountMap.get(p.id) ?? 0
-							: doublesMatchCountMap.get(p.id) ?? 0;
+							? (singlesMap.get(p.id) ?? 0)
+							: (doublesMap.get(p.id) ?? 0);
+
+					const elo = eloValue(p);
 
 					return (
 						<div
 							key={p.id}
-							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+							className="flex justify-between p-4 bg-card rounded-xl"
 						>
-							<div className="flex items-center gap-4">
+							<div className="flex gap-4">
 								<div
-									className={`text-lg font-bold w-8 ${rankStyle(
+									className={`w-8 font-bold ${rankStyle(
 										i + 1
 									)}`}
 								>
@@ -294,39 +281,34 @@ export default function Leaderboard() {
 								<div>
 									<Link
 										href={`/profile/${p.player_name}`}
-										className="font-semibold hover:underline"
+										className="font-semibold"
 									>
 										{p.player_name}
 									</Link>
-									{p.group_id && (
-										<p className="text-sm text-text-muted">
-											{groupMap.get(p.group_id)} ·{" "}
-											<span
-												className={
-													matchesPlayed < 5
-														? "text-text-subtle"
-														: ""
-												}
-											>
-												{getRank(
-													eloValue(p),
-													matchesPlayed
-												)}
-											</span>
-										</p>
-									)}
+									<p className="text-sm text-text-muted">
+										{groupMap.get(p.group_id!)} ·{" "}
+										<span
+											className={
+												matchesPlayed < 5
+													? "text-text-subtle"
+													: ""
+											}
+										>
+											{getRank(elo, matchesPlayed)}
+										</span>
+									</p>
 								</div>
 							</div>
 
-							<div className="text-2xl font-bold">
-								{eloValue(p)}
-							</div>
+							<div className="text-2xl font-bold">{elo}</div>
 						</div>
 					);
 				})}
 
+				<div ref={loadMoreRef} />
+
 				{loading && (
-					<p className="text-center text-text-muted py-4">Loading…</p>
+					<p className="text-center text-text-muted">Loading…</p>
 				)}
 			</section>
 		</main>
