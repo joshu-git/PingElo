@@ -129,14 +129,11 @@ export default function Leaderboard() {
 				.order(
 					matchType === "singles" ? "singles_elo" : "doubles_elo",
 					{ ascending: false }
-				)
-				.range(offset, offset + PAGE_SIZE - 1);
+				);
 
-			if (groupId) {
-				query = query.eq("group_id", groupId);
-			}
+			if (groupId) query = query.eq("group_id", groupId);
 
-			const { data } = await query;
+			const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
 
 			if (data) {
 				setPlayers((prev) => (reset ? data : [...prev, ...data]));
