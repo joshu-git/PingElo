@@ -83,47 +83,27 @@ export default function Leaderboard() {
 		return "text-text-muted";
 	};
 
-	// Match count maps (fixed: every player in a match gets counted)
-	const { singlesMap, doublesMap } = useMemo(() => {
-		const singles = new Map<string, number>();
-		const doubles = new Map<string, number>();
-
-		for (const m of matches) {
-			const map = m.match_type === "singles" ? singles : doubles;
-
-			const ids =
-				m.match_type === "singles"
-					? [m.player_a1_id, m.player_b1_id]
-					: [
-							m.player_a1_id,
-							m.player_b1_id,
-							m.player_a2_id,
-							m.player_b2_id,
-						];
-
-			for (const id of ids) {
-				if (!id) continue;
-				map.set(id, (map.get(id) ?? 0) + 1); // ✅ add to each player in the match
-			}
-		}
-
-		return { singlesMap: singles, doublesMap: doubles };
-	}, [matches]);
+	// Get matches played per player (per-player calculation like Profile)
+	const getMatchesPlayed = useCallback(
+		(player: PlayersRow) => {
+			return matches.filter((m) => {
+				if (m.match_type !== matchType) return false;
+				return [
+					m.player_a1_id,
+					m.player_a2_id,
+					m.player_b1_id,
+					m.player_b2_id,
+				].includes(player.id);
+			}).length;
+		},
+		[matches, matchType]
+	);
 
 	// Rank computation
 	const getRank = useCallback((elo: number, matchesPlayed: number) => {
 		if (matchesPlayed < 5) return "Unranked";
 		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	}, []);
-
-	// Get matches played per player
-	const getMatchesPlayed = useCallback(
-		(p: PlayersRow) =>
-			matchType === "singles"
-				? (singlesMap.get(p.id) ?? 0)
-				: (doublesMap.get(p.id) ?? 0),
-		[matchType, singlesMap, doublesMap]
-	);
 
 	// Data loading
 	const loadPlayers = useCallback(
