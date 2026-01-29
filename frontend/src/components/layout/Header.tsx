@@ -72,7 +72,6 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 	);
 }
 
-//Header component
 export default function Header() {
 	const [open, setOpen] = useState(false);
 
