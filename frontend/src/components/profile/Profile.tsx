@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -20,8 +20,6 @@ type PlayerRow = {
 	player_name: string;
 };
 
-const PAGE_SIZE = 50;
-
 export default function Profile() {
 	const { playerName } = useParams<{ playerName: string }>();
 	const router = useRouter();
@@ -32,10 +30,6 @@ export default function Profile() {
 	const [matches, setMatches] = useState<MatchesRow[]>([]);
 	const [matchType, setMatchType] = useState<MatchType>("singles");
 	const [range, setRange] = useState<number | null>(null);
-
-	const pageRef = useRef(1);
-	const loadingRef = useRef(false);
-	const [hasMore, setHasMore] = useState(true);
 
 	//Load the player
 	useEffect(() => {
@@ -84,7 +78,7 @@ export default function Profile() {
 		loadGroup();
 	}, [player?.group_id]);
 
-	//Load the player's matches (ALL, for graph)
+	//Load the player's matches
 	useEffect(() => {
 		if (!player) return;
 
@@ -104,6 +98,7 @@ export default function Profile() {
 
 	//Filter the matches by type and range
 	const filteredMatches = useMemo(() => {
+		if (!matches) return [];
 		let m = matches.filter((m) => m.match_type === matchType);
 
 		if (range != null) {
@@ -114,41 +109,6 @@ export default function Profile() {
 
 		return m;
 	}, [matches, matchType, range]);
-
-	//Reset pagination when filters change
-	useEffect(() => {
-		pageRef.current = 1;
-		setHasMore(filteredMatches.length > PAGE_SIZE);
-	}, [filteredMatches]);
-
-	const visibleMatches = useMemo(() => {
-		return filteredMatches.slice(0, pageRef.current * PAGE_SIZE);
-	}, [filteredMatches]);
-
-	//Infinite scroll (same behavior as Matches.tsx)
-	useEffect(() => {
-		const onScroll = () => {
-			if (
-				loadingRef.current ||
-				!hasMore ||
-				window.innerHeight + window.scrollY <
-					document.body.offsetHeight - 300
-			)
-				return;
-
-			loadingRef.current = true;
-			pageRef.current += 1;
-
-			if (pageRef.current * PAGE_SIZE >= filteredMatches.length) {
-				setHasMore(false);
-			}
-
-			loadingRef.current = false;
-		};
-
-		window.addEventListener("scroll", onScroll);
-		return () => window.removeEventListener("scroll", onScroll);
-	}, [filteredMatches.length, hasMore]);
 
 	//Calculates player statistics
 	const stats = useMemo(() => {
@@ -165,8 +125,10 @@ export default function Profile() {
 				player.id
 			);
 
-			if ((teamAWon && isOnTeamA) || (!teamAWon && isOnTeamB)) wins++;
-			else losses++;
+			if (isOnTeamA || isOnTeamB) {
+				if ((teamAWon && isOnTeamA) || (!teamAWon && isOnTeamB)) wins++;
+				else losses++;
+			}
 		}
 
 		return {
@@ -176,18 +138,21 @@ export default function Profile() {
 		};
 	}, [filteredMatches, player]);
 
-	//Chart data
+	//Chart data and rendering
 	const chartData = useMemo(() => {
 		if (!filteredMatches.length) return [];
 
 		const matchesByDay: Record<string, MatchesRow[]> = {};
 		filteredMatches.forEach((m) => {
-			const d = new Date(m.created_at);
-			const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-				2,
-				"0"
-			)}-${String(d.getDate()).padStart(2, "0")}`;
-			(matchesByDay[key] ??= []).push(m);
+			const dateObj = new Date(m.created_at);
+			const dayStr = `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1)
+				.toString()
+				.padStart(
+					2,
+					"0"
+				)}-${dateObj.getDate().toString().padStart(2, "0")}`;
+			if (!matchesByDay[dayStr]) matchesByDay[dayStr] = [];
+			matchesByDay[dayStr].push(m);
 		});
 
 		const minDate = new Date(
@@ -197,48 +162,71 @@ export default function Profile() {
 		minDate.setHours(0, 0, 0, 0);
 		maxDate.setHours(0, 0, 0, 0);
 
-		const days: string[] = [];
-		for (
-			let d = new Date(minDate);
-			d <= maxDate;
-			d.setDate(d.getDate() + 1)
-		)
-			days.push(
-				`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(
-					2,
-					"0"
-				)}-${String(d.getDate()).padStart(2, "0")}`
-			);
+		const dayArray: string[] = [];
+		const d = new Date(minDate);
+		while (d <= maxDate) {
+			const dayStr = `${d.getFullYear()}-${(d.getMonth() + 1)
+				.toString()
+				.padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
+			dayArray.push(dayStr);
+			d.setDate(d.getDate() + 1);
+		}
 
 		const data: { x: number; date: string; elo: number }[] = [];
 
-		days.forEach((day, dayIndex) => {
-			(matchesByDay[day] ?? []).forEach((m, i) => {
-				let elo = 0;
-				if (m.player_a1_id === player?.id)
-					elo = (m.elo_before_a1 ?? 0) + (m.elo_change_a ?? 0);
-				else if (m.player_a2_id === player?.id)
-					elo = (m.elo_before_a2 ?? 0) + (m.elo_change_a ?? 0);
-				else if (m.player_b1_id === player?.id)
-					elo = (m.elo_before_b1 ?? 0) + (m.elo_change_b ?? 0);
-				else if (m.player_b2_id === player?.id)
-					elo = (m.elo_before_b2 ?? 0) + (m.elo_change_b ?? 0);
+		dayArray.forEach((day, dayIndex) => {
+			const dayMatches = matchesByDay[day] ?? [];
 
-				data.push({
-					x: dayIndex + (i + 1) / (matchesByDay[day].length + 1),
-					date: day,
-					elo,
-				});
+			dayMatches.forEach((match, i) => {
+				let elo = 0;
+				if (match.player_a1_id === player?.id)
+					elo =
+						(match.elo_before_a1 ?? 0) + (match.elo_change_a ?? 0);
+				else if (match.player_a2_id === player?.id)
+					elo =
+						(match.elo_before_a2 ?? 0) + (match.elo_change_a ?? 0);
+				else if (match.player_b1_id === player?.id)
+					elo =
+						(match.elo_before_b1 ?? 0) + (match.elo_change_b ?? 0);
+				else if (match.player_b2_id === player?.id)
+					elo =
+						(match.elo_before_b2 ?? 0) + (match.elo_change_b ?? 0);
+
+				const x = dayIndex + (i + 1) / (dayMatches.length + 1);
+				data.push({ x, date: day, elo });
 			});
 		});
 
 		return data;
 	}, [filteredMatches, player]);
 
-	const eloAfter = (before?: number | null, change?: number | null) =>
-		before != null && change != null ? before + change : null;
+	const yDomain = useMemo(() => {
+		if (!chartData.length) return [0, 2500];
+		const elos = chartData.map((d) => d.elo);
+		const min = Math.min(...elos);
+		const max = Math.max(...elos);
+		return [Math.max(0, min - 50), max + 50];
+	}, [chartData]);
+
+	const xTicks = useMemo(() => {
+		const daysSet = new Set(chartData.map((d) => Math.floor(d.x)));
+		return Array.from(daysSet);
+	}, [chartData]);
+
+	const xTickFormatter = (x: number) => {
+		const day = chartData.find((d) => Math.floor(d.x) === x);
+		return day
+			? new Date(day.date).toLocaleDateString("en-GB", {
+					month: "2-digit",
+					day: "2-digit",
+				})
+			: "";
+	};
 
 	if (!player) return null;
+
+	const eloAfter = (before?: number | null, change?: number | null) =>
+		before != null && change != null ? before + change : null;
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -312,10 +300,36 @@ export default function Profile() {
 			{/* ELO CHART */}
 			<section>
 				<ResponsiveContainer width="100%" height={280}>
-					<LineChart data={chartData}>
-						<XAxis dataKey="x" type="number" hide />
-						<YAxis dataKey="elo" hide />
-						<Tooltip />
+					<LineChart
+						data={chartData}
+						margin={{ top: 10, right: 10, bottom: 30, left: 0 }}
+					>
+						<XAxis
+							dataKey="x"
+							type="number"
+							tickFormatter={xTickFormatter}
+							ticks={xTicks}
+							tick={{ fill: "#aaa", fontSize: 12 }}
+							axisLine={{ stroke: "#444" }}
+							tickLine={{ stroke: "#444" }}
+						/>
+						<YAxis
+							dataKey="elo"
+							domain={yDomain}
+							tick={{ fill: "#aaa", fontSize: 12 }}
+							width={50}
+							axisLine={{ stroke: "#444" }}
+							tickLine={{ stroke: "#444" }}
+						/>
+						<Tooltip
+							content={({ payload }) =>
+								payload?.length && payload[0].value != null ? (
+									<div className="bg-card px-3 py-2 rounded-lg text-sm">
+										Elo {Math.round(payload[0].value)}
+									</div>
+								) : null
+							}
+						/>
 						<Area
 							type="monotone"
 							dataKey="elo"
@@ -328,6 +342,7 @@ export default function Profile() {
 							stroke="#4f46e5"
 							strokeWidth={2}
 							dot={false}
+							activeDot={{ r: 4 }}
 						/>
 					</LineChart>
 				</ResponsiveContainer>
@@ -335,7 +350,7 @@ export default function Profile() {
 
 			{/* PLAYER MATCHES */}
 			<section className="space-y-3">
-				{visibleMatches.map((m) => {
+				{filteredMatches.map((m) => {
 					const teamA = [
 						{ id: m.player_a1_id, before: m.elo_before_a1 },
 						m.player_a2_id && {
@@ -391,7 +406,11 @@ export default function Profile() {
 													className="flex items-center gap-1"
 												>
 													<Link
-														href={`/profile/${players.get(p.id)?.player_name ?? p.id}`}
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name ??
+															p.id
+														}`}
 														onClick={(e) =>
 															e.stopPropagation()
 														}
@@ -439,7 +458,11 @@ export default function Profile() {
 													className="flex items-center gap-1"
 												>
 													<Link
-														href={`/profile/${players.get(p.id)?.player_name ?? p.id}`}
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name ??
+															p.id
+														}`}
 														onClick={(e) =>
 															e.stopPropagation()
 														}
