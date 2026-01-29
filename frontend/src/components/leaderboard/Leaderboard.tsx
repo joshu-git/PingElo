@@ -84,46 +84,28 @@ export default function Leaderboard() {
 		return "text-text-muted";
 	};
 
-	// Match count maps
-	const { singlesMap, doublesMap } = useMemo(() => {
-		const singles = new Map<string, number>();
-		const doubles = new Map<string, number>();
-
-		for (const m of matches) {
-			const ids =
-				m.match_type === "singles"
-					? [m.player_a1_id, m.player_b1_id]
-					: [
-							m.player_a1_id,
-							m.player_b1_id,
-							m.player_a2_id,
-							m.player_b2_id,
-						];
-
-			for (const id of ids) {
-				if (!id) continue;
-				const map = m.match_type === "singles" ? singles : doubles;
-				map.set(id, (map.get(id) ?? 0) + 1);
-			}
-		}
-
-		return { singlesMap: singles, doublesMap: doubles };
-	}, [matches]);
+	// Match count per player (fixed)
+	const getMatchesPlayed = useCallback(
+		(player: PlayersRow) => {
+			return matches.filter(
+				(m) =>
+					m.match_type === matchType &&
+					[
+						m.player_a1_id,
+						m.player_a2_id,
+						m.player_b1_id,
+						m.player_b2_id,
+					].includes(player.id)
+			).length;
+		},
+		[matches, matchType]
+	);
 
 	// Rank computation
 	const getRank = useCallback((elo: number, matchesPlayed: number) => {
 		if (matchesPlayed < 5) return "Unranked";
 		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	}, []);
-
-	// Get matches played for the current type
-	const getMatchesPlayed = useCallback(
-		(p: PlayersRow) =>
-			matchType === "singles"
-				? (singlesMap.get(p.id) ?? 0)
-				: (doublesMap.get(p.id) ?? 0),
-		[matchType, singlesMap, doublesMap]
-	);
 
 	// Data loading
 	const loadPlayers = useCallback(
@@ -174,7 +156,7 @@ export default function Leaderboard() {
 		return () => observer.disconnect();
 	}, [loadPlayers, players.length, loading, hasMore]);
 
-	// Sorted players for rendering
+	// Split ranked/unranked
 	const { rankedPlayers, unrankedPlayers } = useMemo(() => {
 		const ranked: PlayersRow[] = [];
 		const unranked: PlayersRow[] = [];
@@ -185,14 +167,13 @@ export default function Leaderboard() {
 			else ranked.push(p);
 		}
 
-		// Sort each group by Elo
 		ranked.sort((a, b) => eloValue(b) - eloValue(a));
 		unranked.sort((a, b) => eloValue(b) - eloValue(a));
 
 		return { rankedPlayers: ranked, unrankedPlayers: unranked };
 	}, [players, getMatchesPlayed, eloValue]);
 
-	// Load initial leaderboard on mount
+	// Load initial leaderboard
 	useEffect(() => {
 		const loadInitial = async () => {
 			await loadPlayers({ offset: 0 });
@@ -295,7 +276,8 @@ export default function Leaderboard() {
 										{groupMap.get(p.group_id!)} ·{" "}
 										<span>
 											{getRank(elo, matchesPlayed)}
-										</span>
+										</span>{" "}
+										·{" "}
 										<span className="text-xs">
 											(Matches: {matchesPlayed})
 										</span>
@@ -344,7 +326,8 @@ export default function Leaderboard() {
 										{groupMap.get(p.group_id!)} ·{" "}
 										<span>
 											{getRank(elo, matchesPlayed)}
-										</span>
+										</span>{" "}
+										·{" "}
 										<span className="text-xs">
 											(Matches: {matchesPlayed})
 										</span>
