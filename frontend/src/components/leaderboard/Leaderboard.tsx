@@ -90,16 +90,19 @@ export default function Leaderboard() {
 				if (m.match_type !== matchType) return false;
 
 				if (matchType === "singles") {
-					// Only a1 and b1 count for singles
-					return [m.player_a1_id, m.player_b1_id].includes(player.id);
+					// Only a1 and b1 count
+					return (
+						m.player_a1_id === player.id ||
+						m.player_b1_id === player.id
+					);
 				} else {
-					// Doubles counts all positions
-					return [
-						m.player_a1_id,
-						m.player_a2_id,
-						m.player_b1_id,
-						m.player_b2_id,
-					].includes(player.id);
+					// Doubles count all positions
+					return (
+						m.player_a1_id === player.id ||
+						m.player_a2_id === player.id ||
+						m.player_b1_id === player.id ||
+						m.player_b2_id === player.id
+					);
 				}
 			}).length;
 		},
