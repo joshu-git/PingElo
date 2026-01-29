@@ -120,15 +120,7 @@ export default function Leaderboard() {
 
 	//Data loading
 	const loadPlayers = useCallback(
-		async ({
-			reset,
-			offset,
-			type,
-		}: {
-			reset: boolean;
-			offset: number;
-			type: MatchType;
-		}) => {
+		async ({ reset, offset }: { reset: boolean; offset: number }) => {
 			setLoading(true);
 
 			let query = supabase.from("players").select("*");
@@ -138,9 +130,8 @@ export default function Leaderboard() {
 			const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
 
 			if (data) {
-				//Sort explicitly based on type
-				const sorted = [...data].sort((a, b) =>
-					type === "singles"
+				const sorted = data.sort((a, b) =>
+					matchType === "singles"
 						? b.singles_elo - a.singles_elo
 						: b.doubles_elo - a.doubles_elo
 				);
@@ -150,18 +141,15 @@ export default function Leaderboard() {
 
 			setLoading(false);
 		},
-		[groupId]
+		[matchType, groupId]
 	);
 
 	//Reload on filters
-	const resetAndLoad = useCallback(
-		(type: MatchType) => {
-			setPlayers([]);
-			setHasMore(true);
-			loadPlayers({ reset: true, offset: 0, type });
-		},
-		[loadPlayers]
-	);
+	const resetAndLoad = useCallback(() => {
+		setPlayers([]);
+		setHasMore(true);
+		loadPlayers({ reset: true, offset: 0 });
+	}, [loadPlayers]);
 
 	//Infinite scroll
 	useEffect(() => {
@@ -173,7 +161,6 @@ export default function Leaderboard() {
 					loadPlayers({
 						reset: false,
 						offset: players.length,
-						type: matchType,
 					});
 				}
 			},
@@ -182,7 +169,16 @@ export default function Leaderboard() {
 
 		observer.observe(loadMoreRef.current);
 		return () => observer.disconnect();
-	}, [loadPlayers, players.length, loading, hasMore, matchType]);
+	}, [loadPlayers, players.length, loading, hasMore]);
+
+	//Sorted players for rendering
+	const sortedPlayers = useMemo(() => {
+		return [...players].sort((a, b) =>
+			matchType === "singles"
+				? b.singles_elo - a.singles_elo
+				: b.doubles_elo - a.doubles_elo
+		);
+	}, [players, matchType]);
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -200,7 +196,7 @@ export default function Leaderboard() {
 					<button
 						onClick={() => {
 							setMatchType("singles");
-							resetAndLoad("singles");
+							resetAndLoad();
 						}}
 						className={
 							matchType === "singles"
@@ -213,7 +209,7 @@ export default function Leaderboard() {
 					<button
 						onClick={() => {
 							setMatchType("doubles");
-							resetAndLoad("doubles");
+							resetAndLoad();
 						}}
 						className={
 							matchType === "doubles"
@@ -230,7 +226,7 @@ export default function Leaderboard() {
 						value={groupId ?? ""}
 						onChange={(e) => {
 							setGroupId(e.target.value || null);
-							resetAndLoad(matchType);
+							resetAndLoad();
 						}}
 					>
 						<option value="">Select Group</option>
@@ -245,7 +241,7 @@ export default function Leaderboard() {
 						disabled={!myGroupId}
 						onClick={() => {
 							setGroupId(myGroupId);
-							resetAndLoad(matchType);
+							resetAndLoad();
 						}}
 					>
 						My Group
@@ -254,7 +250,7 @@ export default function Leaderboard() {
 					<button
 						onClick={() => {
 							setGroupId(null);
-							resetAndLoad(matchType);
+							resetAndLoad();
 						}}
 					>
 						Global
@@ -263,7 +259,7 @@ export default function Leaderboard() {
 			</div>
 
 			<section className="space-y-2">
-				{players.map((p, i) => {
+				{sortedPlayers.map((p, i) => {
 					const matchesPlayed =
 						matchType === "singles"
 							? (singlesMap.get(p.id) ?? 0)
@@ -278,7 +274,9 @@ export default function Leaderboard() {
 						>
 							<div className="flex items-center gap-4">
 								<div
-									className={`text-lg font-bold w-8 ${rankStyle(i + 1)}`}
+									className={`text-lg font-bold w-8 ${rankStyle(
+										i + 1
+									)}`}
 								>
 									#{i + 1}
 								</div>
