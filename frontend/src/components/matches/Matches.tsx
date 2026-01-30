@@ -4,32 +4,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-
-type MatchType = "singles" | "doubles";
-
-type MatchRow = {
-	id: string;
-	created_at: string;
-	match_type: MatchType;
-
-	player_a1_id: string;
-	player_a2_id?: string | null;
-	player_b1_id: string;
-	player_b2_id?: string | null;
-
-	score_a: number;
-	score_b: number;
-
-	elo_before_a1: number;
-	elo_before_a2?: number | null;
-	elo_before_b1: number;
-	elo_before_b2?: number | null;
-
-	elo_change_a: number;
-	elo_change_b: number;
-
-	tournament_id?: string | null;
-};
+import { MatchType, MatchesRow } from "@/types/database";
 
 type PlayerRow = {
 	id: string;
@@ -49,10 +24,7 @@ type TeamPlayer = {
 
 const PAGE_SIZE = 50;
 
-/* ----------------------------------------------------- */
-/* Helpers                                               */
-/* ----------------------------------------------------- */
-
+//Helpers
 const eloAfter = (before: number | null, change: number | null) =>
 	before !== null && change !== null ? before + change : null;
 
@@ -63,7 +35,7 @@ export default function Matches({
 }) {
 	const router = useRouter();
 
-	const [matches, setMatches] = useState<MatchRow[]>([]);
+	const [matches, setMatches] = useState<MatchesRow[]>([]);
 	const [playersData, setPlayersData] = useState<PlayerRow[]>([]);
 	const [groups, setGroups] = useState<GroupRow[]>([]);
 
@@ -80,8 +52,7 @@ export default function Matches({
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(false);
 
-	/* -------------------- Load meta -------------------- */
-
+	//Load meta
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: playerData }, { data: groupData }, session] =
@@ -115,8 +86,7 @@ export default function Matches({
 		[playersData]
 	);
 
-	/* -------------------- Load matches -------------------- */
-
+	//Load matches
 	const loadMatches = useCallback(
 		async (reset: boolean) => {
 			if (fetchingRef.current) return;
@@ -147,14 +117,21 @@ export default function Matches({
 					.map((p) => p.id);
 
 				if (ids.length) {
+					const idList = ids.join(",");
+
 					query = query.or(
-						`player_a1_id.in.(${ids.join(",")}),player_b1_id.in.(${ids.join(",")})`
+						[
+							`player_a1_id.in.(${idList})`,
+							`player_a2_id.in.(${idList})`,
+							`player_b1_id.in.(${idList})`,
+							`player_b2_id.in.(${idList})`,
+						].join(",")
 					);
 				}
 			}
 
 			const { data } = await query;
-			const rows = (data ?? []) as MatchRow[];
+			const rows = (data ?? []) as MatchesRow[];
 
 			if (rows.length < PAGE_SIZE) setHasMore(false);
 			if (rows.length) {
@@ -169,16 +146,14 @@ export default function Matches({
 		[matchType, scope, groupId, playersData, hasMore]
 	);
 
-	/* -------------------- Reset on filter change -------------------- */
-
+	//Reset on filter change
 	useEffect(() => {
 		(async () => {
 			await loadMatches(true);
 		})();
 	}, [matchType, scope, groupId, loadMatches]);
 
-	/* -------------------- Infinite scroll -------------------- */
-
+	//Infinite scroll
 	useEffect(() => {
 		const onScroll = () => {
 			if (
@@ -195,8 +170,6 @@ export default function Matches({
 		window.addEventListener("scroll", onScroll);
 		return () => window.removeEventListener("scroll", onScroll);
 	}, [hasMore, loadMatches]);
-
-	/* -------------------- Render -------------------- */
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
