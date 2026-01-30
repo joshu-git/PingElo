@@ -42,7 +42,19 @@ type GroupRow = {
 	group_name: string;
 };
 
+type TeamPlayer = {
+	id: string;
+	before: number | null;
+};
+
 const PAGE_SIZE = 50;
+
+/* ----------------------------------------------------- */
+/* Helpers                                               */
+/* ----------------------------------------------------- */
+
+const eloAfter = (before: number | null, change: number | null) =>
+	before !== null && change !== null ? before + change : null;
 
 export default function Matches({
 	matchType: controlledMatchType,
@@ -62,89 +74,83 @@ export default function Matches({
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
 
-	const [loading, setLoading] = useState(false);
+	const cursorRef = useRef<string | null>(null);
+	const fetchingRef = useRef(false);
+
 	const [hasMore, setHasMore] = useState(true);
-
-	const lastCursor = useRef<{ created_at: string; id: string } | null>(null);
-
-	const players = useMemo(
-		() => new Map(playersData.map((p) => [p.id, p])),
-		[playersData]
-	);
-
-	const eloAfter = (
-		before: number | null | undefined,
-		change: number | null | undefined
-	) => (before != null && change != null ? before + change : null);
-
-	const buildTeam = (
-		p1: string,
-		before1: number,
-		p2?: string | null,
-		before2?: number | null
-	): { id: string; before: number | null }[] => {
-		const arr: { id: string; before: number | null }[] = [
-			{ id: p1, before: before1 ?? null },
-		];
-		if (p2) arr.push({ id: p2, before: before2 ?? null });
-		return arr;
-	};
+	const [loading, setLoading] = useState(false);
 
 	/* -------------------- Load meta -------------------- */
+
 	useEffect(() => {
-		(async () => {
+		const loadMeta = async () => {
 			const [{ data: playerData }, { data: groupData }, session] =
 				await Promise.all([
-					supabase.from("players").select("id, player_name"),
+					supabase
+						.from("players")
+						.select("id, player_name, group_id"),
 					supabase.from("groups").select("*").order("group_name"),
 					supabase.auth.getSession(),
 				]);
 
 			if (playerData) setPlayersData(playerData as PlayerRow[]);
 			if (groupData) setGroups(groupData as GroupRow[]);
+
 			if (session.data.session) {
 				const { data: me } = await supabase
 					.from("players")
 					.select("group_id")
 					.eq("account_id", session.data.session.user.id)
 					.maybeSingle();
+
 				if (me?.group_id) setMyGroupId(me.group_id);
 			}
-		})();
+		};
+
+		loadMeta();
 	}, []);
 
-	/* -------------------- Load matches (cursor-based) -------------------- */
+	const players = useMemo(
+		() => new Map(playersData.map((p) => [p.id, p])),
+		[playersData]
+	);
+
+	/* -------------------- Load matches -------------------- */
+
 	const loadMatches = useCallback(
-		async (reset = false) => {
-			if (loading || (!hasMore && !reset)) return;
+		async (reset: boolean) => {
+			if (fetchingRef.current) return;
+			if (!hasMore && !reset) return;
+
+			fetchingRef.current = true;
 			setLoading(true);
 
-			if (reset) lastCursor.current = null;
+			if (reset) {
+				cursorRef.current = null;
+				setHasMore(true);
+			}
 
 			let query = supabase
 				.from("matches")
 				.select("*")
 				.eq("match_type", matchType)
 				.order("created_at", { ascending: false })
-				.order("id", { ascending: false })
 				.limit(PAGE_SIZE);
 
-			if (lastCursor.current && !reset) {
-				query = query
-					.lt("created_at", lastCursor.current.created_at)
-					.or(
-						`created_at.eq.${lastCursor.current.created_at},id.lt.${lastCursor.current.id}`
-					);
+			if (cursorRef.current) {
+				query = query.lt("created_at", cursorRef.current);
 			}
 
 			if (scope === "group" && groupId) {
-				const groupPlayerIds = playersData
+				const ids = playersData
 					.filter((p) => p.group_id === groupId)
 					.map((p) => p.id);
-				if (groupPlayerIds.length)
+
+				if (ids.length) {
 					query = query.or(
-						`player_a1_id.in.(${groupPlayerIds.join(",")}),player_b1_id.in.(${groupPlayerIds.join(",")})`
+						`player_a1_id.in.(${ids.join(",")}),player_b1_id.in.(${ids.join(",")})`
 					);
+				}
 			}
 
 			const { data } = await query;
@@ -152,19 +158,19 @@ export default function Matches({
 
 			if (rows.length < PAGE_SIZE) setHasMore(false);
 			if (rows.length) {
-				lastCursor.current = {
-					created_at: rows[rows.length - 1].created_at,
-					id: rows[rows.length - 1].id,
-				};
+				cursorRef.current = rows[rows.length - 1].created_at;
 			}
 
 			setMatches((prev) => (reset ? rows : [...prev, ...rows]));
+
 			setLoading(false);
+			fetchingRef.current = false;
 		},
-		[matchType, scope, groupId, loading, hasMore, playersData]
+		[matchType, scope, groupId, playersData, hasMore]
 	);
 
-	/* -------------------- Reset matches when filter changes -------------------- */
+	/* -------------------- Reset on filter change -------------------- */
+
 	useEffect(() => {
 		(async () => {
 			await loadMatches(true);
@@ -172,30 +178,26 @@ export default function Matches({
 	}, [matchType, scope, groupId, loadMatches]);
 
 	/* -------------------- Infinite scroll -------------------- */
-	useEffect(() => {
-		let ticking = false;
 
+	useEffect(() => {
 		const onScroll = () => {
-			if (ticking) return;
-			ticking = true;
-			requestAnimationFrame(() => {
-				if (
-					!loading &&
-					hasMore &&
-					window.innerHeight + window.scrollY >=
-						document.body.offsetHeight - 300
-				) {
-					loadMatches(false);
-				}
-				ticking = false;
-			});
+			if (
+				fetchingRef.current ||
+				!hasMore ||
+				window.innerHeight + window.scrollY <
+					document.body.offsetHeight - 300
+			)
+				return;
+
+			loadMatches(false);
 		};
 
 		window.addEventListener("scroll", onScroll);
 		return () => window.removeEventListener("scroll", onScroll);
-	}, [loading, hasMore, loadMatches]);
+	}, [hasMore, loadMatches]);
 
 	/* -------------------- Render -------------------- */
+
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* HEADER */}
@@ -211,13 +213,21 @@ export default function Matches({
 				<div className="flex flex-wrap justify-center gap-2">
 					<button
 						onClick={() => setLocalMatchType("singles")}
-						className={`px-4 py-2 rounded-lg ${matchType === "singles" ? "font-semibold underline" : ""}`}
+						className={`px-4 py-2 rounded-lg ${
+							matchType === "singles"
+								? "font-semibold underline"
+								: ""
+						}`}
 					>
 						Singles
 					</button>
 					<button
 						onClick={() => setLocalMatchType("doubles")}
-						className={`px-4 py-2 rounded-lg ${matchType === "doubles" ? "font-semibold underline" : ""}`}
+						className={`px-4 py-2 rounded-lg ${
+							matchType === "doubles"
+								? "font-semibold underline"
+								: ""
+						}`}
 					>
 						Doubles
 					</button>
@@ -271,22 +281,27 @@ export default function Matches({
 			{/* MATCH CARDS */}
 			<section className="space-y-3">
 				{matches.map((m) => {
-					const teamA = buildTeam(
-						m.player_a1_id,
-						m.elo_before_a1,
-						m.player_a2_id,
-						m.elo_before_a2
-					);
-					const teamB = buildTeam(
-						m.player_b1_id,
-						m.elo_before_b1,
-						m.player_b2_id,
-						m.elo_before_b2
-					);
+					const teamA: TeamPlayer[] = [
+						{ id: m.player_a1_id, before: m.elo_before_a1 },
+						m.player_a2_id
+							? {
+									id: m.player_a2_id,
+									before: m.elo_before_a2 ?? null,
+								}
+							: null,
+					].filter((p): p is TeamPlayer => p !== null);
+
+					const teamB: TeamPlayer[] = [
+						{ id: m.player_b1_id, before: m.elo_before_b1 },
+						m.player_b2_id
+							? {
+									id: m.player_b2_id,
+									before: m.elo_before_b2 ?? null,
+								}
+							: null,
+					].filter((p): p is TeamPlayer => p !== null);
+
 					const teamAWon = m.score_a > m.score_b;
-					const dateString = new Date(
-						m.created_at
-					).toLocaleDateString();
 
 					const nameSizeClass =
 						matchType === "singles"
@@ -304,68 +319,112 @@ export default function Matches({
 							className="bg-card p-4 rounded-xl hover-card cursor-pointer"
 						>
 							<div className="flex justify-between gap-6">
-								{/* Teams */}
 								<div className="flex-1 space-y-3">
-									{[teamA, teamB].map((team, idx) => (
+									{/* TEAM A */}
+									<div className="flex justify-between items-center">
 										<div
-											key={idx}
-											className="flex justify-between items-center"
+											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
 										>
-											<div
-												className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
-											>
-												{team.map((p, i) => (
-													<span
-														key={p.id}
-														className="flex items-center gap-1"
+											{teamA.map((p, i) => (
+												<span
+													key={p.id}
+													className="flex items-center gap-1"
+												>
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name
+														}`}
+														onClick={(e) =>
+															e.stopPropagation()
+														}
+														className="hover:underline cursor-pointer"
 													>
-														<Link
-															href={`/profile/${players.get(p.id)?.player_name ?? p.id}`}
-															onClick={(e) =>
-																e.stopPropagation()
-															}
-															className="hover:underline cursor-pointer"
-														>
-															{players.get(p.id)
-																?.player_name ??
-																p.id}
-														</Link>
-														<span
-															className={`${eloSizeClass} text-text-subtle`}
-														>
-															(
-															{eloAfter(
-																p.before,
-																idx === 0
-																	? m.elo_change_a
-																	: m.elo_change_b
-															) ?? "—"}
-															)
-														</span>
-														{i === 0 &&
-															team.length > 1 &&
-															" & "}
+														{
+															players.get(p.id)
+																?.player_name
+														}
+													</Link>
+													<span
+														className={`${eloSizeClass} text-text-subtle`}
+													>
+														(
+														{eloAfter(
+															p.before,
+															m.elo_change_a
+														) ?? "—"}
+														)
 													</span>
-												))}
-											</div>
-											<div className="flex items-center gap-2 shrink-0">
-												<span className="text-sm text-text-muted">
-													{(idx === 0
-														? m.elo_change_a
-														: m.elo_change_b) >=
-														0 && "+"}
-													{idx === 0
-														? m.elo_change_a
-														: m.elo_change_b}
+													{i === 0 &&
+														teamA.length > 1 &&
+														" & "}
 												</span>
-												<span className="text-lg font-bold">
-													{idx === 0
-														? m.score_a
-														: m.score_b}
-												</span>
-											</div>
+											))}
 										</div>
-									))}
+
+										<div className="flex items-center gap-2 shrink-0">
+											<span className="text-sm text-text-muted">
+												{m.elo_change_a >= 0 && "+"}
+												{m.elo_change_a}
+											</span>
+											<span className="text-lg font-bold">
+												{m.score_a}
+											</span>
+										</div>
+									</div>
+
+									{/* TEAM B */}
+									<div className="flex justify-between items-center">
+										<div
+											className={`flex gap-1 whitespace-nowrap ${nameSizeClass}`}
+										>
+											{teamB.map((p, i) => (
+												<span
+													key={p.id}
+													className="flex items-center gap-1"
+												>
+													<Link
+														href={`/profile/${
+															players.get(p.id)
+																?.player_name
+														}`}
+														onClick={(e) =>
+															e.stopPropagation()
+														}
+														className="hover:underline cursor-pointer"
+													>
+														{
+															players.get(p.id)
+																?.player_name
+														}
+													</Link>
+													<span
+														className={`${eloSizeClass} text-text-subtle`}
+													>
+														(
+														{eloAfter(
+															p.before,
+															m.elo_change_b
+														) ?? "—"}
+														)
+													</span>
+													{i === 0 &&
+														teamB.length > 1 &&
+														" & "}
+												</span>
+											))}
+										</div>
+
+										<div className="flex items-center gap-2 shrink-0">
+											<span className="text-sm text-text-muted">
+												{m.elo_change_b >= 0 && "+"}
+												{m.elo_change_b}
+											</span>
+											<span className="text-lg font-bold">
+												{m.score_b}
+											</span>
+										</div>
+									</div>
 								</div>
 
 								{/* META */}
@@ -373,7 +432,11 @@ export default function Matches({
 									<div>
 										{teamAWon ? "Team A Won" : "Team B Won"}
 									</div>
-									<div>{dateString}</div>
+									<div>
+										{new Date(
+											m.created_at
+										).toLocaleDateString()}
+									</div>
 									{m.tournament_id && (
 										<div className="inline-block mt-1 px-2 py-0.5 text-xs rounded-md bg-border text-text-muted">
 											Tournament
@@ -387,11 +450,6 @@ export default function Matches({
 
 				{loading && (
 					<p className="text-center text-text-muted py-4">Loading…</p>
-				)}
-				{!hasMore && !loading && matches.length > 0 && (
-					<p className="text-center text-text-muted py-4">
-						No more matches
-					</p>
 				)}
 			</section>
 		</main>
