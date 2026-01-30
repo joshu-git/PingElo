@@ -1,12 +1,6 @@
 "use client";
 
-import React, {
-	useEffect,
-	useState,
-	useCallback,
-	useMemo,
-	useRef,
-} from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { PlayersRow, GroupsRow, MatchType } from "@/types/database";
@@ -23,7 +17,11 @@ const RANKS = [
 	{ min: 0, label: "Bikini Bottom" },
 ];
 
-const RANK_STYLES = ["", "text-yellow-500", "text-gray-400", "text-amber-600"];
+const RANK_STYLES: Record<1 | 2 | 3, string> = {
+	1: "text-yellow-500",
+	2: "text-gray-400",
+	3: "text-amber-600",
+};
 
 export default function Leaderboard() {
 	const [players, setPlayers] = useState<PlayersRow[]>([]);
@@ -35,14 +33,24 @@ export default function Leaderboard() {
 	const [matchType, setMatchType] = useState<MatchType>("singles");
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
+
 	const [hasMore, setHasMore] = useState(true);
-	const [loading, setLoading] = useState(true);
+	const [initialLoading, setInitialLoading] = useState(true);
+	const [loadingMore, setLoadingMore] = useState(false);
 
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 	const requestIdRef = useRef(0);
 
-	/* ------------------ META ------------------ */
+	// Cache match counts per match type (not read in render)
+	const matchCountsCacheRef = useRef<{
+		singles: Map<string, number>;
+		doubles: Map<string, number>;
+	}>({
+		singles: new Map(),
+		doubles: new Map(),
+	});
 
+	// -------------------- Meta --------------------
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: groupData }, session] = await Promise.all([
@@ -71,69 +79,48 @@ export default function Leaderboard() {
 		[groups]
 	);
 
+	// -------------------- Helpers --------------------
 	const eloValue = useCallback(
 		(p: PlayersRow) =>
 			matchType === "singles" ? p.singles_elo : p.doubles_elo,
 		[matchType]
 	);
 
-	/* ------------------ MATCH COUNTS (BULK) ------------------ */
+	const getRankLabel = (elo: number, matches: number) => {
+		if (matches < 5) return "Unranked";
+		return RANKS.find((r) => elo >= r.min)?.label ?? "";
+	};
 
-	const fetchMatchCounts = useCallback(
-		async (batch: PlayersRow[]) => {
-			if (batch.length === 0) return new Map<string, number>();
-
-			const ids = batch.map((p) => p.id);
+	// -------------------- Fetch match counts --------------------
+	const fetchMatchesPlayed = useCallback(
+		async (playerId: string) => {
+			const cache = matchCountsCacheRef.current[matchType];
+			if (cache.has(playerId)) return cache.get(playerId)!;
 
 			const orFilter =
 				matchType === "singles"
-					? ids
-							.map(
-								(id) =>
-									`player_a1_id.eq.${id},player_b1_id.eq.${id}`
-							)
-							.join(",")
-					: ids
-							.map(
-								(id) =>
-									`player_a1_id.eq.${id},player_a2_id.eq.${id},player_b1_id.eq.${id},player_b2_id.eq.${id}`
-							)
-							.join(",");
+					? `player_a1_id.eq.${playerId},player_b1_id.eq.${playerId}`
+					: `player_a1_id.eq.${playerId},player_a2_id.eq.${playerId},player_b1_id.eq.${playerId},player_b2_id.eq.${playerId}`;
 
-			const { data: matches } = await supabase
+			const { count } = await supabase
 				.from("matches")
-				.select(
-					"player_a1_id, player_a2_id, player_b1_id, player_b2_id"
-				)
+				.select("*", { count: "exact", head: true })
 				.or(orFilter)
 				.eq("match_type", matchType);
 
-			const counts = new Map<string, number>();
-
-			matches?.forEach((m) => {
-				[
-					m.player_a1_id,
-					m.player_a2_id,
-					m.player_b1_id,
-					m.player_b2_id,
-				].forEach((id) => {
-					if (id && ids.includes(id)) {
-						counts.set(id, (counts.get(id) ?? 0) + 1);
-					}
-				});
-			});
-
-			return counts;
+			cache.set(playerId, count ?? 0);
+			return count ?? 0;
 		},
 		[matchType]
 	);
 
-	/* ------------------ LOAD PLAYERS ------------------ */
-
+	// -------------------- Load players --------------------
 	const loadPlayers = useCallback(
-		async (offset: number) => {
+		async ({ offset }: { offset: number }) => {
 			const requestId = ++requestIdRef.current;
-			if (offset === 0) setLoading(true);
+
+			if (offset === 0) setInitialLoading(true);
+			else setLoadingMore(true);
 
 			let query = supabase
 				.from("players")
@@ -149,47 +136,46 @@ export default function Leaderboard() {
 
 			if (requestId !== requestIdRef.current) return;
 
-			if (!data || data.length === 0) {
-				setHasMore(false);
-				setLoading(false);
-				return;
+			if (data) {
+				setPlayers((prev) =>
+					offset === 0 ? data : [...prev, ...data]
+				);
+				setHasMore(data.length === PAGE_SIZE);
+
+				const nextCounts = new Map(matchCounts);
+
+				await Promise.all(
+					data.map(async (p) => {
+						const count = await fetchMatchesPlayed(p.id);
+						nextCounts.set(p.id, count);
+					})
+				);
+
+				setMatchCounts(nextCounts);
 			}
 
-			const counts = await fetchMatchCounts(data);
-
-			setPlayers((prev) => (offset === 0 ? data : [...prev, ...data]));
-
-			setMatchCounts((prev) => {
-				const next = new Map(prev);
-				counts.forEach((v, k) => next.set(k, v));
-				return next;
-			});
-
-			setHasMore(data.length === PAGE_SIZE);
-			setLoading(false);
+			setInitialLoading(false);
+			setLoadingMore(false);
 		},
-		[groupId, matchType, fetchMatchCounts]
+		[groupId, matchType, fetchMatchesPlayed, matchCounts]
 	);
 
-	/* ------------------ INFINITE SCROLL ------------------ */
-
-	const canLoadRef = useRef({ loading, hasMore });
-
+	// Initial load / group change
 	useEffect(() => {
-		canLoadRef.current = { loading, hasMore };
-	}, [loading, hasMore]);
+		const loadInitial = async () => {
+			await loadPlayers({ offset: 0 });
+		};
+		loadInitial();
+	}, [groupId, loadPlayers]);
 
+	// -------------------- Infinite scroll --------------------
 	useEffect(() => {
 		if (!loadMoreRef.current) return;
 
 		const observer = new IntersectionObserver(
 			(entries) => {
-				if (
-					entries[0].isIntersecting &&
-					!canLoadRef.current.loading &&
-					canLoadRef.current.hasMore
-				) {
-					loadPlayers(players.length);
+				if (entries[0].isIntersecting && hasMore && !loadingMore) {
+					loadPlayers({ offset: players.length });
 				}
 			},
 			{ rootMargin: "300px" }
@@ -197,118 +183,36 @@ export default function Leaderboard() {
 
 		observer.observe(loadMoreRef.current);
 		return () => observer.disconnect();
-	}, [players.length, loadPlayers]);
+	}, [players.length, hasMore, loadingMore, loadPlayers]);
 
-	/* ------------------ FILTER CHANGE ------------------ */
-
-	const handleFilterChange = (type: MatchType, newGroupId: string | null) => {
-		setMatchType(type);
-		setGroupId(newGroupId);
-		setPlayers([]);
-		setMatchCounts(new Map());
-		setHasMore(true);
-		loadPlayers(0);
-	};
-
-	/* ------------------ RANKING ------------------ */
+	// -------------------- Sorting + partitioning --------------------
+	const sortedPlayers = useMemo(
+		() => [...players].sort((a, b) => eloValue(b) - eloValue(a)),
+		[players, eloValue]
+	);
 
 	const { rankedPlayers, unrankedPlayers } = useMemo(() => {
 		const ranked: PlayersRow[] = [];
 		const unranked: PlayersRow[] = [];
 
-		for (const p of players) {
+		for (const p of sortedPlayers) {
 			const matches = matchCounts.get(p.id) ?? 0;
 			(matches < 5 ? unranked : ranked).push(p);
 		}
 
 		return { rankedPlayers: ranked, unrankedPlayers: unranked };
-	}, [players, matchCounts]);
+	}, [sortedPlayers, matchCounts]);
 
-	const getRank = useCallback((elo: number, matches: number) => {
-		if (matches < 5) return "Unranked";
-		return RANKS.find((r) => elo >= r.min)?.label ?? "";
-	}, []);
+	// -------------------- Filter handler --------------------
+	const handleFilterChange = (
+		newType: MatchType,
+		newGroupId: string | null
+	) => {
+		setMatchType(newType);
+		if (newGroupId !== groupId) setGroupId(newGroupId);
+	};
 
-	/* ------------------ INITIAL LOAD ------------------ */
-
-	useEffect(() => {
-		const loadInitial = async () => {
-			await loadPlayers(0);
-		};
-		loadInitial();
-	}, [loadPlayers]);
-
-	/* ------------------ ROW COMPONENTS ------------------ */
-
-	const RankedRow = React.memo(function RankedRow({
-		player,
-		rank,
-	}: {
-		player: PlayersRow;
-		rank: number;
-	}) {
-		const matches = matchCounts.get(player.id) ?? 0;
-		const elo = eloValue(player);
-		const rankClass = RANK_STYLES[rank - 1] ?? "text-text-muted";
-
-		return (
-			<div className="flex items-center justify-between bg-card p-4 rounded-xl hover-card">
-				<div className="flex items-center gap-4">
-					<div className={`text-lg font-bold w-8 ${rankClass}`}>
-						#{rank}
-					</div>
-					<div>
-						<Link
-							href={`/profile/${player.player_name}`}
-							className="font-semibold hover:underline"
-						>
-							{player.player_name}
-						</Link>
-						<p className="text-sm text-text-muted">
-							{groupMap.get(player.group_id!)} ·{" "}
-							<span>{getRank(elo, matches)}</span>
-						</p>
-					</div>
-				</div>
-				<div className="text-2xl font-bold">{elo}</div>
-			</div>
-		);
-	});
-
-	const UnrankedRow = React.memo(function UnrankedRow({
-		player,
-	}: {
-		player: PlayersRow;
-	}) {
-		const matches = matchCounts.get(player.id) ?? 0;
-		const elo = eloValue(player);
-
-		return (
-			<div className="flex items-center justify-between bg-card p-4 rounded-xl hover-card opacity-70">
-				<div className="flex items-center gap-4">
-					<div className="text-lg font-bold w-8 text-text-muted">
-						-
-					</div>
-					<div>
-						<Link
-							href={`/profile/${player.player_name}`}
-							className="font-semibold hover:underline"
-						>
-							{player.player_name}
-						</Link>
-						<p className="text-sm text-text-muted">
-							{groupMap.get(player.group_id!)} ·{" "}
-							<span>{getRank(elo, matches)}</span>
-						</p>
-					</div>
-				</div>
-				<div className="text-2xl font-bold">{elo}</div>
-			</div>
-		);
-	});
-
-	/* ------------------ RENDER ------------------ */
-
+	// -------------------- Render --------------------
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			<section className="text-center space-y-4">
@@ -320,6 +224,7 @@ export default function Leaderboard() {
 				</p>
 			</section>
 
+			{/* Filter controls */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
 				<div className="flex gap-2">
 					<button
@@ -376,10 +281,49 @@ export default function Leaderboard() {
 			</div>
 
 			<section className="space-y-2">
-				{rankedPlayers.map((p, i) => (
-					<RankedRow key={p.id} player={p} rank={i + 1} />
-				))}
+				{/* Initial loading */}
+				{initialLoading && (
+					<p className="text-center text-text-muted py-4">Loading…</p>
+				)}
 
+				{/* Ranked players */}
+				{rankedPlayers.map((p, i) => {
+					const rank = i + 1;
+					const matches = matchCounts.get(p.id) ?? 0;
+					const elo = eloValue(p);
+					const rankClass =
+						RANK_STYLES[rank as 1 | 2 | 3] ?? "text-text-muted";
+
+					return (
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+						>
+							<div className="flex items-center gap-4">
+								<div
+									className={`text-lg font-bold w-8 ${rankClass}`}
+								>
+									#{rank}
+								</div>
+								<div>
+									<Link
+										href={`/profile/${p.player_name}`}
+										className="font-semibold hover:underline"
+									>
+										{p.player_name}
+									</Link>
+									<p className="text-sm text-text-muted">
+										{groupMap.get(p.group_id!)} ·{" "}
+										{getRankLabel(elo, matches)}
+									</p>
+								</div>
+							</div>
+							<div className="text-2xl font-bold">{elo}</div>
+						</div>
+					);
+				})}
+
+				{/* Unranked */}
 				{unrankedPlayers.length > 0 && (
 					<>
 						<div className="py-8" />
@@ -389,15 +333,45 @@ export default function Leaderboard() {
 					</>
 				)}
 
-				{unrankedPlayers.map((p) => (
-					<UnrankedRow key={p.id} player={p} />
-				))}
+				{unrankedPlayers.map((p) => {
+					const matches = matchCounts.get(p.id) ?? 0;
+					const elo = eloValue(p);
+
+					return (
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card opacity-70"
+						>
+							<div className="flex items-center gap-4">
+								<div className="text-lg font-bold w-8 text-text-muted">
+									-
+								</div>
+								<div>
+									<Link
+										href={`/profile/${p.player_name}`}
+										className="font-semibold hover:underline"
+									>
+										{p.player_name}
+									</Link>
+									<p className="text-sm text-text-muted">
+										{groupMap.get(p.group_id!)} ·{" "}
+										{getRankLabel(elo, matches)}
+									</p>
+								</div>
+							</div>
+							<div className="text-2xl font-bold">{elo}</div>
+						</div>
+					);
+				})}
+
+				{/* Infinite scroll loading */}
+				{loadingMore && (
+					<p className="text-center text-text-muted py-4">
+						Loading more…
+					</p>
+				)}
 
 				<div ref={loadMoreRef} />
-
-				{loading && players.length === 0 && (
-					<p className="text-center text-text-muted py-4">Loading…</p>
-				)}
 			</section>
 		</main>
 	);
