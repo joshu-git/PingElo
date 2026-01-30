@@ -33,7 +33,8 @@ export default function Leaderboard() {
 
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-	// Load groups and my group
+	/* ------------------ META ------------------ */
+
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: groupData }, session] = await Promise.all([
@@ -53,16 +54,17 @@ export default function Leaderboard() {
 				if (player?.group_id) setMyGroupId(player.group_id);
 			}
 		};
+
 		loadMeta();
 	}, []);
 
-	// Map group IDs to names
+	/* ------------------ DERIVED ------------------ */
+
 	const groupMap = useMemo(
 		() => new Map(groups.map((g) => [g.id, g.group_name])),
 		[groups]
 	);
 
-	// Elo helper
 	const eloValue = useCallback(
 		(p: PlayersRow) =>
 			matchType === "singles" ? p.singles_elo : p.doubles_elo,
@@ -76,26 +78,59 @@ export default function Leaderboard() {
 		return "text-text-muted";
 	};
 
-	// Get match count for a player using a Supabase count query
-	const fetchMatchesPlayed = useCallback(
-		async (playerId: string) => {
+	/* ------------------ MATCH COUNTS (BULK) ------------------ */
+
+	const fetchMatchCounts = useCallback(
+		async (players: PlayersRow[]) => {
+			if (players.length === 0) return new Map<string, number>();
+
+			const playerIds = players.map((p) => p.id);
+
 			const orFilter =
 				matchType === "singles"
-					? `player_a1_id.eq.${playerId},player_b1_id.eq.${playerId}`
-					: `player_a1_id.eq.${playerId},player_a2_id.eq.${playerId},player_b1_id.eq.${playerId},player_b2_id.eq.${playerId}`;
+					? playerIds
+							.map(
+								(id) =>
+									`player_a1_id.eq.${id},player_b1_id.eq.${id}`
+							)
+							.join(",")
+					: playerIds
+							.map(
+								(id) =>
+									`player_a1_id.eq.${id},player_a2_id.eq.${id},player_b1_id.eq.${id},player_b2_id.eq.${id}`
+							)
+							.join(",");
 
-			const { count } = await supabase
+			const { data: matches } = await supabase
 				.from("matches")
-				.select("*", { count: "exact", head: true })
+				.select(
+					"player_a1_id, player_a2_id, player_b1_id, player_b2_id"
+				)
 				.or(orFilter)
 				.eq("match_type", matchType);
 
-			return count ?? 0;
+			const counts = new Map<string, number>();
+
+			matches?.forEach((m) => {
+				[
+					m.player_a1_id,
+					m.player_a2_id,
+					m.player_b1_id,
+					m.player_b2_id,
+				].forEach((id) => {
+					if (id && playerIds.includes(id)) {
+						counts.set(id, (counts.get(id) ?? 0) + 1);
+					}
+				});
+			});
+
+			return counts;
 		},
 		[matchType]
 	);
 
-	// Load players in batches
+	/* ------------------ LOAD PLAYERS ------------------ */
+
 	const loadPlayers = useCallback(
 		async ({ offset }: { offset: number }) => {
 			if (offset === 0) setLoading(true);
@@ -105,29 +140,30 @@ export default function Leaderboard() {
 
 			const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
 
-			if (data) {
-				setPlayers((prev) =>
-					offset === 0 ? data : [...prev, ...data]
-				);
-				setHasMore(data.length === PAGE_SIZE);
-
-				// Fetch match counts for all new players
-				const countsMap = new Map(matchCounts); // clone existing
-				await Promise.all(
-					data.map(async (p) => {
-						const count = await fetchMatchesPlayed(p.id);
-						countsMap.set(p.id, count);
-					})
-				);
-				setMatchCounts(countsMap);
+			if (!data || data.length === 0) {
+				setHasMore(false);
+				setLoading(false);
+				return;
 			}
 
-			if (offset === 0) setLoading(false);
+			const counts = await fetchMatchCounts(data);
+
+			setPlayers((prev) => (offset === 0 ? data : [...prev, ...data]));
+
+			setMatchCounts((prev) => {
+				const next = new Map(prev);
+				counts.forEach((v, k) => next.set(k, v));
+				return next;
+			});
+
+			setHasMore(data.length === PAGE_SIZE);
+			setLoading(false);
 		},
-		[groupId, fetchMatchesPlayed, matchCounts]
+		[groupId, fetchMatchCounts]
 	);
 
-	// Infinite scroll
+	/* ------------------ INFINITE SCROLL ------------------ */
+
 	useEffect(() => {
 		if (!loadMoreRef.current) return;
 
@@ -142,36 +178,44 @@ export default function Leaderboard() {
 
 		observer.observe(loadMoreRef.current);
 		return () => observer.disconnect();
-	}, [loadPlayers, players.length, loading, hasMore]);
+	}, [players.length, loading, hasMore, loadPlayers]);
 
-	// Filter handler
+	/* ------------------ FILTER CHANGE ------------------ */
+
 	const handleFilterChange = (
 		newType: MatchType,
 		newGroupId: string | null
 	) => {
 		setMatchType(newType);
 		setGroupId(newGroupId);
+		setPlayers([]);
+		setMatchCounts(new Map());
+		setHasMore(true);
 		loadPlayers({ offset: 0 });
 	};
 
-	// Compute ranked/unranked players
+	/* ------------------ RANKING ------------------ */
+
 	const { rankedPlayers, unrankedPlayers } = useMemo(() => {
 		const ranked: PlayersRow[] = [];
 		const unranked: PlayersRow[] = [];
 
 		for (const p of players) {
 			const matchesPlayed = matchCounts.get(p.id) ?? 0;
-			if (matchesPlayed < 5) unranked.push(p);
-			else ranked.push(p);
+			(matchesPlayed < 5 ? unranked : ranked).push(p);
 		}
 
-		ranked.sort((a, b) => eloValue(b) - eloValue(a));
-		unranked.sort((a, b) => eloValue(b) - eloValue(a));
+		const sortFn = (a: PlayersRow, b: PlayersRow) =>
+			eloValue(b) - eloValue(a);
+
+		ranked.sort(sortFn);
+		unranked.sort(sortFn);
 
 		return { rankedPlayers: ranked, unrankedPlayers: unranked };
 	}, [players, matchCounts, eloValue]);
 
-	// Load initial batch
+	/* ------------------ INITIAL LOAD ------------------ */
+
 	useEffect(() => {
 		const loadInitial = async () => {
 			await loadPlayers({ offset: 0 });
@@ -179,11 +223,12 @@ export default function Leaderboard() {
 		loadInitial();
 	}, [loadPlayers]);
 
-	// Rank label
-	const getRank = useCallback((elo: number, matchesPlayed: number) => {
-		if (matchesPlayed < 5) return "Unranked";
+	const getRank = useCallback((elo: number, matches: number) => {
+		if (matches < 5) return "Unranked";
 		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	}, []);
+
+	/* ------------------ RENDER ------------------ */
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -252,7 +297,6 @@ export default function Leaderboard() {
 			</div>
 
 			<section className="space-y-2">
-				{/* Ranked players */}
 				{rankedPlayers.map((p, i) => {
 					const matchesPlayed = matchCounts.get(p.id) ?? 0;
 					const elo = eloValue(p);
@@ -264,7 +308,9 @@ export default function Leaderboard() {
 						>
 							<div className="flex items-center gap-4">
 								<div
-									className={`text-lg font-bold w-8 ${rankStyle(i + 1)}`}
+									className={`text-lg font-bold w-8 ${rankStyle(
+										i + 1
+									)}`}
 								>
 									#{i + 1}
 								</div>
@@ -288,7 +334,6 @@ export default function Leaderboard() {
 					);
 				})}
 
-				{/* Unranked players */}
 				{unrankedPlayers.length > 0 && (
 					<>
 						<div className="py-8" />
