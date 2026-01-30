@@ -12,7 +12,7 @@ const RANKS = [
 	{ min: 1400, label: "Grand Master" },
 	{ min: 1200, label: "Master" },
 	{ min: 1000, label: "Competitor" },
-	{ min: 800, label: "Advanced Beginner" },
+	{ min: 800, label: "Advanced" },
 	{ min: 600, label: "Beginner" },
 	{ min: 0, label: "Bikini Bottom" },
 ];
@@ -41,7 +41,7 @@ export default function Leaderboard() {
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 	const requestIdRef = useRef(0);
 
-	// Cache match counts per match type (not read in render)
+	//Cache match counts per match type
 	const matchCountsCacheRef = useRef<{
 		singles: Map<string, number>;
 		doubles: Map<string, number>;
@@ -50,7 +50,7 @@ export default function Leaderboard() {
 		doubles: new Map(),
 	});
 
-	// -------------------- Meta --------------------
+	//Meta
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: groupData }, session] = await Promise.all([
@@ -79,7 +79,7 @@ export default function Leaderboard() {
 		[groups]
 	);
 
-	// -------------------- Helpers --------------------
+	//Helpers
 	const eloValue = useCallback(
 		(p: PlayersRow) =>
 			matchType === "singles" ? p.singles_elo : p.doubles_elo,
@@ -91,7 +91,7 @@ export default function Leaderboard() {
 		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	};
 
-	// -------------------- Fetch match counts --------------------
+	//Fetch match counts
 	const fetchMatchesPlayed = useCallback(
 		async (playerId: string) => {
 			const cache = matchCountsCacheRef.current[matchType];
@@ -114,7 +114,7 @@ export default function Leaderboard() {
 		[matchType]
 	);
 
-	// -------------------- Load players --------------------
+	//Load players
 	const loadPlayers = useCallback(
 		async ({
 			offset,
@@ -125,7 +125,7 @@ export default function Leaderboard() {
 		}) => {
 			const requestId = ++requestIdRef.current;
 
-			// Only show initial loading for first load or group change
+			//Only show initial loading for first load or group change
 			if (offset === 0 && isFilterChange) setInitialLoading(true);
 			else if (offset > 0) setLoadingMore(true);
 
@@ -167,15 +167,15 @@ export default function Leaderboard() {
 		[groupId, matchType, fetchMatchesPlayed, matchCounts]
 	);
 
-	// Initial load / group change
+	//Initial load
 	useEffect(() => {
 		const loadInitial = async () => {
 			await loadPlayers({ offset: 0 });
 		};
 		loadInitial();
-	}, [groupId, loadPlayers]);
+	}, [loadPlayers]);
 
-	// -------------------- Infinite scroll --------------------
+	//Infinite scroll
 	useEffect(() => {
 		if (!loadMoreRef.current) return;
 
@@ -192,7 +192,7 @@ export default function Leaderboard() {
 		return () => observer.disconnect();
 	}, [players.length, hasMore, loadingMore, loadPlayers]);
 
-	// -------------------- Sorting + partitioning --------------------
+	//Sorting + partitioning
 	const sortedPlayers = useMemo(
 		() => [...players].sort((a, b) => eloValue(b) - eloValue(a)),
 		[players, eloValue]
@@ -210,7 +210,7 @@ export default function Leaderboard() {
 		return { rankedPlayers: ranked, unrankedPlayers: unranked };
 	}, [sortedPlayers, matchCounts]);
 
-	// -------------------- Filter handler --------------------
+	//Filter handler
 	const handleFilterChange = (
 		newType: MatchType,
 		newGroupId: string | null
@@ -219,12 +219,11 @@ export default function Leaderboard() {
 
 		if (newGroupId !== groupId) {
 			setGroupId(newGroupId);
-			// Trigger a full reload
+			//Trigger a full reload
 			loadPlayers({ offset: 0, isFilterChange: true });
 		}
 	};
 
-	// -------------------- Render --------------------
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			<section className="text-center space-y-4">
