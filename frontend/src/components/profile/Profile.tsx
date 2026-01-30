@@ -15,10 +15,6 @@ import {
 } from "recharts";
 import type { MatchType, MatchesRow, PlayersRow } from "@/types/database";
 
-/* ------------------------------------------------------------------ */
-/* Types & constants                                                   */
-/* ------------------------------------------------------------------ */
-
 type PlayerRow = {
 	id: string;
 	player_name: string;
@@ -31,10 +27,7 @@ type TeamPlayer = {
 
 const PAGE_SIZE = 1000;
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                            */
-/* ------------------------------------------------------------------ */
-
+//Helpers
 const formatDay = (d: Date) =>
 	`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
 		d.getDate()
@@ -66,6 +59,9 @@ const getPlayerEloAfter = (
 	return null;
 };
 
+const eloAfter = (before: number | null, change: number | null) =>
+	before !== null && change !== null ? before + change : null;
+
 const fetchAllMatchesForPlayer = async (playerId: string) => {
 	let from = 0;
 	let to = PAGE_SIZE - 1;
@@ -94,10 +90,6 @@ const fetchAllMatchesForPlayer = async (playerId: string) => {
 	return all;
 };
 
-/* ------------------------------------------------------------------ */
-/* Component                                                          */
-/* ------------------------------------------------------------------ */
-
 export default function Profile() {
 	const { playerName } = useParams<{ playerName: string }>();
 	const router = useRouter();
@@ -109,8 +101,7 @@ export default function Profile() {
 	const [matchType, setMatchType] = useState<MatchType>("singles");
 	const [range, setRange] = useState<number | null>(30);
 
-	/* ----------------------------- Player ----------------------------- */
-
+	//Player
 	useEffect(() => {
 		const loadPlayer = async () => {
 			const { data } = await supabase
@@ -129,8 +120,7 @@ export default function Profile() {
 		loadPlayer();
 	}, [playerName, router]);
 
-	/* ---------------------------- Players ----------------------------- */
-
+	//Players
 	useEffect(() => {
 		const loadPlayers = async () => {
 			const { data } = await supabase
@@ -148,8 +138,7 @@ export default function Profile() {
 		[playersData]
 	);
 
-	/* ----------------------------- Group ------------------------------ */
-
+	//Group
 	useEffect(() => {
 		if (!player?.group_id) return;
 
@@ -166,8 +155,7 @@ export default function Profile() {
 		loadGroup();
 	}, [player?.group_id]);
 
-	/* ---------------------------- Matches ----------------------------- */
-
+	//Matches
 	useEffect(() => {
 		if (!player) return;
 
@@ -185,23 +173,23 @@ export default function Profile() {
 		};
 	}, [player]);
 
-	/* --------------------------- Filtering ---------------------------- */
-
+	//Filtering
 	const filteredMatches = useMemo(() => {
-		const cutoff =
-			range !== null
-				? new Date(Date.now() - range * 24 * 60 * 60 * 1000)
-				: null;
+		const cutoffTime =
+			range !== null ? Date.now() - range * 24 * 60 * 60 * 1000 : null;
 
 		return matches.filter((m) => {
 			if (m.match_type !== matchType) return false;
-			if (cutoff && new Date(m.created_at) < cutoff) return false;
+			if (
+				cutoffTime !== null &&
+				new Date(m.created_at).getTime() < cutoffTime
+			)
+				return false;
 			return true;
 		});
 	}, [matches, matchType, range]);
 
-	/* ----------------------------- Stats ------------------------------ */
-
+	//Stats
 	const stats = useMemo(() => {
 		if (!player) return { wins: 0, losses: 0, rate: 0 };
 
@@ -216,7 +204,11 @@ export default function Profile() {
 			const won =
 				(side === "A" && teamAWon) || (side === "B" && !teamAWon);
 
-			won ? wins++ : losses++;
+			if (won) {
+				wins++;
+			} else {
+				losses++;
+			}
 		}
 
 		return {
@@ -226,25 +218,25 @@ export default function Profile() {
 		};
 	}, [filteredMatches, player]);
 
-	/* ----------------------------- Chart ------------------------------ */
-
+	//Chart
 	const chartData = useMemo(() => {
 		if (!player || filteredMatches.length === 0) return [];
 
-		const sorted = [...filteredMatches].sort(
-			(a, b) =>
-				new Date(a.created_at).getTime() -
-				new Date(b.created_at).getTime()
-		);
+		const sorted = filteredMatches
+			.map((m) => ({
+				...m,
+				_ts: new Date(m.created_at).getTime(),
+			}))
+			.sort((a, b) => a._ts - b._ts);
 
 		const byDay: Record<string, MatchesRow[]> = {};
 		for (const m of sorted) {
-			const day = formatDay(new Date(m.created_at));
+			const day = formatDay(new Date(m._ts));
 			(byDay[day] ||= []).push(m);
 		}
 
-		const min = new Date(sorted[0].created_at);
-		const max = new Date(sorted[sorted.length - 1].created_at);
+		const min = new Date(sorted[0]._ts);
+		const max = new Date(sorted[sorted.length - 1]._ts);
 		min.setHours(0, 0, 0, 0);
 		max.setHours(0, 0, 0, 0);
 
@@ -294,11 +286,6 @@ export default function Profile() {
 	};
 
 	if (!player) return null;
-
-	const eloAfter = (before: number | null, change: number | null) =>
-		before !== null && change !== null ? before + change : null;
-
-	/* ------------------------------ JSX ------------------------------- */
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
