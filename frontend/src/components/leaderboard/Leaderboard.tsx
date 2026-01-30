@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import React, {
+	useEffect,
+	useState,
+	useCallback,
+	useMemo,
+	useRef,
+} from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { PlayersRow, GroupsRow, MatchType } from "@/types/database";
@@ -17,6 +23,8 @@ const RANKS = [
 	{ min: 0, label: "Bikini Bottom" },
 ];
 
+const RANK_STYLES = ["", "text-yellow-500", "text-gray-400", "text-amber-600"];
+
 export default function Leaderboard() {
 	const [players, setPlayers] = useState<PlayersRow[]>([]);
 	const [groups, setGroups] = useState<GroupsRow[]>([]);
@@ -27,11 +35,11 @@ export default function Leaderboard() {
 	const [matchType, setMatchType] = useState<MatchType>("singles");
 	const [groupId, setGroupId] = useState<string | null>(null);
 	const [myGroupId, setMyGroupId] = useState<string | null>(null);
-
 	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(true);
 
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
+	const requestIdRef = useRef(0);
 
 	/* ------------------ META ------------------ */
 
@@ -58,8 +66,6 @@ export default function Leaderboard() {
 		loadMeta();
 	}, []);
 
-	/* ------------------ DERIVED ------------------ */
-
 	const groupMap = useMemo(
 		() => new Map(groups.map((g) => [g.id, g.group_name])),
 		[groups]
@@ -71,30 +77,23 @@ export default function Leaderboard() {
 		[matchType]
 	);
 
-	const rankStyle = (rank: number) => {
-		if (rank === 1) return "text-yellow-500";
-		if (rank === 2) return "text-gray-400";
-		if (rank === 3) return "text-amber-600";
-		return "text-text-muted";
-	};
-
 	/* ------------------ MATCH COUNTS (BULK) ------------------ */
 
 	const fetchMatchCounts = useCallback(
-		async (players: PlayersRow[]) => {
-			if (players.length === 0) return new Map<string, number>();
+		async (batch: PlayersRow[]) => {
+			if (batch.length === 0) return new Map<string, number>();
 
-			const playerIds = players.map((p) => p.id);
+			const ids = batch.map((p) => p.id);
 
 			const orFilter =
 				matchType === "singles"
-					? playerIds
+					? ids
 							.map(
 								(id) =>
 									`player_a1_id.eq.${id},player_b1_id.eq.${id}`
 							)
 							.join(",")
-					: playerIds
+					: ids
 							.map(
 								(id) =>
 									`player_a1_id.eq.${id},player_a2_id.eq.${id},player_b1_id.eq.${id},player_b2_id.eq.${id}`
@@ -118,7 +117,7 @@ export default function Leaderboard() {
 					m.player_b1_id,
 					m.player_b2_id,
 				].forEach((id) => {
-					if (id && playerIds.includes(id)) {
+					if (id && ids.includes(id)) {
 						counts.set(id, (counts.get(id) ?? 0) + 1);
 					}
 				});
@@ -132,13 +131,23 @@ export default function Leaderboard() {
 	/* ------------------ LOAD PLAYERS ------------------ */
 
 	const loadPlayers = useCallback(
-		async ({ offset }: { offset: number }) => {
+		async (offset: number) => {
+			const requestId = ++requestIdRef.current;
 			if (offset === 0) setLoading(true);
 
-			let query = supabase.from("players").select("*");
+			let query = supabase
+				.from("players")
+				.select("*")
+				.order(
+					matchType === "singles" ? "singles_elo" : "doubles_elo",
+					{ ascending: false }
+				);
+
 			if (groupId) query = query.eq("group_id", groupId);
 
 			const { data } = await query.range(offset, offset + PAGE_SIZE - 1);
+
+			if (requestId !== requestIdRef.current) return;
 
 			if (!data || data.length === 0) {
 				setHasMore(false);
@@ -159,18 +168,28 @@ export default function Leaderboard() {
 			setHasMore(data.length === PAGE_SIZE);
 			setLoading(false);
 		},
-		[groupId, fetchMatchCounts]
+		[groupId, matchType, fetchMatchCounts]
 	);
 
 	/* ------------------ INFINITE SCROLL ------------------ */
+
+	const canLoadRef = useRef({ loading, hasMore });
+
+	useEffect(() => {
+		canLoadRef.current = { loading, hasMore };
+	}, [loading, hasMore]);
 
 	useEffect(() => {
 		if (!loadMoreRef.current) return;
 
 		const observer = new IntersectionObserver(
 			(entries) => {
-				if (entries[0].isIntersecting && !loading && hasMore) {
-					loadPlayers({ offset: players.length });
+				if (
+					entries[0].isIntersecting &&
+					!canLoadRef.current.loading &&
+					canLoadRef.current.hasMore
+				) {
+					loadPlayers(players.length);
 				}
 			},
 			{ rootMargin: "300px" }
@@ -178,20 +197,17 @@ export default function Leaderboard() {
 
 		observer.observe(loadMoreRef.current);
 		return () => observer.disconnect();
-	}, [players.length, loading, hasMore, loadPlayers]);
+	}, [players.length, loadPlayers]);
 
 	/* ------------------ FILTER CHANGE ------------------ */
 
-	const handleFilterChange = (
-		newType: MatchType,
-		newGroupId: string | null
-	) => {
-		setMatchType(newType);
+	const handleFilterChange = (type: MatchType, newGroupId: string | null) => {
+		setMatchType(type);
 		setGroupId(newGroupId);
 		setPlayers([]);
 		setMatchCounts(new Map());
 		setHasMore(true);
-		loadPlayers({ offset: 0 });
+		loadPlayers(0);
 	};
 
 	/* ------------------ RANKING ------------------ */
@@ -201,32 +217,95 @@ export default function Leaderboard() {
 		const unranked: PlayersRow[] = [];
 
 		for (const p of players) {
-			const matchesPlayed = matchCounts.get(p.id) ?? 0;
-			(matchesPlayed < 5 ? unranked : ranked).push(p);
+			const matches = matchCounts.get(p.id) ?? 0;
+			(matches < 5 ? unranked : ranked).push(p);
 		}
 
-		const sortFn = (a: PlayersRow, b: PlayersRow) =>
-			eloValue(b) - eloValue(a);
-
-		ranked.sort(sortFn);
-		unranked.sort(sortFn);
-
 		return { rankedPlayers: ranked, unrankedPlayers: unranked };
-	}, [players, matchCounts, eloValue]);
-
-	/* ------------------ INITIAL LOAD ------------------ */
-
-	useEffect(() => {
-		const loadInitial = async () => {
-			await loadPlayers({ offset: 0 });
-		};
-		loadInitial();
-	}, [loadPlayers]);
+	}, [players, matchCounts]);
 
 	const getRank = useCallback((elo: number, matches: number) => {
 		if (matches < 5) return "Unranked";
 		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	}, []);
+
+	/* ------------------ INITIAL LOAD ------------------ */
+
+	useEffect(() => {
+		const loadInitial = async () => {
+			await loadPlayers(0);
+		};
+		loadInitial();
+	}, [loadPlayers]);
+
+	/* ------------------ ROW COMPONENTS ------------------ */
+
+	const RankedRow = React.memo(function RankedRow({
+		player,
+		rank,
+	}: {
+		player: PlayersRow;
+		rank: number;
+	}) {
+		const matches = matchCounts.get(player.id) ?? 0;
+		const elo = eloValue(player);
+		const rankClass = RANK_STYLES[rank - 1] ?? "text-text-muted";
+
+		return (
+			<div className="flex items-center justify-between bg-card p-4 rounded-xl hover-card">
+				<div className="flex items-center gap-4">
+					<div className={`text-lg font-bold w-8 ${rankClass}`}>
+						#{rank}
+					</div>
+					<div>
+						<Link
+							href={`/profile/${player.player_name}`}
+							className="font-semibold hover:underline"
+						>
+							{player.player_name}
+						</Link>
+						<p className="text-sm text-text-muted">
+							{groupMap.get(player.group_id!)} ·{" "}
+							<span>{getRank(elo, matches)}</span>
+						</p>
+					</div>
+				</div>
+				<div className="text-2xl font-bold">{elo}</div>
+			</div>
+		);
+	});
+
+	const UnrankedRow = React.memo(function UnrankedRow({
+		player,
+	}: {
+		player: PlayersRow;
+	}) {
+		const matches = matchCounts.get(player.id) ?? 0;
+		const elo = eloValue(player);
+
+		return (
+			<div className="flex items-center justify-between bg-card p-4 rounded-xl hover-card opacity-70">
+				<div className="flex items-center gap-4">
+					<div className="text-lg font-bold w-8 text-text-muted">
+						-
+					</div>
+					<div>
+						<Link
+							href={`/profile/${player.player_name}`}
+							className="font-semibold hover:underline"
+						>
+							{player.player_name}
+						</Link>
+						<p className="text-sm text-text-muted">
+							{groupMap.get(player.group_id!)} ·{" "}
+							<span>{getRank(elo, matches)}</span>
+						</p>
+					</div>
+				</div>
+				<div className="text-2xl font-bold">{elo}</div>
+			</div>
+		);
+	});
 
 	/* ------------------ RENDER ------------------ */
 
@@ -297,42 +376,9 @@ export default function Leaderboard() {
 			</div>
 
 			<section className="space-y-2">
-				{rankedPlayers.map((p, i) => {
-					const matchesPlayed = matchCounts.get(p.id) ?? 0;
-					const elo = eloValue(p);
-
-					return (
-						<div
-							key={p.id}
-							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
-						>
-							<div className="flex items-center gap-4">
-								<div
-									className={`text-lg font-bold w-8 ${rankStyle(
-										i + 1
-									)}`}
-								>
-									#{i + 1}
-								</div>
-								<div>
-									<Link
-										href={`/profile/${p.player_name}`}
-										className="font-semibold hover:underline"
-									>
-										{p.player_name}
-									</Link>
-									<p className="text-sm text-text-muted">
-										{groupMap.get(p.group_id!)} ·{" "}
-										<span>
-											{getRank(elo, matchesPlayed)}
-										</span>
-									</p>
-								</div>
-							</div>
-							<div className="text-2xl font-bold">{elo}</div>
-						</div>
-					);
-				})}
+				{rankedPlayers.map((p, i) => (
+					<RankedRow key={p.id} player={p} rank={i + 1} />
+				))}
 
 				{unrankedPlayers.length > 0 && (
 					<>
@@ -343,38 +389,9 @@ export default function Leaderboard() {
 					</>
 				)}
 
-				{unrankedPlayers.map((p) => {
-					const matchesPlayed = matchCounts.get(p.id) ?? 0;
-					const elo = eloValue(p);
-
-					return (
-						<div
-							key={p.id}
-							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card opacity-70"
-						>
-							<div className="flex items-center gap-4">
-								<div className="text-lg font-bold w-8 text-text-muted">
-									-
-								</div>
-								<div>
-									<Link
-										href={`/profile/${p.player_name}`}
-										className="font-semibold hover:underline"
-									>
-										{p.player_name}
-									</Link>
-									<p className="text-sm text-text-muted">
-										{groupMap.get(p.group_id!)} ·{" "}
-										<span>
-											{getRank(elo, matchesPlayed)}
-										</span>
-									</p>
-								</div>
-							</div>
-							<div className="text-2xl font-bold">{elo}</div>
-						</div>
-					);
-				})}
+				{unrankedPlayers.map((p) => (
+					<UnrankedRow key={p.id} player={p} />
+				))}
 
 				<div ref={loadMoreRef} />
 
