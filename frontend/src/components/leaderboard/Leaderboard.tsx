@@ -116,11 +116,18 @@ export default function Leaderboard() {
 
 	// -------------------- Load players --------------------
 	const loadPlayers = useCallback(
-		async ({ offset }: { offset: number }) => {
+		async ({
+			offset,
+			isFilterChange = false,
+		}: {
+			offset: number;
+			isFilterChange?: boolean;
+		}) => {
 			const requestId = ++requestIdRef.current;
 
-			if (offset === 0) setInitialLoading(true);
-			else setLoadingMore(true);
+			// Only show initial loading for first load or group change
+			if (offset === 0 && isFilterChange) setInitialLoading(true);
+			else if (offset > 0) setLoadingMore(true);
 
 			let query = supabase
 				.from("players")
@@ -209,7 +216,12 @@ export default function Leaderboard() {
 		newGroupId: string | null
 	) => {
 		setMatchType(newType);
-		if (newGroupId !== groupId) setGroupId(newGroupId);
+
+		if (newGroupId !== groupId) {
+			setGroupId(newGroupId);
+			// Trigger a full reload
+			loadPlayers({ offset: 0, isFilterChange: true });
+		}
 	};
 
 	// -------------------- Render --------------------
