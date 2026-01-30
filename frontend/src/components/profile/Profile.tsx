@@ -15,23 +15,102 @@ import {
 } from "recharts";
 import type { MatchType, MatchesRow, PlayersRow } from "@/types/database";
 
+/* ------------------------------------------------------------------ */
+/* Types & constants                                                   */
+/* ------------------------------------------------------------------ */
+
 type PlayerRow = {
 	id: string;
 	player_name: string;
 };
+
+type TeamPlayer = {
+	id: string;
+	before: number | null;
+};
+
+const PAGE_SIZE = 1000;
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                            */
+/* ------------------------------------------------------------------ */
+
+const formatDay = (d: Date) =>
+	`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+		d.getDate()
+	).padStart(2, "0")}`;
+
+const getPlayerSide = (
+	match: MatchesRow,
+	playerId: string
+): "A" | "B" | null => {
+	if (match.player_a1_id === playerId || match.player_a2_id === playerId)
+		return "A";
+	if (match.player_b1_id === playerId || match.player_b2_id === playerId)
+		return "B";
+	return null;
+};
+
+const getPlayerEloAfter = (
+	match: MatchesRow,
+	playerId: string
+): number | null => {
+	if (match.player_a1_id === playerId)
+		return (match.elo_before_a1 ?? 0) + (match.elo_change_a ?? 0);
+	if (match.player_a2_id === playerId)
+		return (match.elo_before_a2 ?? 0) + (match.elo_change_a ?? 0);
+	if (match.player_b1_id === playerId)
+		return (match.elo_before_b1 ?? 0) + (match.elo_change_b ?? 0);
+	if (match.player_b2_id === playerId)
+		return (match.elo_before_b2 ?? 0) + (match.elo_change_b ?? 0);
+	return null;
+};
+
+const fetchAllMatchesForPlayer = async (playerId: string) => {
+	let from = 0;
+	let to = PAGE_SIZE - 1;
+	const all: MatchesRow[] = [];
+
+	while (true) {
+		const { data, error } = await supabase
+			.from("matches")
+			.select("*")
+			.or(
+				`player_a1_id.eq.${playerId},player_a2_id.eq.${playerId},player_b1_id.eq.${playerId},player_b2_id.eq.${playerId}`
+			)
+			.order("created_at", { ascending: false })
+			.range(from, to);
+
+		if (error) throw error;
+		if (!data || data.length === 0) break;
+
+		all.push(...data);
+		if (data.length < PAGE_SIZE) break;
+
+		from += PAGE_SIZE;
+		to += PAGE_SIZE;
+	}
+
+	return all;
+};
+
+/* ------------------------------------------------------------------ */
+/* Component                                                          */
+/* ------------------------------------------------------------------ */
 
 export default function Profile() {
 	const { playerName } = useParams<{ playerName: string }>();
 	const router = useRouter();
 
 	const [player, setPlayer] = useState<PlayersRow | null>(null);
-	const [players, setPlayers] = useState<Map<string, PlayerRow>>(new Map());
+	const [playersData, setPlayersData] = useState<PlayerRow[]>([]);
 	const [groupName, setGroupName] = useState<string | null>(null);
 	const [matches, setMatches] = useState<MatchesRow[]>([]);
 	const [matchType, setMatchType] = useState<MatchType>("singles");
-	const [range, setRange] = useState<number | null>(null);
+	const [range, setRange] = useState<number | null>(30);
 
-	//Load the player
+	/* ----------------------------- Player ----------------------------- */
+
 	useEffect(() => {
 		const loadPlayer = async () => {
 			const { data } = await supabase
@@ -46,154 +125,147 @@ export default function Profile() {
 			}
 			setPlayer(data);
 		};
+
 		loadPlayer();
 	}, [playerName, router]);
 
-	//Load all players for ID → name mapping
+	/* ---------------------------- Players ----------------------------- */
+
 	useEffect(() => {
 		const loadPlayers = async () => {
 			const { data } = await supabase
 				.from("players")
 				.select("id, player_name");
-			if (data) {
-				setPlayers(
-					new Map((data as PlayerRow[]).map((p) => [p.id, p]))
-				);
-			}
+
+			if (data) setPlayersData(data as PlayerRow[]);
 		};
+
 		loadPlayers();
 	}, []);
 
-	//Load the player's group
+	const players = useMemo(
+		() => new Map(playersData.map((p) => [p.id, p])),
+		[playersData]
+	);
+
+	/* ----------------------------- Group ------------------------------ */
+
 	useEffect(() => {
 		if (!player?.group_id) return;
+
 		const loadGroup = async () => {
 			const { data } = await supabase
 				.from("groups")
 				.select("group_name")
 				.eq("id", player.group_id)
 				.single();
+
 			setGroupName(data?.group_name ?? null);
 		};
+
 		loadGroup();
 	}, [player?.group_id]);
 
-	//Load the player's matches
+	/* ---------------------------- Matches ----------------------------- */
+
 	useEffect(() => {
 		if (!player) return;
 
-		const loadMatches = async () => {
-			const { data } = await supabase
-				.from("matches")
-				.select("*")
-				.or(
-					`player_a1_id.eq.${player.id},player_a2_id.eq.${player.id},player_b1_id.eq.${player.id},player_b2_id.eq.${player.id}`
-				)
-				.order("created_at", { ascending: false });
+		let cancelled = false;
 
-			setMatches((data ?? []) as MatchesRow[]);
+		const loadMatches = async () => {
+			const all = await fetchAllMatchesForPlayer(player.id);
+			if (!cancelled) setMatches(all);
 		};
+
 		loadMatches();
+
+		return () => {
+			cancelled = true;
+		};
 	}, [player]);
 
-	//Filter the matches by type and range
+	/* --------------------------- Filtering ---------------------------- */
+
 	const filteredMatches = useMemo(() => {
-		if (!matches) return [];
-		let m = matches.filter((m) => m.match_type === matchType);
+		const cutoff =
+			range !== null
+				? new Date(Date.now() - range * 24 * 60 * 60 * 1000)
+				: null;
 
-		if (range != null) {
-			const cutoff = new Date();
-			cutoff.setDate(cutoff.getDate() - range);
-			m = m.filter((match) => new Date(match.created_at) >= cutoff);
-		}
-
-		return m;
+		return matches.filter((m) => {
+			if (m.match_type !== matchType) return false;
+			if (cutoff && new Date(m.created_at) < cutoff) return false;
+			return true;
+		});
 	}, [matches, matchType, range]);
 
-	//Calculates player statistics
+	/* ----------------------------- Stats ------------------------------ */
+
 	const stats = useMemo(() => {
 		if (!player) return { wins: 0, losses: 0, rate: 0 };
+
 		let wins = 0;
 		let losses = 0;
 
 		for (const m of filteredMatches) {
-			const teamAWon = m.score_a > m.score_b;
-			const isOnTeamA = [m.player_a1_id, m.player_a2_id].includes(
-				player.id
-			);
-			const isOnTeamB = [m.player_b1_id, m.player_b2_id].includes(
-				player.id
-			);
+			const side = getPlayerSide(m, player.id);
+			if (!side) continue;
 
-			if (isOnTeamA || isOnTeamB) {
-				if ((teamAWon && isOnTeamA) || (!teamAWon && isOnTeamB)) wins++;
-				else losses++;
-			}
+			const teamAWon = m.score_a > m.score_b;
+			const won =
+				(side === "A" && teamAWon) || (side === "B" && !teamAWon);
+
+			won ? wins++ : losses++;
 		}
 
 		return {
 			wins,
 			losses,
-			rate: losses > 0 ? Number((wins / losses).toFixed(2)) : wins,
+			rate: losses ? Number((wins / losses).toFixed(2)) : wins,
 		};
 	}, [filteredMatches, player]);
 
-	//Chart data and rendering
+	/* ----------------------------- Chart ------------------------------ */
+
 	const chartData = useMemo(() => {
-		if (!filteredMatches.length) return [];
+		if (!player || filteredMatches.length === 0) return [];
 
-		const matchesByDay: Record<string, MatchesRow[]> = {};
-		filteredMatches.forEach((m) => {
-			const dateObj = new Date(m.created_at);
-			const dayStr = `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1)
-				.toString()
-				.padStart(
-					2,
-					"0"
-				)}-${dateObj.getDate().toString().padStart(2, "0")}`;
-			if (!matchesByDay[dayStr]) matchesByDay[dayStr] = [];
-			matchesByDay[dayStr].push(m);
-		});
-
-		const minDate = new Date(
-			filteredMatches[filteredMatches.length - 1].created_at
+		const sorted = [...filteredMatches].sort(
+			(a, b) =>
+				new Date(a.created_at).getTime() -
+				new Date(b.created_at).getTime()
 		);
-		const maxDate = new Date(filteredMatches[0].created_at);
-		minDate.setHours(0, 0, 0, 0);
-		maxDate.setHours(0, 0, 0, 0);
 
-		const dayArray: string[] = [];
-		const d = new Date(minDate);
-		while (d <= maxDate) {
-			const dayStr = `${d.getFullYear()}-${(d.getMonth() + 1)
-				.toString()
-				.padStart(2, "0")}-${d.getDate().toString().padStart(2, "0")}`;
-			dayArray.push(dayStr);
-			d.setDate(d.getDate() + 1);
+		const byDay: Record<string, MatchesRow[]> = {};
+		for (const m of sorted) {
+			const day = formatDay(new Date(m.created_at));
+			(byDay[day] ||= []).push(m);
+		}
+
+		const min = new Date(sorted[0].created_at);
+		const max = new Date(sorted[sorted.length - 1].created_at);
+		min.setHours(0, 0, 0, 0);
+		max.setHours(0, 0, 0, 0);
+
+		const days: string[] = [];
+		for (let d = new Date(min); d <= max; d.setDate(d.getDate() + 1)) {
+			days.push(formatDay(d));
 		}
 
 		const data: { x: number; date: string; elo: number }[] = [];
 
-		dayArray.forEach((day, dayIndex) => {
-			const dayMatches = matchesByDay[day] ?? [];
+		days.forEach((day, dayIndex) => {
+			const dayMatches = byDay[day] ?? [];
+			dayMatches.forEach((m, i) => {
+				const elo = getPlayerEloAfter(m, player.id);
+				if (elo === null) return;
 
-			dayMatches.forEach((match, i) => {
-				let elo = 0;
-				if (match.player_a1_id === player?.id)
-					elo =
-						(match.elo_before_a1 ?? 0) + (match.elo_change_a ?? 0);
-				else if (match.player_a2_id === player?.id)
-					elo =
-						(match.elo_before_a2 ?? 0) + (match.elo_change_a ?? 0);
-				else if (match.player_b1_id === player?.id)
-					elo =
-						(match.elo_before_b1 ?? 0) + (match.elo_change_b ?? 0);
-				else if (match.player_b2_id === player?.id)
-					elo =
-						(match.elo_before_b2 ?? 0) + (match.elo_change_b ?? 0);
-
-				const x = dayIndex + (i + 1) / (dayMatches.length + 1);
-				data.push({ x, date: day, elo });
+				data.push({
+					x: dayIndex + (i + 1) / (dayMatches.length + 1),
+					date: day,
+					elo,
+				});
 			});
 		});
 
@@ -201,22 +273,20 @@ export default function Profile() {
 	}, [filteredMatches, player]);
 
 	const yDomain = useMemo(() => {
-		if (!chartData.length) return [0, 2500];
+		if (chartData.length === 0) return [0, 2500];
 		const elos = chartData.map((d) => d.elo);
-		const min = Math.min(...elos);
-		const max = Math.max(...elos);
-		return [Math.max(0, min - 50), max + 50];
+		return [Math.max(0, Math.min(...elos) - 50), Math.max(...elos) + 50];
 	}, [chartData]);
 
-	const xTicks = useMemo(() => {
-		const daysSet = new Set(chartData.map((d) => Math.floor(d.x)));
-		return Array.from(daysSet);
-	}, [chartData]);
+	const xTicks = useMemo(
+		() => Array.from(new Set(chartData.map((d) => Math.floor(d.x)))),
+		[chartData]
+	);
 
 	const xTickFormatter = (x: number) => {
-		const day = chartData.find((d) => Math.floor(d.x) === x);
-		return day
-			? new Date(day.date).toLocaleDateString("en-GB", {
+		const d = chartData.find((d) => Math.floor(d.x) === x);
+		return d
+			? new Date(d.date).toLocaleDateString("en-GB", {
 					month: "2-digit",
 					day: "2-digit",
 				})
@@ -225,8 +295,10 @@ export default function Profile() {
 
 	if (!player) return null;
 
-	const eloAfter = (before?: number | null, change?: number | null) =>
-		before != null && change != null ? before + change : null;
+	const eloAfter = (before: number | null, change: number | null) =>
+		before !== null && change !== null ? before + change : null;
+
+	/* ------------------------------ JSX ------------------------------- */
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -353,25 +425,23 @@ export default function Profile() {
 				{filteredMatches.map((m) => {
 					const teamA = [
 						{ id: m.player_a1_id, before: m.elo_before_a1 },
-						m.player_a2_id && {
-							id: m.player_a2_id,
-							before: m.elo_before_a2,
-						},
-					].filter(Boolean) as {
-						id: string;
-						before?: number | null;
-					}[];
+						m.player_a2_id
+							? {
+									id: m.player_a2_id,
+									before: m.elo_before_a2,
+								}
+							: null,
+					].filter((p): p is TeamPlayer => p !== null);
 
 					const teamB = [
 						{ id: m.player_b1_id, before: m.elo_before_b1 },
-						m.player_b2_id && {
-							id: m.player_b2_id,
-							before: m.elo_before_b2,
-						},
-					].filter(Boolean) as {
-						id: string;
-						before?: number | null;
-					}[];
+						m.player_b2_id
+							? {
+									id: m.player_b2_id,
+									before: m.elo_before_b2,
+								}
+							: null,
+					].filter((p): p is TeamPlayer => p !== null);
 
 					const teamAWon = m.score_a > m.score_b;
 					const playerWon =
@@ -502,9 +572,7 @@ export default function Profile() {
 
 								{/* META */}
 								<div className="text-sm text-text-muted text-right shrink-0">
-									{playerWon != null && (
-										<div>{playerWon ? "Win" : "Loss"}</div>
-									)}
+									<div>{playerWon ? "Win" : "Loss"}</div>
 									<div>
 										{new Date(
 											m.created_at
