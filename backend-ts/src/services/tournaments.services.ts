@@ -148,24 +148,6 @@ export async function validateTournamentMatch(
 }
 
 /* ============================================================
-   LOCK BRACKET (ANTI DOUBLE-SUBMIT)
-   ============================================================ */
-
-export async function lockBracket(bracketId: string) {
-	const { data } = await supabase
-		.from("tournament_brackets")
-		.update({ match_id: "LOCKED" })
-		.eq("id", bracketId)
-		.is("match_id", null)
-		.select()
-		.maybeSingle();
-
-	if (!data) {
-		throw new Error("Tournament match already submitted");
-	}
-}
-
-/* ============================================================
    ADVANCE BRACKET ROUND
    ============================================================ */
 

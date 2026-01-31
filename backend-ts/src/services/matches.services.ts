@@ -1,7 +1,6 @@
 import { supabase } from "../libs/supabase.js";
 import {
 	validateTournamentMatch,
-	lockBracket,
 	advanceBracketRound,
 } from "./tournaments.services.js";
 
@@ -93,9 +92,6 @@ export async function createSinglesMatch(
 		if (!bracketId) {
 			throw new Error("Match not allowed in this tournament");
 		}
-
-		// lock bracket to prevent double submit
-		await lockBracket(bracketId);
 	}
 
 	const elo = calculateElo(
