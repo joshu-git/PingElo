@@ -108,47 +108,46 @@ export default function TournamentPage() {
 				setSignups([]);
 			}
 
-			// Load brackets (after tournament starts)
-			if (t.started) {
-				const { data: bracketRows } = await supabase
-					.from("tournament_brackets")
-					.select("*")
-					.eq("tournament_id", tournamentId)
-					.order("round", { ascending: true })
-					.order("bracket_number", { ascending: true });
+			/* -------------------- BRACKETS FETCH FIX -------------------- */
+			/* -------------------- BRACKETS FETCH FIX -------------------- */
+			const { data: rawBrackets } = await supabase
+				.from("tournament_brackets")
+				.select("*")
+				.eq("tournament_id", tournamentId)
+				.order("round", { ascending: true })
+				.order("bracket_number", { ascending: true });
 
-				const list = bracketRows ?? [];
+			const list = rawBrackets ?? [];
 
-				const playerIds = Array.from(
-					new Set(
-						list
-							.flatMap((b) => [b.player_a1_id, b.player_b1_id])
-							.filter(Boolean) as string[]
-					)
-				);
+			const playerIds = Array.from(
+				new Set(
+					list
+						.flatMap((b) => [b.player_a1_id, b.player_b1_id])
+						.filter(Boolean) as string[]
+				)
+			);
 
-				let playersMap = new Map<string, Player>();
-				if (playerIds.length) {
-					const { data: players } = await supabase
-						.from("players")
-						.select("id, player_name, account_id")
-						.in("id", playerIds);
+			let playersMap = new Map<string, Player>();
+			if (playerIds.length) {
+				const { data: players } = await supabase
+					.from("players")
+					.select("id, player_name, account_id")
+					.in("id", playerIds);
 
-					playersMap = new Map(players?.map((p) => [p.id, p]) ?? []);
-				}
-
-				setBrackets(
-					list.map((b) => ({
-						...b,
-						player_a1: b.player_a1_id
-							? (playersMap.get(b.player_a1_id) ?? null)
-							: null,
-						player_b1: b.player_b1_id
-							? (playersMap.get(b.player_b1_id) ?? null)
-							: null,
-					}))
-				);
+				playersMap = new Map(players?.map((p) => [p.id, p]) ?? []);
 			}
+
+			setBrackets(
+				list.map((b) => ({
+					...b,
+					player_a1: b.player_a1_id
+						? (playersMap.get(b.player_a1_id) ?? null)
+						: null,
+					player_b1: b.player_b1_id
+						? (playersMap.get(b.player_b1_id) ?? null)
+						: null,
+				}))
+			);
 		} finally {
 			setLoading(false);
 		}
