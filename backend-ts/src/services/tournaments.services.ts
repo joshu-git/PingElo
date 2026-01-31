@@ -106,6 +106,7 @@ export async function validateTournamentMatch(
 	const a = playersA[0];
 	const b = playersB[0];
 
+	// 1️⃣ Tournament must be active
 	const { data: tournament } = await supabase
 		.from("tournaments")
 		.select("started, completed")
@@ -116,19 +117,33 @@ export async function validateTournamentMatch(
 		return null;
 	}
 
-	const { data: bracket } = await supabase
+	// 2️⃣ Try A vs B
+	let { data: bracket } = await supabase
 		.from("tournament_brackets")
 		.select("id, match_id")
 		.eq("tournament_id", tournamentId)
 		.eq("completed", false)
-		.or(
-			`and(player_a_id.eq.${a},player_b_id.eq.${b}),
-			 and(player_a_id.eq.${b},player_b_id.eq.${a})`
-		)
-		.limit(1)
+		.eq("player_a_id", a)
+		.eq("player_b_id", b)
 		.maybeSingle();
 
+	// 3️⃣ If not found, try B vs A
+	if (!bracket) {
+		const res = await supabase
+			.from("tournament_brackets")
+			.select("id, match_id")
+			.eq("tournament_id", tournamentId)
+			.eq("completed", false)
+			.eq("player_a_id", b)
+			.eq("player_b_id", a)
+			.maybeSingle();
+
+		bracket = res.data;
+	}
+
+	// 4️⃣ Must exist and not already locked
 	if (!bracket || bracket.match_id) return null;
+
 	return bracket.id;
 }
 
