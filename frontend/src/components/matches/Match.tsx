@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import type { MatchesRow, PlayersRow, GroupsRow } from "@/types/database";
 
-/* ---------- Elo helpers ---------- */
+//Elo helpers
 function expectedScore(rA: number, rB: number) {
 	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
@@ -39,7 +39,7 @@ export default function Match() {
 	const [createdByName, setCreatedByName] = useState<string>("Unknown");
 	const [loading, setLoading] = useState(true);
 
-	/* ---------- Load match ---------- */
+	//Load match
 	useEffect(() => {
 		const loadMatch = async () => {
 			const { data, error } = await supabase
@@ -60,7 +60,7 @@ export default function Match() {
 		loadMatch();
 	}, [id, router]);
 
-	/* ---------- Load meta ---------- */
+	//Meta
 	useEffect(() => {
 		if (!match) return;
 
@@ -116,7 +116,7 @@ export default function Match() {
 		loadMeta();
 	}, [match]);
 
-	/* ---------- Helpers ---------- */
+	//Helpers
 	const eloAfter = (before?: number | null, change?: number | null) =>
 		before != null && change != null ? before + change : null;
 
@@ -138,7 +138,7 @@ export default function Match() {
 		);
 	}, [match]);
 
-	/* ---------- Win probability ---------- */
+	//Win probability
 	const winChance = useMemo(() => {
 		if (!match) return null;
 
@@ -160,7 +160,7 @@ export default function Match() {
 		};
 	}, [match]);
 
-	/* ---------- Elo / Point (Singles + Doubles) ---------- */
+	//Elo / Point
 	const eloPerPoint = useMemo(() => {
 		if (!match) return null;
 
@@ -201,7 +201,7 @@ export default function Match() {
 			{/* STATS BAR */}
 			<section className="grid grid-cols-3 gap-4 text-center">
 				<Stat label="Winner" value={teamAWon ? "Team A" : "Team B"} />
-				<Stat label="Match #" value={match.match_number} />
+				<Stat label="Match" value={match.match_number} />
 				<Stat label="Elo / Point" value={eloPerPoint ?? "-"} />
 			</section>
 
@@ -365,7 +365,6 @@ export default function Match() {
 	);
 }
 
-/* ---------- STAT COMPONENT ---------- */
 function Stat({ label, value }: { label: string; value: number | string }) {
 	return (
 		<div className="text-center">
