@@ -3,13 +3,11 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-// Only singles tournaments exist now
 type Tournament = {
 	id: string;
 	tournament_name: string;
 	started: boolean;
 	completed: boolean;
-	match_type: "singles";
 	start_date: string;
 };
 
@@ -76,7 +74,6 @@ export default function Tournaments() {
 									{t.tournament_name}
 								</h2>
 								<p className="text-sm text-gray-400">
-									{t.match_type.toUpperCase()} ·{" "}
 									{t.completed
 										? "Completed"
 										: t.started
@@ -86,7 +83,11 @@ export default function Tournaments() {
 							</div>
 
 							<span className="text-sm text-gray-500">
-								{new Date(t.start_date).toLocaleDateString()}
+								{t.start_date
+									? new Date(
+											t.start_date
+										).toLocaleDateString()
+									: "No date"}
 							</span>
 						</div>
 					</a>
