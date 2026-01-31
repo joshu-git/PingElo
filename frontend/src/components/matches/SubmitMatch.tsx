@@ -104,13 +104,11 @@ export default function SubmitMatch() {
 				if (data) setPlayers(data);
 			});
 
-		const today = new Date().toISOString();
-
 		supabase
 			.from("tournaments")
-			.select("*")
-			.lte("start_date", today)
-			.gte("end_date", today)
+			.select("id, tournament_name")
+			.eq("started", true)
+			.eq("completed", false)
 			.then(({ data }) => {
 				if (data) setTournaments(data);
 			});
