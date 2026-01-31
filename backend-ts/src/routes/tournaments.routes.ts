@@ -8,7 +8,7 @@ import { requireAdmin } from "../middleware/requireAdmin.js";
 import {
 	createTournament,
 	signupPlayer,
-	generateBrackets,
+	generateFirstRound,
 } from "../services/tournaments.services.js";
 
 const router = Router();
@@ -18,17 +18,16 @@ const router = Router();
  */
 router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 	try {
-		const { tournament_name, start_date, match_type } = req.body;
+		const { tournament_name, start_date } = req.body;
 
-		if (!tournament_name || !start_date || !match_type) {
+		if (!tournament_name || !start_date) {
 			return res.status(400).json({ error: "Missing required fields" });
 		}
 
 		const tournament = await createTournament(
 			tournament_name,
 			req.user!.id,
-			start_date,
-			match_type
+			start_date
 		);
 
 		res.status(201).json(tournament);
@@ -50,8 +49,8 @@ router.post("/signup", requireAuth, async (req: AuthenticatedRequest, res) => {
 				.json({ error: "Missing tournament or player" });
 		}
 
-		const signup = await signupPlayer(tournament_id, player_id);
-		res.status(201).json(signup);
+		await signupPlayer(tournament_id, player_id);
+		res.status(201).json({ success: true });
 	} catch (err: any) {
 		res.status(400).json({ error: err.message });
 	}
@@ -71,8 +70,8 @@ router.post(
 				return res.status(400).json({ error: "Missing tournament_id" });
 			}
 
-			const brackets = await generateBrackets(tournament_id);
-			res.status(201).json(brackets);
+			await generateFirstRound(tournament_id);
+			res.status(201).json({ success: true });
 		} catch (err: any) {
 			res.status(400).json({ error: err.message });
 		}

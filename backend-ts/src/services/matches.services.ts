@@ -1,10 +1,14 @@
 import { supabase } from "../libs/supabase.js";
 import {
 	validateTournamentMatch,
+	lockBracket,
 	advanceBracketRound,
 } from "./tournaments.services.js";
 
-//elo config
+/* ============================================================
+   ELO LOGIC (UNCHANGED)
+   ============================================================ */
+
 const BASE_K = 50;
 const IDEAL_POINTS = 7;
 
@@ -18,7 +22,7 @@ function effectiveK(scoreA: number, scoreB: number, gamePoints: number) {
 	return BASE_K * diff * length;
 }
 
-export function calculateElo(
+function calculateElo(
 	rA: number,
 	rB: number,
 	scoreA: number,
@@ -28,7 +32,6 @@ export function calculateElo(
 ) {
 	const winner = scoreA > scoreB ? "A" : "B";
 
-	// Tournament: guaranteed ±25 Elo
 	if (isTournament) {
 		return {
 			winner,
@@ -37,7 +40,6 @@ export function calculateElo(
 		};
 	}
 
-	// Casual match: normal Elo
 	const actualA = winner === "A" ? 1 : 0;
 	const expectedA = expectedScore(rA, rB);
 	const k = effectiveK(scoreA, scoreB, gamePoints);
@@ -50,7 +52,10 @@ export function calculateElo(
 	};
 }
 
-//match number
+/* ============================================================
+   MATCH NUMBER
+   ============================================================ */
+
 async function getNextMatchNumber() {
 	const { data } = await supabase
 		.from("matches")
@@ -62,7 +67,10 @@ async function getNextMatchNumber() {
 	return (data?.match_number ?? 0) + 1;
 }
 
-//singles
+/* ============================================================
+   CREATE SINGLES MATCH
+   ============================================================ */
+
 export async function createSinglesMatch(
 	userId: string,
 	playerAId: string,
@@ -76,15 +84,18 @@ export async function createSinglesMatch(
 ) {
 	let bracketId: string | null = null;
 
-	// Only handle tournament logic if tournamentId exists
 	if (tournamentId) {
 		bracketId = await validateTournamentMatch(
 			tournamentId,
 			[playerAId],
 			[playerBId]
 		);
-		if (!bracketId)
-			throw new Error("Match not allowed in this tournament round");
+		if (!bracketId) {
+			throw new Error("Match not allowed in this tournament");
+		}
+
+		// lock bracket to prevent double submit
+		await lockBracket(bracketId);
 	}
 
 	const elo = calculateElo(
@@ -131,14 +142,20 @@ export async function createSinglesMatch(
 		.update({ singles_elo: ratingB + elo.eloChangeB })
 		.eq("id", playerBId);
 
-	// Advance bracket only for tournament matches
-	if (tournamentId) {
-		if (bracketId) {
-			await advanceBracketRound(tournamentId, bracketId);
-		}
+	if (tournamentId && bracketId) {
+		await supabase
+			.from("tournament_brackets")
+			.update({
+				match_id: match.id,
+				winner_id: winnerId,
+				completed: true,
+			})
+			.eq("id", bracketId);
+
+		await advanceBracketRound(tournamentId, bracketId);
 	}
 
-	return { match, eloData: elo };
+	return { match, elo };
 }
 
 //doubles
@@ -153,18 +170,6 @@ export async function createDoublesMatch(
 	gamePoints: number,
 	tournamentId?: string | null
 ) {
-	let bracketId: string | null = null;
-
-	if (tournamentId) {
-		bracketId = await validateTournamentMatch(
-			tournamentId,
-			[a1, a2],
-			[b1, b2]
-		);
-		if (!bracketId)
-			throw new Error("Match not allowed in this tournament round");
-	}
-
 	const teamARating = (a1.doubles_elo + a2.doubles_elo) / 2;
 	const teamBRating = (b1.doubles_elo + b2.doubles_elo) / 2;
 
@@ -201,8 +206,6 @@ export async function createDoublesMatch(
 			elo_before_a2: a2.doubles_elo,
 			elo_before_b1: b1.doubles_elo,
 			elo_before_b2: b2.doubles_elo,
-			tournament_id: tournamentId ?? null,
-			bracket_id: bracketId,
 		})
 		.select()
 		.single();
@@ -219,13 +222,6 @@ export async function createDoublesMatch(
 			.from("players")
 			.update({ doubles_elo: p.doubles_elo + elo.eloChangeB })
 			.eq("id", p.id);
-	}
-
-	// Advance bracket only for tournament matches
-	if (tournamentId) {
-		if (bracketId) {
-			await advanceBracketRound(tournamentId, bracketId);
-		}
 	}
 
 	return { match, eloData: elo };
