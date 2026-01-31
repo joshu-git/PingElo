@@ -3,28 +3,41 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+// Only singles tournaments exist now
 type Tournament = {
 	id: string;
 	tournament_name: string;
 	started: boolean;
 	completed: boolean;
-	match_type: "singles" | "doubles";
+	match_type: "singles";
 	start_date: string;
 };
 
 export default function Tournaments() {
 	const [tournaments, setTournaments] = useState<Tournament[]>([]);
-	const [loading, setLoading] = useState(true);
+	const [loading, setLoading] = useState<boolean>(true);
+	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
-		async function fetchTournaments() {
-			const { data, error } = await supabase
-				.from("tournaments")
-				.select("*")
-				.order("created_at", { ascending: false });
+		async function fetchTournaments(): Promise<void> {
+			try {
+				const { data, error } = await supabase
+					.from("tournaments")
+					.select("*")
+					.order("created_at", { ascending: false });
 
-			if (!error && data) setTournaments(data);
-			setLoading(false);
+				if (error) {
+					setError(error.message);
+					return;
+				}
+
+				if (data) setTournaments(data);
+			} catch (err: unknown) {
+				if (err instanceof Error) setError(err.message);
+				else setError("Failed to fetch tournaments");
+			} finally {
+				setLoading(false);
+			}
 		}
 
 		fetchTournaments();
@@ -34,9 +47,21 @@ export default function Tournaments() {
 		return <div className="p-6 text-gray-400">Loading tournaments...</div>;
 	}
 
+	if (error) {
+		return (
+			<div className="p-6 text-red-500">
+				Error loading tournaments: {error}
+			</div>
+		);
+	}
+
 	return (
 		<div className="p-6 max-w-5xl mx-auto">
 			<h1 className="text-3xl font-bold mb-6">Tournaments</h1>
+
+			{tournaments.length === 0 && (
+				<p className="text-gray-400">No tournaments yet.</p>
+			)}
 
 			<div className="space-y-4">
 				{tournaments.map((t) => (
@@ -55,8 +80,8 @@ export default function Tournaments() {
 									{t.completed
 										? "Completed"
 										: t.started
-										? "In Progress"
-										: "Upcoming"}
+											? "In Progress"
+											: "Upcoming"}
 								</p>
 							</div>
 
