@@ -11,6 +11,23 @@ function expectedScore(rA: number, rB: number) {
 	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
 
+const averageElo = (...elos: (number | null | undefined)[]) => {
+	const valid = elos.filter((e): e is number => e != null);
+	return valid.length
+		? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length)
+		: 0;
+};
+
+type TeamPlayer = { id: string; before?: number | null };
+
+const buildTeam = (
+	ids: (string | null | undefined)[],
+	elos: (number | null | undefined)[]
+): TeamPlayer[] =>
+	ids
+		.map((id, i) => (id ? { id, before: elos[i] } : null))
+		.filter(Boolean) as TeamPlayer[];
+
 export default function Match() {
 	const { id } = useParams<{ id: string }>();
 	const router = useRouter();
@@ -43,12 +60,11 @@ export default function Match() {
 		loadMatch();
 	}, [id, router]);
 
-	/* ---------- Load players, group, tournament, creator ---------- */
+	/* ---------- Load meta ---------- */
 	useEffect(() => {
 		if (!match) return;
 
 		const loadMeta = async () => {
-			/* Players */
 			const playerIds = [
 				match.player_a1_id,
 				match.player_a2_id,
@@ -56,15 +72,31 @@ export default function Match() {
 				match.player_b2_id,
 			].filter(Boolean) as string[];
 
-			const { data: playerData } = await supabase
-				.from("players")
-				.select("*")
-				.in("id", playerIds);
+			const [
+				{ data: playerData },
+				{ data: tournamentData },
+				{ data: creator },
+			] = await Promise.all([
+				supabase.from("players").select("*").in("id", playerIds),
+				match.tournament_id
+					? supabase
+							.from("tournaments")
+							.select("tournament_name")
+							.eq("id", match.tournament_id)
+							.single()
+					: Promise.resolve({ data: null }),
+				match.created_by
+					? supabase
+							.from("players")
+							.select("player_name")
+							.eq("account_id", match.created_by)
+							.single()
+					: Promise.resolve({ data: null }),
+			]);
 
 			if (playerData)
 				setPlayers(new Map(playerData.map((p) => [p.id, p])));
 
-			/* Group */
 			const firstPlayer = playerData?.[0];
 			if (firstPlayer?.group_id) {
 				const { data: groupData } = await supabase
@@ -75,26 +107,10 @@ export default function Match() {
 				if (groupData) setGroup(groupData);
 			}
 
-			/* Tournament */
-			if (match.tournament_id) {
-				const { data: tournamentData } = await supabase
-					.from("tournaments")
-					.select("tournament_name")
-					.eq("id", match.tournament_id)
-					.single();
-				if (tournamentData?.tournament_name)
-					setTournamentName(tournamentData.tournament_name);
-			}
+			if (tournamentData?.tournament_name)
+				setTournamentName(tournamentData.tournament_name);
 
-			if (match.created_by) {
-				const { data: creator } = await supabase
-					.from("players")
-					.select("player_name")
-					.eq("account_id", match.created_by)
-					.single();
-
-				if (creator?.player_name) setCreatedByName(creator.player_name);
-			}
+			if (creator?.player_name) setCreatedByName(creator.player_name);
 		};
 
 		loadMeta();
@@ -108,24 +124,18 @@ export default function Match() {
 
 	const teamA = useMemo(() => {
 		if (!match) return [];
-		return [
-			{ id: match.player_a1_id, before: match.elo_before_a1 },
-			match.player_a2_id && {
-				id: match.player_a2_id,
-				before: match.elo_before_a2,
-			},
-		].filter(Boolean) as { id: string; before?: number | null }[];
+		return buildTeam(
+			[match.player_a1_id, match.player_a2_id],
+			[match.elo_before_a1, match.elo_before_a2]
+		);
 	}, [match]);
 
 	const teamB = useMemo(() => {
 		if (!match) return [];
-		return [
-			{ id: match.player_b1_id, before: match.elo_before_b1 },
-			match.player_b2_id && {
-				id: match.player_b2_id,
-				before: match.elo_before_b2,
-			},
-		].filter(Boolean) as { id: string; before?: number | null }[];
+		return buildTeam(
+			[match.player_b1_id, match.player_b2_id],
+			[match.elo_before_b1, match.elo_before_b2]
+		);
 	}, [match]);
 
 	/* ---------- Win probability ---------- */
@@ -134,21 +144,13 @@ export default function Match() {
 
 		const teamAElo =
 			match.match_type === "singles"
-				? match.elo_before_a1
-				: Math.round(
-						((match.elo_before_a1 ?? 0) +
-							(match.elo_before_a2 ?? 0)) /
-							2
-				  );
+				? (match.elo_before_a1 ?? 0)
+				: averageElo(match.elo_before_a1, match.elo_before_a2);
 
 		const teamBElo =
 			match.match_type === "singles"
-				? match.elo_before_b1
-				: Math.round(
-						((match.elo_before_b1 ?? 0) +
-							(match.elo_before_b2 ?? 0)) /
-							2
-				  );
+				? (match.elo_before_b1 ?? 0)
+				: averageElo(match.elo_before_b1, match.elo_before_b2);
 
 		const a = expectedScore(teamAElo, teamBElo);
 
@@ -157,6 +159,23 @@ export default function Match() {
 			b: Math.round((1 - a) * 100),
 		};
 	}, [match]);
+
+	/* ---------- Elo / Point (Singles + Doubles) ---------- */
+	const eloPerPoint = useMemo(() => {
+		if (!match) return null;
+
+		const scoreDiff = Math.abs(match.score_a - match.score_b);
+		if (scoreDiff === 0) return null;
+
+		const winnerEloGain = teamAWon
+			? match.elo_change_a
+			: match.elo_change_b;
+
+		if (winnerEloGain == null) return null;
+
+		// Same formula works for singles and doubles
+		return (winnerEloGain / scoreDiff).toFixed(2);
+	}, [match, teamAWon]);
 
 	if (loading || !match) {
 		return (
@@ -183,10 +202,7 @@ export default function Match() {
 			<section className="grid grid-cols-3 gap-4 text-center">
 				<Stat label="Winner" value={teamAWon ? "Team A" : "Team B"} />
 				<Stat label="Match #" value={match.match_number} />
-				<Stat
-					label="Tournament"
-					value={match.tournament_id ? "Yes" : "No"}
-				/>
+				<Stat label="Elo / Point" value={eloPerPoint ?? "-"} />
 			</section>
 
 			{/* WIN PROBABILITY */}
