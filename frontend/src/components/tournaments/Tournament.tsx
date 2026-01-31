@@ -10,9 +10,9 @@ type Tournament = {
 	id: string;
 	tournament_name: string;
 	created_by: string;
-	match_type: "singles" | "doubles";
 	started: boolean;
 	completed: boolean;
+	start_date: string | null;
 };
 
 type Player = {
@@ -26,17 +26,14 @@ type BracketRowDB = {
 	round: number;
 	bracket_number: number;
 	player_a1_id: string | null;
-	player_a2_id: string | null;
 	player_b1_id: string | null;
-	player_b2_id: string | null;
 	completed: boolean;
+	match_id?: string | null;
 };
 
 type BracketRow = BracketRowDB & {
-	players_a1?: Player | null;
-	players_a2?: Player | null;
-	players_b1?: Player | null;
-	players_b2?: Player | null;
+	player_a?: Player | null;
+	player_b?: Player | null;
 };
 
 /* -------------------- COMPONENT -------------------- */
@@ -47,10 +44,8 @@ export default function TournamentPage() {
 	const [tournament, setTournament] = useState<Tournament | null>(null);
 	const [signups, setSignups] = useState<Player[]>([]);
 	const [brackets, setBrackets] = useState<BracketRow[]>([]);
-
 	const [authUserId, setAuthUserId] = useState<string | null>(null);
 	const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
-
 	const [loading, setLoading] = useState(true);
 	const [signingUp, setSigningUp] = useState(false);
 	const [starting, setStarting] = useState(false);
@@ -76,20 +71,20 @@ export default function TournamentPage() {
 		loadUser();
 	}, []);
 
-	/* -------------------- LOAD TOURNAMENT -------------------- */
+	/* -------------------- LOAD TOURNAMENT, SIGNUPS & BRACKETS -------------------- */
 	const loadTournament = useCallback(async () => {
 		setLoading(true);
 		try {
+			// Tournament info
 			const { data: t } = await supabase
 				.from("tournaments")
 				.select("*")
 				.eq("id", tournamentId)
 				.single();
-
 			if (!t) throw new Error("Tournament not found");
 			setTournament(t);
 
-			// SIGNUPS
+			// Signups (only if tournament hasn't started)
 			if (!t.started) {
 				const { data: rows } = await supabase
 					.from("tournament_signups")
@@ -110,7 +105,7 @@ export default function TournamentPage() {
 				}
 			}
 
-			// BRACKETS
+			// Brackets (only for started tournaments)
 			const { data: rawBrackets } = await supabase
 				.from("tournament_brackets")
 				.select("*")
@@ -120,47 +115,36 @@ export default function TournamentPage() {
 
 			const list = rawBrackets ?? [];
 
+			// Get all player IDs in brackets
 			const playerIds = Array.from(
 				new Set(
 					list
-						.flatMap((b) => [
-							b.player_a1_id,
-							b.player_a2_id,
-							b.player_b1_id,
-							b.player_b2_id,
-						])
+						.flatMap((b) => [b.player_a1_id, b.player_b1_id])
 						.filter(Boolean) as string[]
 				)
 			);
 
+			const playerMap = new Map<string, Player>();
 			if (playerIds.length) {
 				const { data: players } = await supabase
 					.from("players")
-					.select("id, player_name")
+					.select("id, player_name, account_id")
 					.in("id", playerIds);
-
-				const map = new Map(players?.map((p) => [p.id, p]) ?? []);
-
-				setBrackets(
-					list.map((b) => ({
-						...b,
-						players_a1: b.player_a1_id
-							? map.get(b.player_a1_id) ?? null
-							: null,
-						players_a2: b.player_a2_id
-							? map.get(b.player_a2_id) ?? null
-							: null,
-						players_b1: b.player_b1_id
-							? map.get(b.player_b1_id) ?? null
-							: null,
-						players_b2: b.player_b2_id
-							? map.get(b.player_b2_id) ?? null
-							: null,
-					}))
-				);
-			} else {
-				setBrackets([]);
+				(players ?? []).forEach((p) => playerMap.set(p.id, p));
 			}
+
+			// Map players into bracket rows
+			setBrackets(
+				list.map((b) => ({
+					...b,
+					player_a: b.player_a1_id
+						? (playerMap.get(b.player_a1_id) ?? null)
+						: null,
+					player_b: b.player_b1_id
+						? (playerMap.get(b.player_b1_id) ?? null)
+						: null,
+				}))
+			);
 		} finally {
 			setLoading(false);
 		}
@@ -177,13 +161,10 @@ export default function TournamentPage() {
 	}
 
 	const isOwner = authUserId === tournament.created_by;
-
 	const isSignedUp =
 		!!currentPlayer && signups.some((p) => p.id === currentPlayer.id);
-
 	const signupDisabled =
 		!currentPlayer || tournament.started || isSignedUp || signingUp;
-
 	const canStart = isOwner && !tournament.started && signups.length > 1;
 
 	/* -------------------- ACTIONS -------------------- */
@@ -260,30 +241,74 @@ export default function TournamentPage() {
 					{tournament.tournament_name}
 				</h1>
 
-				<button
-					onClick={startTournament}
-					disabled={!canStart || starting}
-					className={`px-5 py-2 rounded font-semibold ${
-						canStart
-							? "bg-white text-black"
-							: "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-					}`}
-				>
-					{starting ? "Starting…" : "Start Tournament"}
-				</button>
+				{!tournament.started && (
+					<button
+						onClick={startTournament}
+						disabled={!canStart || starting}
+						className={`px-5 py-2 rounded font-semibold ${
+							canStart
+								? "bg-white text-black"
+								: "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+						}`}
+					>
+						{starting ? "Starting…" : "Start Tournament"}
+					</button>
+				)}
 			</div>
 
-			<button
-				onClick={signup}
-				disabled={signupDisabled}
-				className={`px-5 py-2 rounded font-semibold ${
-					signupDisabled
-						? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-						: "bg-green-500 text-black"
-				}`}
-			>
-				{isSignedUp ? "Signed Up" : "Sign Up"}
-			</button>
+			{/* SIGNUP */}
+			{!tournament.started && (
+				<button
+					onClick={signup}
+					disabled={signupDisabled}
+					className={`px-5 py-2 rounded font-semibold ${
+						signupDisabled
+							? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
+							: "bg-green-500 text-black"
+					}`}
+				>
+					{isSignedUp ? "Signed Up" : "Sign Up"}
+				</button>
+			)}
+
+			{/* SIGNUPS LIST */}
+			{!tournament.started && (
+				<div className="mt-6">
+					<h2 className="text-xl font-semibold mb-2">Signups</h2>
+					<ul className="list-disc list-inside">
+						{signups.map((p) => (
+							<li key={p.id}>{p.player_name}</li>
+						))}
+					</ul>
+				</div>
+			)}
+
+			{/* BRACKETS */}
+			{tournament.started && (
+				<div className="mt-6 space-y-6">
+					<h2 className="text-xl font-semibold mb-2">Brackets</h2>
+					{brackets.length === 0 && <p>No brackets yet</p>}
+					{brackets.map((b) => (
+						<div
+							key={b.id}
+							className="border border-white/10 rounded p-3 flex justify-between items-center"
+						>
+							<div>
+								<p className="text-sm text-gray-400">
+									Round {b.round} · Bracket {b.bracket_number}
+								</p>
+								<p>
+									<b>{b.player_a?.player_name ?? "TBD"}</b> vs{" "}
+									<b>{b.player_b?.player_name ?? "TBD"}</b>
+								</p>
+								<p className="text-xs text-gray-500">
+									{b.completed ? "Completed" : "Pending"}
+								</p>
+							</div>
+						</div>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }
