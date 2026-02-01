@@ -258,6 +258,11 @@ export default function Leaderboard() {
 					>
 						Doubles
 					</button>
+					<Link href="/matches/submit">
+						<button className="px-4 py-2 rounded-lg">
+							Submit Match
+						</button>
+					</Link>
 				</div>
 
 				<div className="flex gap-2">
