@@ -99,41 +99,47 @@ export default function Tournaments() {
 			</section>
 
 			{/* CONTROLS */}
-			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-				{/* Left side: Create Tournament button */}
-				<div className="flex justify-center sm:justify-start flex-wrap gap-2">
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				{/* Left group: Create Tournament + All */}
+				<div className="flex flex-wrap justify-center gap-2">
 					<Link href="/tournaments/create">
-						<button className="px-4 py-2 rounded-lg flex-none whitespace-nowrap">
-							Create
+						<button className="px-4 py-2 rounded-lg">
+							Create Tournament
 						</button>
 					</Link>
+
+					<button
+						onClick={() => setFilter("all")}
+						className={`px-4 py-2 rounded-lg ${
+							filter === "all" ? "font-semibold underline" : ""
+						}`}
+					>
+						All
+					</button>
 				</div>
 
-				{/* Right side: Filters */}
-				<div className="flex flex-wrap justify-center sm:justify-end gap-2">
-					{["all", "upcoming", "in_progress", "completed"].map(
-						(value) => {
-							const labels: Record<string, string> = {
-								all: "All",
-								upcoming: "Upcoming",
-								in_progress: "In Progress",
-								completed: "Completed",
-							};
-							return (
-								<button
-									key={value}
-									onClick={() => setFilter(value as Filter)}
-									className={`px-4 py-2 rounded-lg flex-none whitespace-nowrap ${
-										filter === value
-											? "font-semibold underline"
-											: ""
-									}`}
-								>
-									{labels[value]}
-								</button>
-							);
-						}
-					)}
+				{/* Right group: Upcoming / In Progress / Completed */}
+				<div className="flex flex-wrap justify-center gap-2">
+					{["upcoming", "in_progress", "completed"].map((value) => {
+						const labels: Record<string, string> = {
+							upcoming: "Upcoming",
+							in_progress: "In Progress",
+							completed: "Completed",
+						};
+						return (
+							<button
+								key={value}
+								onClick={() => setFilter(value as Filter)}
+								className={`px-4 py-2 rounded-lg ${
+									filter === value
+										? "font-semibold underline"
+										: ""
+								}`}
+							>
+								{labels[value]}
+							</button>
+						);
+					})}
 				</div>
 			</div>
 
