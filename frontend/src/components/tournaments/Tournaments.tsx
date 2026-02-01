@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 type Tournament = {
@@ -11,10 +12,13 @@ type Tournament = {
 	start_date: string;
 };
 
+type Filter = "all" | "upcoming" | "in_progress" | "completed";
+
 export default function Tournaments() {
 	const [tournaments, setTournaments] = useState<Tournament[]>([]);
 	const [loading, setLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
+	const [filter, setFilter] = useState<Filter>("all");
 
 	useEffect(() => {
 		async function fetchTournaments(): Promise<void> {
@@ -41,58 +45,120 @@ export default function Tournaments() {
 		fetchTournaments();
 	}, []);
 
+	const filteredTournaments = useMemo(() => {
+		switch (filter) {
+			case "upcoming":
+				return tournaments.filter((t) => !t.started && !t.completed);
+			case "in_progress":
+				return tournaments.filter((t) => t.started && !t.completed);
+			case "completed":
+				return tournaments.filter((t) => t.completed);
+			default:
+				return tournaments;
+		}
+	}, [tournaments, filter]);
+
 	if (loading) {
-		return <div className="p-6 text-gray-400">Loading tournaments...</div>;
+		return (
+			<div className="max-w-5xl mx-auto px-4 py-16 text-text-muted">
+				Loading tournaments…
+			</div>
+		);
 	}
 
 	if (error) {
 		return (
-			<div className="p-6 text-red-500">
+			<div className="max-w-5xl mx-auto px-4 py-16 text-red-500">
 				Error loading tournaments: {error}
 			</div>
 		);
 	}
 
 	return (
-		<div className="p-6 max-w-5xl mx-auto">
-			<h1 className="text-3xl font-bold mb-6">Tournaments</h1>
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-10">
+			{/* HEADER */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold">
+					Tournaments
+				</h1>
+				<p className="text-text-muted">
+					Singles tournaments and their current status.
+				</p>
+			</section>
 
-			{tournaments.length === 0 && (
-				<p className="text-gray-400">No tournaments yet.</p>
-			)}
+			{/* CONTROLS */}
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-wrap justify-center gap-2">
+					{[
+						["all", "All"],
+						["upcoming", "Upcoming"],
+						["in_progress", "In Progress"],
+						["completed", "Completed"],
+					].map(([value, label]) => (
+						<button
+							key={value}
+							onClick={() => setFilter(value as Filter)}
+							className={`px-4 py-2 rounded-lg ${
+								filter === value
+									? "font-semibold underline"
+									: ""
+							}`}
+						>
+							{label}
+						</button>
+					))}
+				</div>
 
-			<div className="space-y-4">
-				{tournaments.map((t) => (
-					<a
-						key={t.id}
-						href={`/tournaments/${t.id}`}
-						className="block rounded-xl border border-white/10 p-4 hover:bg-white/5 transition"
-					>
-						<div className="flex justify-between items-center">
-							<div>
-								<h2 className="text-xl font-semibold">
-									{t.tournament_name}
-								</h2>
-								<p className="text-sm text-gray-400">
-									{t.completed
-										? "Completed"
-										: t.started
-											? "In Progress"
-											: "Upcoming"}
-								</p>
-							</div>
-
-							<span className="text-sm text-gray-500">
-								{t.start_date
-									? new Date(
-											t.start_date
-										).toLocaleDateString()
-									: "No date"}
-							</span>
-						</div>
-					</a>
-				))}
+				<Link href="/tournaments/create">
+					<button className="px-4 py-2 rounded-lg">
+						Create Tournament
+					</button>
+				</Link>
 			</div>
-		</div>
+
+			{/* TOURNAMENT LIST */}
+			<section className="space-y-3">
+				{filteredTournaments.length === 0 && (
+					<p className="text-center text-text-muted py-8">
+						No tournaments found.
+					</p>
+				)}
+
+				{filteredTournaments.map((t) => {
+					const statusLabel = t.completed
+						? "Completed"
+						: t.started
+							? "In Progress"
+							: "Upcoming";
+
+					return (
+						<Link
+							key={t.id}
+							href={`/tournaments/${t.id}`}
+							className="block bg-card p-4 rounded-xl hover-card"
+						>
+							<div className="flex justify-between items-center gap-6">
+								<div className="space-y-1">
+									<h2 className="text-lg font-semibold">
+										{t.tournament_name}
+									</h2>
+									<p className="text-sm text-text-muted">
+										{statusLabel}
+									</p>
+								</div>
+
+								<div className="text-sm text-text-muted text-right shrink-0">
+									{t.start_date
+										? new Date(
+												t.start_date
+											).toLocaleDateString()
+										: "No date"}
+								</div>
+							</div>
+						</Link>
+					);
+				})}
+			</section>
+		</main>
 	);
 }
