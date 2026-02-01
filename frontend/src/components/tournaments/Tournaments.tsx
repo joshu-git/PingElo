@@ -99,16 +99,18 @@ export default function Tournaments() {
 			</section>
 
 			{/* CONTROLS */}
-			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				{/* Create Tournament Button on the LEFT */}
-				<Link href="/tournaments/create">
-					<button className="px-4 py-2 rounded-lg">
-						Create Tournament
-					</button>
-				</Link>
+			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+				{/* Left side: Create Tournament button */}
+				<div className="flex justify-center sm:justify-start">
+					<Link href="/tournaments/create">
+						<button className="px-4 py-2 rounded-lg">
+							Create Tournament
+						</button>
+					</Link>
+				</div>
 
-				{/* Filters on the RIGHT */}
-				<div className="flex flex-wrap justify-center gap-2">
+				{/* Right side: Filters */}
+				<div className="flex flex-wrap justify-center sm:justify-end gap-2">
 					{["all", "upcoming", "in_progress", "completed"].map(
 						(value) => {
 							const labels: Record<string, string> = {
