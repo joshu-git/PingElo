@@ -46,36 +46,32 @@ export default function Tournaments() {
 	}, []);
 
 	const filteredTournaments = useMemo(() => {
+		let filtered = tournaments;
+
 		switch (filter) {
 			case "upcoming":
-				return tournaments.filter((t) => !t.started && !t.completed);
+				filtered = tournaments.filter(
+					(t) => !t.started && !t.completed
+				);
+				break;
 			case "in_progress":
-				return tournaments.filter((t) => t.started && !t.completed);
+				filtered = tournaments.filter((t) => t.started && !t.completed);
+				break;
 			case "completed":
-				return tournaments.filter((t) => t.completed);
-			default:
-				return tournaments;
+				filtered = tournaments.filter((t) => t.completed);
+				break;
 		}
+
+		// Always sort by date (newest first)
+		return [...filtered].sort((a, b) => {
+			const da = a.start_date ? new Date(a.start_date).getTime() : 0;
+			const db = b.start_date ? new Date(b.start_date).getTime() : 0;
+			return db - da;
+		});
 	}, [tournaments, filter]);
 
-	if (loading) {
-		return (
-			<div className="max-w-5xl mx-auto px-4 py-16 text-text-muted">
-				Loading tournaments…
-			</div>
-		);
-	}
-
-	if (error) {
-		return (
-			<div className="max-w-5xl mx-auto px-4 py-16 text-red-500">
-				Error loading tournaments: {error}
-			</div>
-		);
-	}
-
 	return (
-		<main className="max-w-5xl mx-auto px-4 py-16 space-y-10">
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* HEADER */}
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold">
@@ -89,24 +85,44 @@ export default function Tournaments() {
 			{/* CONTROLS */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 				<div className="flex flex-wrap justify-center gap-2">
-					{[
-						["all", "All"],
-						["upcoming", "Upcoming"],
-						["in_progress", "In Progress"],
-						["completed", "Completed"],
-					].map(([value, label]) => (
-						<button
-							key={value}
-							onClick={() => setFilter(value as Filter)}
-							className={`px-4 py-2 rounded-lg ${
-								filter === value
-									? "font-semibold underline"
-									: ""
-							}`}
-						>
-							{label}
-						</button>
-					))}
+					<button
+						onClick={() => setFilter("all")}
+						className={`px-4 py-2 rounded-lg ${
+							filter === "all" ? "font-semibold underline" : ""
+						}`}
+					>
+						All
+					</button>
+					<button
+						onClick={() => setFilter("upcoming")}
+						className={`px-4 py-2 rounded-lg ${
+							filter === "upcoming"
+								? "font-semibold underline"
+								: ""
+						}`}
+					>
+						Upcoming
+					</button>
+					<button
+						onClick={() => setFilter("in_progress")}
+						className={`px-4 py-2 rounded-lg ${
+							filter === "in_progress"
+								? "font-semibold underline"
+								: ""
+						}`}
+					>
+						In Progress
+					</button>
+					<button
+						onClick={() => setFilter("completed")}
+						className={`px-4 py-2 rounded-lg ${
+							filter === "completed"
+								? "font-semibold underline"
+								: ""
+						}`}
+					>
+						Completed
+					</button>
 				</div>
 
 				<Link href="/tournaments/create">
@@ -116,16 +132,22 @@ export default function Tournaments() {
 				</Link>
 			</div>
 
-			{/* TOURNAMENT LIST */}
+			{/* TOURNAMENT CARDS */}
 			<section className="space-y-3">
-				{filteredTournaments.length === 0 && (
-					<p className="text-center text-text-muted py-8">
+				{loading && (
+					<p className="text-center text-text-muted py-6">
+						Loading tournaments…
+					</p>
+				)}
+
+				{!loading && filteredTournaments.length === 0 && (
+					<p className="text-center text-text-muted py-6">
 						No tournaments found.
 					</p>
 				)}
 
 				{filteredTournaments.map((t) => {
-					const statusLabel = t.completed
+					const status = t.completed
 						? "Completed"
 						: t.started
 							? "In Progress"
@@ -143,7 +165,7 @@ export default function Tournaments() {
 										{t.tournament_name}
 									</h2>
 									<p className="text-sm text-text-muted">
-										{statusLabel}
+										{status}
 									</p>
 								</div>
 
@@ -158,6 +180,12 @@ export default function Tournaments() {
 						</Link>
 					);
 				})}
+
+				{error && (
+					<p className="text-center text-red-500 py-4">
+						Error loading tournaments: {error}
+					</p>
+				)}
 			</section>
 		</main>
 	);
