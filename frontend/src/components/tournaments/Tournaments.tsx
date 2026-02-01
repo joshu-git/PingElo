@@ -101,10 +101,10 @@ export default function Tournaments() {
 			{/* CONTROLS */}
 			<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
 				{/* Left side: Create Tournament button */}
-				<div className="flex justify-center sm:justify-start">
+				<div className="flex justify-center sm:justify-start flex-wrap gap-2">
 					<Link href="/tournaments/create">
-						<button className="px-4 py-2 rounded-lg">
-							Create Tournament
+						<button className="px-4 py-2 rounded-lg flex-none whitespace-nowrap">
+							Create
 						</button>
 					</Link>
 				</div>
@@ -123,7 +123,7 @@ export default function Tournaments() {
 								<button
 									key={value}
 									onClick={() => setFilter(value as Filter)}
-									className={`px-4 py-2 rounded-lg ${
+									className={`px-4 py-2 rounded-lg flex-none whitespace-nowrap ${
 										filter === value
 											? "font-semibold underline"
 											: ""

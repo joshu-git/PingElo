@@ -230,7 +230,7 @@ export default function Leaderboard() {
 				<h1 className="text-4xl md:text-5xl font-extrabold">
 					Leaderboard
 				</h1>
-				<p className="text-lg text-text-muted">
+				<p className="text-text-muted">
 					Rankings based on competitive Elo performance.
 				</p>
 			</section>
