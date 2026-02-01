@@ -10,6 +10,7 @@ type Tournament = {
 	started: boolean;
 	completed: boolean;
 	start_date: string;
+	tournament_description?: string | null;
 };
 
 type Filter = "all" | "upcoming" | "in_progress" | "completed";
@@ -25,7 +26,7 @@ export default function Tournaments() {
 			try {
 				const { data, error } = await supabase
 					.from("tournaments")
-					.select("*")
+					.select("*") // make sure tournament_description exists in your DB
 					.order("created_at", { ascending: false });
 
 				if (error) {
@@ -62,7 +63,7 @@ export default function Tournaments() {
 				break;
 		}
 
-		// Always sort by date (newest first)
+		// Always sort by start_date descending
 		return [...filtered].sort((a, b) => {
 			const da = a.start_date ? new Date(a.start_date).getTime() : 0;
 			const db = b.start_date ? new Date(b.start_date).getTime() : 0;
@@ -84,6 +85,14 @@ export default function Tournaments() {
 
 			{/* CONTROLS */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				{/* Create Tournament Button on the LEFT */}
+				<Link href="/tournaments/create">
+					<button className="px-4 py-2 rounded-lg">
+						Create Tournament
+					</button>
+				</Link>
+
+				{/* Filters on the RIGHT */}
 				<div className="flex flex-wrap justify-center gap-2">
 					<button
 						onClick={() => setFilter("all")}
@@ -124,16 +133,10 @@ export default function Tournaments() {
 						Completed
 					</button>
 				</div>
-
-				<Link href="/tournaments/create">
-					<button className="px-4 py-2 rounded-lg">
-						Create Tournament
-					</button>
-				</Link>
 			</div>
 
 			{/* TOURNAMENT CARDS */}
-			<section className="space-y-3">
+			<section className="space-y-4">
 				{loading && (
 					<p className="text-center text-text-muted py-6">
 						Loading tournaments…
@@ -153,28 +156,31 @@ export default function Tournaments() {
 							? "In Progress"
 							: "Upcoming";
 
+					const description =
+						t.tournament_description?.trim() || "No Description";
+
 					return (
 						<Link
 							key={t.id}
 							href={`/tournaments/${t.id}`}
-							className="block bg-card p-4 rounded-xl hover-card"
+							className="block bg-card p-6 rounded-xl hover-card transition"
 						>
-							<div className="flex justify-between items-center gap-6">
-								<div className="space-y-1">
-									<h2 className="text-lg font-semibold">
-										{t.tournament_name}
-									</h2>
-									<p className="text-sm text-text-muted">
-										{status}
-									</p>
-								</div>
-
-								<div className="text-sm text-text-muted text-right shrink-0">
-									{t.start_date
-										? new Date(
-												t.start_date
-											).toLocaleDateString()
-										: "No date"}
+							<div className="flex flex-col gap-3">
+								<h2 className="text-lg font-semibold">
+									{t.tournament_name}
+								</h2>
+								<p className="text-text-subtle text-sm">
+									{description}
+								</p>
+								<div className="flex justify-between items-center text-sm text-text-muted">
+									<span>{status}</span>
+									<span>
+										{t.start_date
+											? new Date(
+													t.start_date
+												).toLocaleDateString()
+											: "No date"}
+									</span>
 								</div>
 							</div>
 						</Link>
