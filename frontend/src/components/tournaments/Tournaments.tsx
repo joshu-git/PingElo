@@ -172,55 +172,50 @@ export default function Tournaments() {
 							}
 							className="bg-card p-6 rounded-xl hover-card cursor-pointer transition"
 						>
-							<div className="flex flex-col gap-3">
-								{/* Header */}
-								<h2 className="text-lg font-semibold">
-									{t.tournament_name}
-								</h2>
-
-								{/* Description */}
-								<p className="text-text-subtle text-sm">
-									{description}
-								</p>
-
-								{/* Winner if completed */}
-								{winner && (
-									<p className="text-sm text-text-muted">
-										Winner:{" "}
-										<Link
-											href={`/profile/${winner.player_name}`}
-											onClick={(e) => e.stopPropagation()}
-											className="hover:underline"
-										>
-											{winner.player_name}
-										</Link>
+							<div className="flex justify-between gap-6">
+								{/* Left column: Name, Description, Winner */}
+								<div className="flex-1 space-y-2">
+									<h2 className="text-lg font-semibold">
+										{t.tournament_name}
+									</h2>
+									<p className="text-text-subtle text-sm">
+										{description}
 									</p>
-								)}
+									{winner && (
+										<p className="text-sm text-text-muted">
+											Winner:{" "}
+											<Link
+												href={`/profile/${winner.player_name}`}
+												onClick={(e) =>
+													e.stopPropagation()
+												}
+												className="hover:underline"
+											>
+												{winner.player_name}
+											</Link>
+										</p>
+									)}
+								</div>
 
-								{/* Status + Dates */}
-								<div className="flex justify-between items-center text-sm text-text-muted">
-									{/* Status */}
+								{/* Right column: Status above Start/End Date */}
+								<div className="flex flex-col items-end text-sm text-text-muted shrink-0 space-y-1">
 									<span>{status}</span>
-
-									{/* Dates */}
-									<div className="text-right">
-										<div>
-											Start:{" "}
-											{t.start_date
-												? new Date(
-														t.start_date
-													).toLocaleDateString()
-												: "No date"}
-										</div>
-										{t.completed && t.end_date && (
-											<div>
-												End:{" "}
-												{new Date(
-													t.end_date
-												).toLocaleDateString()}
-											</div>
-										)}
+									<div>
+										Start:{" "}
+										{t.start_date
+											? new Date(
+													t.start_date
+												).toLocaleDateString()
+											: "No date"}
 									</div>
+									{t.completed && t.end_date && (
+										<div>
+											End:{" "}
+											{new Date(
+												t.end_date
+											).toLocaleDateString()}
+										</div>
+									)}
 								</div>
 							</div>
 						</div>
