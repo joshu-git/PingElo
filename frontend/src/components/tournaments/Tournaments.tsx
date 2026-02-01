@@ -10,41 +10,56 @@ type Tournament = {
 	started: boolean;
 	completed: boolean;
 	start_date: string;
+	end_date?: string | null;
 	tournament_description?: string | null;
+	winner_id?: string | null;
+};
+
+type PlayerRow = {
+	id: string;
+	player_name: string;
 };
 
 type Filter = "all" | "upcoming" | "in_progress" | "completed";
 
 export default function Tournaments() {
 	const [tournaments, setTournaments] = useState<Tournament[]>([]);
+	const [playersData, setPlayersData] = useState<PlayerRow[]>([]);
 	const [loading, setLoading] = useState<boolean>(true);
 	const [error, setError] = useState<string | null>(null);
 	const [filter, setFilter] = useState<Filter>("all");
 
 	useEffect(() => {
-		async function fetchTournaments(): Promise<void> {
+		const fetchData = async () => {
 			try {
-				const { data, error } = await supabase
-					.from("tournaments")
-					.select("*") // make sure tournament_description exists in your DB
-					.order("created_at", { ascending: false });
+				const [tournamentsRes, playersRes] = await Promise.all([
+					supabase
+						.from("tournaments")
+						.select("*")
+						.order("created_at", { ascending: false }),
+					supabase.from("players").select("id, player_name"),
+				]);
 
-				if (error) {
-					setError(error.message);
-					return;
-				}
+				if (tournamentsRes.error) throw tournamentsRes.error;
+				if (playersRes.error) throw playersRes.error;
 
-				if (data) setTournaments(data);
+				if (tournamentsRes.data) setTournaments(tournamentsRes.data);
+				if (playersRes.data) setPlayersData(playersRes.data);
 			} catch (err: unknown) {
 				if (err instanceof Error) setError(err.message);
 				else setError("Failed to fetch tournaments");
 			} finally {
 				setLoading(false);
 			}
-		}
+		};
 
-		fetchTournaments();
+		fetchData();
 	}, []);
+
+	const playersMap = useMemo(
+		() => new Map(playersData.map((p) => [p.id, p])),
+		[playersData]
+	);
 
 	const filteredTournaments = useMemo(() => {
 		let filtered = tournaments;
@@ -63,7 +78,7 @@ export default function Tournaments() {
 				break;
 		}
 
-		// Always sort by start_date descending
+		// Sort by start_date descending
 		return [...filtered].sort((a, b) => {
 			const da = a.start_date ? new Date(a.start_date).getTime() : 0;
 			const db = b.start_date ? new Date(b.start_date).getTime() : 0;
@@ -94,44 +109,29 @@ export default function Tournaments() {
 
 				{/* Filters on the RIGHT */}
 				<div className="flex flex-wrap justify-center gap-2">
-					<button
-						onClick={() => setFilter("all")}
-						className={`px-4 py-2 rounded-lg ${
-							filter === "all" ? "font-semibold underline" : ""
-						}`}
-					>
-						All
-					</button>
-					<button
-						onClick={() => setFilter("upcoming")}
-						className={`px-4 py-2 rounded-lg ${
-							filter === "upcoming"
-								? "font-semibold underline"
-								: ""
-						}`}
-					>
-						Upcoming
-					</button>
-					<button
-						onClick={() => setFilter("in_progress")}
-						className={`px-4 py-2 rounded-lg ${
-							filter === "in_progress"
-								? "font-semibold underline"
-								: ""
-						}`}
-					>
-						In Progress
-					</button>
-					<button
-						onClick={() => setFilter("completed")}
-						className={`px-4 py-2 rounded-lg ${
-							filter === "completed"
-								? "font-semibold underline"
-								: ""
-						}`}
-					>
-						Completed
-					</button>
+					{["all", "upcoming", "in_progress", "completed"].map(
+						(value) => {
+							const labels: Record<string, string> = {
+								all: "All",
+								upcoming: "Upcoming",
+								in_progress: "In Progress",
+								completed: "Completed",
+							};
+							return (
+								<button
+									key={value}
+									onClick={() => setFilter(value as Filter)}
+									className={`px-4 py-2 rounded-lg ${
+										filter === value
+											? "font-semibold underline"
+											: ""
+									}`}
+								>
+									{labels[value]}
+								</button>
+							);
+						}
+					)}
 				</div>
 			</div>
 
@@ -159,31 +159,71 @@ export default function Tournaments() {
 					const description =
 						t.tournament_description?.trim() || "No Description";
 
+					const winner =
+						t.completed && t.winner_id
+							? playersMap.get(t.winner_id)
+							: null;
+
 					return (
-						<Link
+						<div
 							key={t.id}
-							href={`/tournaments/${t.id}`}
-							className="block bg-card p-6 rounded-xl hover-card transition"
+							onClick={() =>
+								(window.location.href = `/tournaments/${t.id}`)
+							}
+							className="bg-card p-6 rounded-xl hover-card cursor-pointer transition"
 						>
 							<div className="flex flex-col gap-3">
+								{/* Header */}
 								<h2 className="text-lg font-semibold">
 									{t.tournament_name}
 								</h2>
+
+								{/* Description */}
 								<p className="text-text-subtle text-sm">
 									{description}
 								</p>
+
+								{/* Winner if completed */}
+								{winner && (
+									<p className="text-sm text-text-muted">
+										Winner:{" "}
+										<Link
+											href={`/profile/${winner.player_name}`}
+											onClick={(e) => e.stopPropagation()}
+											className="hover:underline"
+										>
+											{winner.player_name}
+										</Link>
+									</p>
+								)}
+
+								{/* Status + Dates */}
 								<div className="flex justify-between items-center text-sm text-text-muted">
+									{/* Status */}
 									<span>{status}</span>
-									<span>
-										{t.start_date
-											? new Date(
-													t.start_date
-												).toLocaleDateString()
-											: "No date"}
-									</span>
+
+									{/* Dates */}
+									<div className="text-right">
+										<div>
+											Start:{" "}
+											{t.start_date
+												? new Date(
+														t.start_date
+													).toLocaleDateString()
+												: "No date"}
+										</div>
+										{t.completed && t.end_date && (
+											<div>
+												End:{" "}
+												{new Date(
+													t.end_date
+												).toLocaleDateString()}
+											</div>
+										)}
+									</div>
 								</div>
 							</div>
-						</Link>
+						</div>
 					);
 				})}
 
