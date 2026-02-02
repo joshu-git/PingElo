@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-/* -------------------- RANK HELPERS (PRESENTATION ONLY) -------------------- */
+/* -------------------- RANK HELPERS -------------------- */
 
 const RANKS = [
 	{ min: 1600, label: "Super Grand Master" },
@@ -37,6 +37,11 @@ type Player = {
 	account_id: string | null;
 	group_id?: string | null;
 	singles_elo?: number;
+};
+
+type Group = {
+	id: string;
+	group_name: string;
 };
 
 type BracketRowDB = {
@@ -73,12 +78,27 @@ export default function TournamentPage() {
 		new Map()
 	);
 
+	const [groups, setGroups] = useState<Group[]>([]);
+
 	const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
 	const [authUserId, setAuthUserId] = useState<string | null>(null);
 
 	const [loading, setLoading] = useState(true);
 	const [signingUp, setSigningUp] = useState(false);
 	const [starting, setStarting] = useState(false);
+
+	/* -------------------- LOAD GROUPS -------------------- */
+	useEffect(() => {
+		supabase
+			.from("groups")
+			.select("id, group_name")
+			.then(({ data }) => data && setGroups(data));
+	}, []);
+
+	const groupMap = useMemo(
+		() => new Map(groups.map((g) => [g.id, g.group_name])),
+		[groups]
+	);
 
 	/* -------------------- LOAD AUTH + PLAYER -------------------- */
 	useEffect(() => {
@@ -205,7 +225,7 @@ export default function TournamentPage() {
 		loadTournament();
 	}, [loadTournament]);
 
-	/* -------------------- DERIVED STATE -------------------- */
+	/* -------------------- DERIVED -------------------- */
 
 	const bracketsByRound = useMemo(() => {
 		const map = new Map<number, BracketRow[]>();
@@ -216,7 +236,7 @@ export default function TournamentPage() {
 		return Array.from(map.entries()).sort((a, b) => b[0] - a[0]);
 	}, [brackets]);
 
-	/* -------------------- EARLY LOADING RETURN -------------------- */
+	/* -------------------- EARLY RETURN -------------------- */
 
 	if (loading || !tournament) {
 		return (
@@ -287,8 +307,7 @@ export default function TournamentPage() {
 	/* -------------------- RENDER -------------------- */
 
 	return (
-		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
-			{/* HEADER */}
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-14">
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold">
 					{tournament.tournament_name}
@@ -296,8 +315,7 @@ export default function TournamentPage() {
 				<p className="text-text-muted">Tournament bracket</p>
 			</section>
 
-			{/* CONTROLS */}
-			<div className="flex justify-between flex-wrap gap-4">
+			<div className="flex justify-between flex-wrap gap-4 mb-2">
 				{!tournament.started && (
 					<button
 						onClick={signup}
@@ -319,10 +337,10 @@ export default function TournamentPage() {
 				)}
 			</div>
 
-			{/* SIGNUPS — LEADERBOARD STYLE */}
+			{/* SIGNUPS */}
 			{!tournament.started && signups.length > 0 && (
-				<section className="space-y-3">
-					<h2 className="text-xl font-semibold text-center">
+				<section className="space-y-4">
+					<h2 className="text-xl font-semibold text-center mt-4">
 						Signed-up Players
 					</h2>
 
@@ -339,8 +357,9 @@ export default function TournamentPage() {
 									{p.player_name}
 								</Link>
 								<p className="text-sm text-text-muted">
-									{p.group_id ?? "No Group"} ·{" "}
-									{getRankLabel(p.singles_elo)}
+									{groupMap.get(p.group_id ?? "") ??
+										"No Group"}{" "}
+									· {getRankLabel(p.singles_elo)}
 								</p>
 							</div>
 
@@ -392,7 +411,7 @@ export default function TournamentPage() {
 										{match && (
 											<div className="text-right shrink-0">
 												<div className="text-lg font-bold">
-													{match.score_a} –{" "}
+													{match.score_a} -{" "}
 													{match.score_b}
 												</div>
 												<div className="text-sm text-text-muted">
