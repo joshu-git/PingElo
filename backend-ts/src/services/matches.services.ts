@@ -34,8 +34,8 @@ function calculateElo(
 	if (isTournament) {
 		return {
 			winner,
-			eloChangeA: winner === "A" ? 25 : -25,
-			eloChangeB: winner === "A" ? -25 : 25,
+			eloChangeA: winner === "A" ? 15 : -15,
+			eloChangeB: winner === "A" ? -15 : 15,
 		};
 	}
 

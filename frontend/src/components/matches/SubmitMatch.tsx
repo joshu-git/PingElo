@@ -30,12 +30,12 @@ function calculateElo(
 ) {
 	const winner = scoreA > scoreB ? "A" : "B";
 
-	//Tournament: guaranteed ± 25
+	//Tournament: guaranteed + or - 15
 	if (isTournament) {
 		return {
 			winner,
-			eloChangeA: winner === "A" ? 25 : -25,
-			eloChangeB: winner === "A" ? -25 : 25,
+			eloChangeA: winner === "A" ? 15 : -15,
+			eloChangeB: winner === "A" ? -15 : 15,
 		};
 	}
 
