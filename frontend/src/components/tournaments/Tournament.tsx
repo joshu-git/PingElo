@@ -331,7 +331,7 @@ export default function TournamentPage() {
 	const isOwner = authUserId === tournament?.created_by;
 	const isSignedUp =
 		!!currentPlayer && signups.some((p) => p.id === currentPlayer?.id);
-	const canStart = isOwner && !tournament?.started && signups.length > 1;
+	const canStart = isOwner && !tournament?.started && signups.length > 4;
 
 	/* -------------------- RENDER -------------------- */
 	return (
@@ -370,7 +370,7 @@ export default function TournamentPage() {
 							? starting
 								? "Starting…"
 								: "Start Tournament"
-							: ""}
+							: "Start Tournament"}
 					</button>
 				</div>
 			)}
