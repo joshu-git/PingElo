@@ -2,6 +2,24 @@ import { supabase } from "../libs/supabase.js";
 import { v4 as uuidv4 } from "uuid";
 
 /* ============================================================
+   SHUFFLE HELPER (Fisher–Yates)
+   ============================================================ */
+
+function shuffle<T>(array: readonly T[]): T[] {
+	const arr = array.slice() as T[];
+
+	for (let i = arr.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+
+		const tmp = arr[i]!;
+		arr[i] = arr[j]!;
+		arr[j] = tmp;
+	}
+
+	return arr;
+}
+
+/* ============================================================
    CREATE TOURNAMENT
    ============================================================ */
 
@@ -64,9 +82,7 @@ export async function generateFirstRound(tournamentId: string) {
 		throw new Error("Not enough players");
 	}
 
-	const players = signups
-		.map((s) => s.player_id)
-		.sort(() => Math.random() - 0.5);
+	const players = shuffle(signups.map((s) => s.player_id));
 
 	const inserts = [];
 
@@ -106,7 +122,6 @@ export async function validateTournamentMatch(
 	const a = playersA[0];
 	const b = playersB[0];
 
-	// 1️⃣ Tournament must be active
 	const { data: tournament } = await supabase
 		.from("tournaments")
 		.select("started, completed")
@@ -117,7 +132,6 @@ export async function validateTournamentMatch(
 		return null;
 	}
 
-	// 2️⃣ Try A vs B
 	let { data: bracket } = await supabase
 		.from("tournament_brackets")
 		.select("id, match_id")
@@ -127,7 +141,6 @@ export async function validateTournamentMatch(
 		.eq("player_b_id", b)
 		.maybeSingle();
 
-	// 3️⃣ If not found, try B vs A
 	if (!bracket) {
 		const res = await supabase
 			.from("tournament_brackets")
@@ -141,7 +154,6 @@ export async function validateTournamentMatch(
 		bracket = res.data;
 	}
 
-	// 4️⃣ Must exist and not already locked
 	if (!bracket || bracket.match_id) return null;
 
 	return bracket.id;
@@ -180,9 +192,11 @@ export async function advanceBracketRound(
 		.eq("tournament_id", tournamentId)
 		.eq("round", round);
 
-	const winners = finished
-		?.map((b) => b.winner_id)
-		.filter(Boolean) as string[];
+	const winners = shuffle(
+		finished
+			?.map((b) => b.winner_id)
+			.filter((id): id is string => id !== null) ?? []
+	);
 
 	if (winners.length === 1) {
 		await supabase
