@@ -307,7 +307,7 @@ export default function TournamentPage() {
 	/* -------------------- RENDER -------------------- */
 
 	return (
-		<main className="max-w-5xl mx-auto px-4 py-16 space-y-14">
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold">
 					{tournament.tournament_name}
@@ -339,7 +339,7 @@ export default function TournamentPage() {
 
 			{/* SIGNUPS */}
 			{!tournament.started && signups.length > 0 && (
-				<section className="space-y-4">
+				<section className="space-y-3">
 					<h2 className="text-xl font-semibold text-center mt-4">
 						Signed-up Players
 					</h2>
@@ -397,14 +397,14 @@ export default function TournamentPage() {
 										<div className="space-y-1">
 											<p className="font-semibold">
 												{b.player_a1?.player_name ??
-													"TBD"}
+													"BYE"}
 											</p>
 											<p className="text-text-muted">
 												vs
 											</p>
 											<p className="font-semibold">
 												{b.player_b1?.player_name ??
-													"TBD"}
+													"BYE"}
 											</p>
 										</div>
 
