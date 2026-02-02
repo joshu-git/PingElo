@@ -349,26 +349,29 @@ export default function TournamentPage() {
 			)}
 
 			{/* Buttons */}
-			{tournament && (
+			{tournament && !tournament.started && (
 				<div className="flex justify-between flex-wrap gap-4 mb-2">
-					{!tournament.started && !isSignedUp && (
-						<button
-							onClick={signup}
-							disabled={signupDisabled}
-							className="px-4 py-2 rounded-lg disabled:opacity-50"
-						>
-							Sign Up
-						</button>
-					)}
-					{!tournament.started && isOwner && canStart && (
-						<button
-							onClick={startTournament}
-							disabled={!canStart || starting}
-							className="px-4 py-2 rounded-lg disabled:opacity-50"
-						>
-							{starting ? "Starting…" : "Start Tournament"}
-						</button>
-					)}
+					{/* Sign Up button */}
+					<button
+						onClick={signup}
+						disabled={isSignedUp || !currentPlayer || signingUp}
+						className="px-4 py-2 rounded-lg disabled:opacity-50"
+					>
+						{isSignedUp ? "Signed Up" : "Sign Up"}
+					</button>
+
+					{/* Start Tournament button */}
+					<button
+						onClick={startTournament}
+						disabled={!isOwner || !canStart || starting}
+						className="px-4 py-2 rounded-lg disabled:opacity-50"
+					>
+						{isOwner
+							? starting
+								? "Starting…"
+								: "Start Tournament"
+							: ""}
+					</button>
 				</div>
 			)}
 
