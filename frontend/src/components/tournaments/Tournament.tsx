@@ -71,7 +71,7 @@ export default function TournamentPage() {
 	const { id: tournamentId } = useParams<{ id: string }>();
 	const router = useRouter();
 
-	// Header / basic tournament info
+	// Basic tournament info (header/buttons)
 	const [tournament, setTournament] = useState<Tournament | null>(null);
 
 	// Full data
@@ -170,7 +170,7 @@ export default function TournamentPage() {
 
 					setSignups(players ?? []);
 
-					// Fetch match counts efficiently (like leaderboard)
+					// Fetch match counts efficiently
 					const countsMap = new Map<string, number>();
 					await Promise.all(
 						(players ?? []).map(async (p) => {
@@ -334,46 +334,43 @@ export default function TournamentPage() {
 	const canStart = isOwner && !tournament?.started && signups.length > 1;
 
 	/* -------------------- RENDER -------------------- */
-	if (!tournament)
-		return (
-			<div className="p-6 text-center text-text-muted">
-				Loading tournament…
-			</div>
-		);
-
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* Header */}
-			<section className="text-center space-y-4">
-				<h1 className="text-4xl md:text-5xl font-extrabold">
-					{tournament.tournament_name}
-				</h1>
-				<p className="text-text-muted">
-					{tournament.tournament_description ?? "No Description"}
-				</p>
-			</section>
+			{tournament && (
+				<section className="text-center space-y-4">
+					<h1 className="text-4xl md:text-5xl font-extrabold">
+						{tournament.tournament_name}
+					</h1>
+					<p className="text-text-muted">
+						{tournament.tournament_description ?? "No Description"}
+					</p>
+				</section>
+			)}
 
 			{/* Buttons */}
-			<div className="flex justify-between flex-wrap gap-4 mb-2">
-				{!tournament.started && (
-					<button
-						onClick={signup}
-						disabled={signupDisabled}
-						className="px-4 py-2 rounded-lg disabled:opacity-50"
-					>
-						{isSignedUp ? "Signed Up" : "Sign Up"}
-					</button>
-				)}
-				{!tournament.started && (
-					<button
-						onClick={startTournament}
-						disabled={!canStart || starting}
-						className="px-4 py-2 rounded-lg disabled:opacity-50"
-					>
-						{starting ? "Starting…" : "Start Tournament"}
-					</button>
-				)}
-			</div>
+			{tournament && (
+				<div className="flex justify-between flex-wrap gap-4 mb-2">
+					{!tournament.started && !isSignedUp && (
+						<button
+							onClick={signup}
+							disabled={signupDisabled}
+							className="px-4 py-2 rounded-lg disabled:opacity-50"
+						>
+							Sign Up
+						</button>
+					)}
+					{!tournament.started && isOwner && canStart && (
+						<button
+							onClick={startTournament}
+							disabled={!canStart || starting}
+							className="px-4 py-2 rounded-lg disabled:opacity-50"
+						>
+							{starting ? "Starting…" : "Start Tournament"}
+						</button>
+					)}
+				</div>
+			)}
 
 			{/* Loading for signups/brackets */}
 			{loadingTournamentData && (
@@ -381,7 +378,7 @@ export default function TournamentPage() {
 			)}
 
 			{/* SIGNUPS */}
-			{!tournament.started && signups.length > 0 && (
+			{!tournament?.started && signups.length > 0 && (
 				<section className="space-y-2 pt-4">
 					{signups
 						.sort(
@@ -419,7 +416,7 @@ export default function TournamentPage() {
 			)}
 
 			{/* BRACKETS */}
-			{tournament.started &&
+			{tournament?.started &&
 				bracketsByRound.map(([round, list]) => (
 					<section key={round} className="space-y-3">
 						<h2 className="text-lg font-semibold text-center">
