@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 /* -------------------- TYPES -------------------- */
@@ -36,14 +37,25 @@ type BracketRow = BracketRowDB & {
 	player_b1?: Player | null;
 };
 
+type MatchRow = {
+	id: string;
+	score_a: number;
+	score_b: number;
+};
+
 /* -------------------- COMPONENT -------------------- */
 
 export default function TournamentPage() {
 	const { id: tournamentId } = useParams<{ id: string }>();
+	const router = useRouter();
 
 	const [tournament, setTournament] = useState<Tournament | null>(null);
 	const [signups, setSignups] = useState<Player[]>([]);
 	const [brackets, setBrackets] = useState<BracketRow[]>([]);
+	const [matchesMap, setMatchesMap] = useState<Map<string, MatchRow>>(
+		new Map()
+	);
+
 	const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
 	const [authUserId, setAuthUserId] = useState<string | null>(null);
 
@@ -72,7 +84,7 @@ export default function TournamentPage() {
 		loadUser();
 	}, []);
 
-	/* -------------------- LOAD TOURNAMENT + SIGNUPS + BRACKETS -------------------- */
+	/* -------------------- LOAD TOURNAMENT + DATA -------------------- */
 	const loadTournament = useCallback(async () => {
 		setLoading(true);
 
@@ -86,7 +98,6 @@ export default function TournamentPage() {
 			if (!t) throw new Error("Tournament not found");
 			setTournament(t);
 
-			// Load signups (before tournament starts)
 			if (!t.started) {
 				const { data: signupRows } = await supabase
 					.from("tournament_signups")
@@ -94,6 +105,7 @@ export default function TournamentPage() {
 					.eq("tournament_id", tournamentId);
 
 				const playerIds = signupRows?.map((r) => r.player_id) ?? [];
+
 				if (playerIds.length) {
 					const { data: players } = await supabase
 						.from("players")
@@ -108,13 +120,12 @@ export default function TournamentPage() {
 				setSignups([]);
 			}
 
-			// Only fetch brackets if tournament started
 			if (t.started) {
 				const { data: rawBrackets } = await supabase
 					.from("tournament_brackets")
 					.select("*")
 					.eq("tournament_id", tournamentId)
-					.order("round", { ascending: true })
+					.order("round", { ascending: false })
 					.order("id", { ascending: true });
 
 				const list = rawBrackets ?? [];
@@ -127,6 +138,10 @@ export default function TournamentPage() {
 					)
 				);
 
+				const matchIds = Array.from(
+					new Set(list.map((b) => b.match_id).filter(Boolean))
+				) as string[];
+
 				let playersMap = new Map<string, Player>();
 				if (playerIds.length) {
 					const { data: players } = await supabase
@@ -135,6 +150,17 @@ export default function TournamentPage() {
 						.in("id", playerIds);
 
 					playersMap = new Map(players?.map((p) => [p.id, p]) ?? []);
+				}
+
+				if (matchIds.length) {
+					const { data: matches } = await supabase
+						.from("matches")
+						.select("id, score_a, score_b")
+						.in("id", matchIds);
+
+					setMatchesMap(
+						new Map(matches?.map((m) => [m.id, m]) ?? [])
+					);
 				}
 
 				setBrackets(
@@ -160,10 +186,25 @@ export default function TournamentPage() {
 		loadTournament();
 	}, [loadTournament]);
 
-	/* -------------------- DERIVED STATE -------------------- */
+	/* -------------------- DERIVED STATE (SAFE HOOK ORDER) -------------------- */
+
+	const bracketsByRound = useMemo(() => {
+		const map = new Map<number, BracketRow[]>();
+		for (const b of brackets) {
+			if (!map.has(b.round)) map.set(b.round, []);
+			map.get(b.round)!.push(b);
+		}
+		return Array.from(map.entries()).sort((a, b) => b[0] - a[0]);
+	}, [brackets]);
+
+	/* -------------------- EARLY LOADING RETURN -------------------- */
 
 	if (loading || !tournament) {
-		return <div className="p-6 text-gray-400">Loading tournament...</div>;
+		return (
+			<div className="p-6 text-center text-text-muted">
+				Loading tournament…
+			</div>
+		);
 	}
 
 	const isOwner = authUserId === tournament.created_by;
@@ -182,7 +223,7 @@ export default function TournamentPage() {
 		const { data } = await supabase.auth.getSession();
 		const token = data.session?.access_token;
 
-		const res = await fetch(
+		await fetch(
 			`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/signup`,
 			{
 				method: "POST",
@@ -197,13 +238,7 @@ export default function TournamentPage() {
 			}
 		);
 
-		if (!res.ok) {
-			const e = await res.json();
-			alert(e.error ?? "Signup failed");
-		} else {
-			await loadTournament();
-		}
-
+		await loadTournament();
 		setSigningUp(false);
 	};
 
@@ -214,7 +249,7 @@ export default function TournamentPage() {
 		const { data } = await supabase.auth.getSession();
 		const token = data.session?.access_token;
 
-		const res = await fetch(
+		await fetch(
 			`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/generate-brackets`,
 			{
 				method: "POST",
@@ -226,95 +261,109 @@ export default function TournamentPage() {
 			}
 		);
 
-		if (!res.ok) {
-			const e = await res.json();
-			alert(e.error ?? "Failed to start");
-		} else {
-			await loadTournament();
-		}
-
+		await loadTournament();
 		setStarting(false);
 	};
 
 	/* -------------------- RENDER -------------------- */
 
 	return (
-		<div className="max-w-6xl mx-auto p-6 space-y-8">
-			<div className="flex justify-between items-center">
-				<h1 className="text-3xl font-bold">
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			{/* HEADER — MATCHES STYLE */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold">
 					{tournament.tournament_name}
 				</h1>
+				<p className="text-text-muted">Tournament bracket</p>
+			</section>
+
+			{/* CONTROLS — SAME FEEL AS MATCHES */}
+			<div className="flex justify-between flex-wrap gap-4">
+				{!tournament.started && (
+					<button
+						onClick={signup}
+						disabled={signupDisabled}
+						className="px-4 py-2 rounded-lg disabled:opacity-50"
+					>
+						{isSignedUp ? "Signed Up" : "Sign Up"}
+					</button>
+				)}
 
 				{!tournament.started && (
 					<button
 						onClick={startTournament}
 						disabled={!canStart || starting}
-						className={`px-5 py-2 rounded font-semibold ${
-							canStart
-								? "bg-white text-black"
-								: "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-						}`}
+						className="px-4 py-2 rounded-lg disabled:opacity-50"
 					>
 						{starting ? "Starting…" : "Start Tournament"}
 					</button>
 				)}
 			</div>
 
-			{/* SIGN-UP BUTTON */}
-			{!tournament.started && (
-				<button
-					onClick={signup}
-					disabled={signupDisabled}
-					className={`px-5 py-2 rounded font-semibold ${
-						signupDisabled
-							? "bg-zinc-700 text-zinc-400 cursor-not-allowed"
-							: "bg-green-500 text-black"
-					}`}
-				>
-					{isSignedUp ? "Signed Up" : "Sign Up"}
-				</button>
-			)}
-
-			{/* SIGNUPS BEFORE TOURNAMENT */}
+			{/* SIGNUPS */}
 			{!tournament.started && signups.length > 0 && (
-				<div className="mt-6">
-					<h2 className="text-xl font-semibold mb-2">
-						Signed-up Players
-					</h2>
-					<ul className="space-y-1">
-						{signups.map((p) => (
-							<li
-								key={p.id}
-								className="p-2 border border-white/10 rounded"
-							>
-								{p.player_name}
-							</li>
-						))}
-					</ul>
-				</div>
-			)}
-
-			{/* BRACKETS */}
-			{tournament.started && brackets.length > 0 && (
-				<div className="mt-6 space-y-4">
-					<h2 className="text-xl font-semibold mb-2">Brackets</h2>
-					{brackets.map((b) => (
-						<div
-							key={b.id}
-							className="p-3 border border-white/10 rounded flex justify-between"
-						>
-							<div>
-								<p>{b.player_a1?.player_name ?? "TBD"}</p>
-								<p>vs</p>
-								<p>{b.player_b1?.player_name ?? "TBD"}</p>
-							</div>
-							<div>
-								{b.completed ? "✔️ Completed" : "⏳ Pending"}
-							</div>
+				<section className="space-y-3">
+					<h2 className="text-xl font-semibold">Signed-up Players</h2>
+					{signups.map((p) => (
+						<div key={p.id} className="bg-card p-3 rounded-xl">
+							{p.player_name}
 						</div>
 					))}
-				</div>
+				</section>
 			)}
-		</div>
+
+			{/* BRACKETS — MATCH-LIKE CARDS */}
+			{tournament.started &&
+				bracketsByRound.map(([round, list]) => (
+					<section key={round} className="space-y-3">
+						<h2 className="text-lg font-semibold">Round {round}</h2>
+
+						{list.map((b) => {
+							const match = b.match_id
+								? matchesMap.get(b.match_id)
+								: null;
+
+							return (
+								<div
+									key={b.id}
+									onClick={() =>
+										b.match_id &&
+										router.push(`/matches/${b.match_id}`)
+									}
+									className="bg-card p-4 rounded-xl hover-card cursor-pointer"
+								>
+									<div className="flex justify-between">
+										<div className="space-y-1">
+											<p className="font-semibold">
+												{b.player_a1?.player_name ??
+													"TBD"}
+											</p>
+											<p className="text-text-muted">
+												vs
+											</p>
+											<p className="font-semibold">
+												{b.player_b1?.player_name ??
+													"TBD"}
+											</p>
+										</div>
+
+										{match && (
+											<div className="text-right shrink-0">
+												<div className="text-lg font-bold">
+													{match.score_a} –{" "}
+													{match.score_b}
+												</div>
+												<div className="text-sm text-text-muted">
+													Completed
+												</div>
+											</div>
+										)}
+									</div>
+								</div>
+							);
+						})}
+					</section>
+				))}
+		</main>
 	);
 }
