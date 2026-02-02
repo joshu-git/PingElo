@@ -5,6 +5,21 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
+/* -------------------- RANK HELPERS (PRESENTATION ONLY) -------------------- */
+
+const RANKS = [
+	{ min: 1600, label: "Super Grand Master" },
+	{ min: 1400, label: "Grand Master" },
+	{ min: 1200, label: "Master" },
+	{ min: 1000, label: "Competitor" },
+	{ min: 800, label: "Advanced" },
+	{ min: 600, label: "Beginner" },
+	{ min: 0, label: "Bikini Bottom" },
+];
+
+const getRankLabel = (elo?: number) =>
+	RANKS.find((r) => (elo ?? 0) >= r.min)?.label ?? "Unranked";
+
 /* -------------------- TYPES -------------------- */
 
 type Tournament = {
@@ -20,6 +35,8 @@ type Player = {
 	id: string;
 	player_name: string;
 	account_id: string | null;
+	group_id?: string | null;
+	singles_elo?: number;
 };
 
 type BracketRowDB = {
@@ -109,7 +126,9 @@ export default function TournamentPage() {
 				if (playerIds.length) {
 					const { data: players } = await supabase
 						.from("players")
-						.select("id, player_name, account_id")
+						.select(
+							"id, player_name, account_id, group_id, singles_elo"
+						)
 						.in("id", playerIds);
 
 					setSignups(players ?? []);
@@ -186,7 +205,7 @@ export default function TournamentPage() {
 		loadTournament();
 	}, [loadTournament]);
 
-	/* -------------------- DERIVED STATE (SAFE HOOK ORDER) -------------------- */
+	/* -------------------- DERIVED STATE -------------------- */
 
 	const bracketsByRound = useMemo(() => {
 		const map = new Map<number, BracketRow[]>();
@@ -269,7 +288,7 @@ export default function TournamentPage() {
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
-			{/* HEADER — MATCHES STYLE */}
+			{/* HEADER */}
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold">
 					{tournament.tournament_name}
@@ -277,7 +296,7 @@ export default function TournamentPage() {
 				<p className="text-text-muted">Tournament bracket</p>
 			</section>
 
-			{/* CONTROLS — SAME FEEL AS MATCHES */}
+			{/* CONTROLS */}
 			<div className="flex justify-between flex-wrap gap-4">
 				{!tournament.started && (
 					<button
@@ -300,23 +319,46 @@ export default function TournamentPage() {
 				)}
 			</div>
 
-			{/* SIGNUPS */}
+			{/* SIGNUPS — LEADERBOARD STYLE */}
 			{!tournament.started && signups.length > 0 && (
 				<section className="space-y-3">
-					<h2 className="text-xl font-semibold">Signed-up Players</h2>
+					<h2 className="text-xl font-semibold text-center">
+						Signed-up Players
+					</h2>
+
 					{signups.map((p) => (
-						<div key={p.id} className="bg-card p-3 rounded-xl">
-							{p.player_name}
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+						>
+							<div>
+								<Link
+									href={`/profile/${p.player_name}`}
+									className="font-semibold hover:underline"
+								>
+									{p.player_name}
+								</Link>
+								<p className="text-sm text-text-muted">
+									{p.group_id ?? "No Group"} ·{" "}
+									{getRankLabel(p.singles_elo)}
+								</p>
+							</div>
+
+							<div className="text-2xl font-bold">
+								{p.singles_elo ?? "—"}
+							</div>
 						</div>
 					))}
 				</section>
 			)}
 
-			{/* BRACKETS — MATCH-LIKE CARDS */}
+			{/* BRACKETS */}
 			{tournament.started &&
 				bracketsByRound.map(([round, list]) => (
 					<section key={round} className="space-y-3">
-						<h2 className="text-lg font-semibold">Round {round}</h2>
+						<h2 className="text-lg font-semibold text-center">
+							Round {round}
+						</h2>
 
 						{list.map((b) => {
 							const match = b.match_id
