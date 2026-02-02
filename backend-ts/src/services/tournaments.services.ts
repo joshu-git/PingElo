@@ -66,7 +66,7 @@ export async function generateFirstRound(tournamentId: string) {
 		.select("player_id")
 		.eq("tournament_id", tournamentId);
 
-	if (!signups || signups.length < 2) {
+	if (!signups || signups.length < 5) {
 		throw new Error("Not enough players");
 	}
 
