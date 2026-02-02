@@ -315,7 +315,7 @@ export default function TournamentPage() {
 				<p className="text-text-muted">Tournament bracket</p>
 			</section>
 
-			<div className="flex justify-between flex-wrap gap-4 mb-2">
+			<div className="flex justify-between flex-wrap gap-4 mb-1">
 				{!tournament.started && (
 					<button
 						onClick={signup}
@@ -339,9 +339,9 @@ export default function TournamentPage() {
 
 			{/* SIGNUPS */}
 			{!tournament.started && signups.length > 0 && (
-				<section className="space-y-3">
-					<h2 className="text-xl font-semibold text-center mt-4">
-						Signed-up Players
+				<section className="space-y-4 pt-6">
+					<h2 className="text-xl font-semibold text-center">
+						Signed Up Players
 					</h2>
 
 					{signups.map((p) => (
