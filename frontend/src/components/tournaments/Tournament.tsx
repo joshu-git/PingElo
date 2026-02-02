@@ -17,8 +17,10 @@ const RANKS = [
 	{ min: 0, label: "Bikini Bottom" },
 ];
 
-const getRankLabel = (elo?: number) =>
-	RANKS.find((r) => (elo ?? 0) >= r.min)?.label ?? "Unranked";
+const getRankLabel = (elo?: number, matches?: number) => {
+	if ((matches ?? 0) < 5) return "Unranked";
+	return RANKS.find((r) => (elo ?? 0) >= r.min)?.label ?? "Unranked";
+};
 
 /* -------------------- TYPES -------------------- */
 
@@ -78,6 +80,9 @@ export default function TournamentPage() {
 	const [matchesMap, setMatchesMap] = useState<Map<string, MatchRow>>(
 		new Map()
 	);
+	const [matchCounts, setMatchCounts] = useState<Map<string, number>>(
+		new Map()
+	);
 
 	const [groups, setGroups] = useState<Group[]>([]);
 	const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
@@ -117,11 +122,10 @@ export default function TournamentPage() {
 
 			setCurrentPlayer(player ?? null);
 		};
-
 		loadUser();
 	}, []);
 
-	/* -------------------- BASIC TOURNAMENT LOAD (name + desc + status) -------------------- */
+	/* -------------------- BASIC TOURNAMENT LOAD -------------------- */
 	useEffect(() => {
 		const loadBasicTournament = async () => {
 			const { data: t } = await supabase
@@ -139,7 +143,7 @@ export default function TournamentPage() {
 		loadBasicTournament();
 	}, [tournamentId]);
 
-	/* -------------------- FULL TOURNAMENT LOAD (signups, brackets, matches) -------------------- */
+	/* -------------------- FULL TOURNAMENT LOAD -------------------- */
 	const loadTournamentData = useCallback(async () => {
 		if (!tournament) return;
 
@@ -162,6 +166,22 @@ export default function TournamentPage() {
 						.in("id", playerIds);
 
 					setSignups(players ?? []);
+
+					// Fetch match counts for each player
+					const countsMap = new Map<string, number>();
+					await Promise.all(
+						(players ?? []).map(async (p) => {
+							const { count } = await supabase
+								.from("matches")
+								.select("*", { count: "exact", head: true })
+								.or(
+									`player_a1_id.eq.${p.id},player_b1_id.eq.${p.id}`
+								)
+								.eq("match_type", "singles");
+							countsMap.set(p.id, count ?? 0);
+						})
+					);
+					setMatchCounts(countsMap);
 				} else {
 					setSignups([]);
 				}
@@ -249,12 +269,7 @@ export default function TournamentPage() {
 	/* -------------------- ACTIONS -------------------- */
 
 	const signup = async () => {
-		if (
-			!currentPlayer ||
-			!tournament ||
-			!(!currentPlayer || tournament.started)
-		)
-			return;
+		if (!currentPlayer || !tournament || signupDisabled) return;
 		setSigningUp(true);
 
 		const { data } = await supabase.auth.getSession();
@@ -302,25 +317,23 @@ export default function TournamentPage() {
 		setStarting(false);
 	};
 
-	/* -------------------- RENDER -------------------- */
+	const signupDisabled = !currentPlayer || tournament?.started || signingUp;
+	const isOwner = authUserId === tournament?.created_by;
+	const isSignedUp =
+		!!currentPlayer && signups.some((p) => p.id === currentPlayer?.id);
+	const canStart = isOwner && !tournament?.started && signups.length > 1;
 
-	if (!tournament) {
+	/* -------------------- RENDER -------------------- */
+	if (!tournament)
 		return (
 			<div className="p-6 text-center text-text-muted">
 				Loading tournament…
 			</div>
 		);
-	}
-
-	const isOwner = authUserId === tournament.created_by;
-	const isSignedUp =
-		!!currentPlayer && signups.some((p) => p.id === currentPlayer.id);
-	const signupDisabled =
-		!currentPlayer || tournament.started || isSignedUp || signingUp;
-	const canStart = isOwner && !tournament.started && signups.length > 1;
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			{/* Header */}
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold">
 					{tournament.tournament_name}
@@ -330,6 +343,7 @@ export default function TournamentPage() {
 				</p>
 			</section>
 
+			{/* Buttons */}
 			<div className="flex justify-between flex-wrap gap-4 mb-2">
 				{!tournament.started && (
 					<button
@@ -351,6 +365,7 @@ export default function TournamentPage() {
 				)}
 			</div>
 
+			{/* Loading */}
 			{loadingTournamentData && (
 				<p className="text-center text-text-muted py-4">Loading…</p>
 			)}
@@ -362,29 +377,38 @@ export default function TournamentPage() {
 						Signed Up Players
 					</h2>
 
-					{signups.map((p) => (
-						<div
-							key={p.id}
-							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
-						>
-							<div>
-								<Link
-									href={`/profile/${p.player_name}`}
-									className="font-semibold hover:underline"
-								>
-									{p.player_name}
-								</Link>
-								<p className="text-sm text-text-muted">
-									{groupMap.get(p.group_id ?? "") ??
-										"No Group"}{" "}
-									· {getRankLabel(p.singles_elo)}
-								</p>
+					{signups
+						.sort(
+							(a, b) =>
+								(b.singles_elo ?? 0) - (a.singles_elo ?? 0)
+						)
+						.map((p) => (
+							<div
+								key={p.id}
+								className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+							>
+								<div>
+									<Link
+										href={`/profile/${p.player_name}`}
+										className="font-semibold hover:underline"
+									>
+										{p.player_name}
+									</Link>
+									<p className="text-sm text-text-muted">
+										{groupMap.get(p.group_id ?? "") ??
+											"No Group"}{" "}
+										·{" "}
+										{getRankLabel(
+											p.singles_elo,
+											matchCounts.get(p.id)
+										)}
+									</p>
+								</div>
+								<div className="text-2xl font-bold">
+									{p.singles_elo ?? "-"}
+								</div>
 							</div>
-							<div className="text-2xl font-bold">
-								{p.singles_elo ?? "-"}
-							</div>
-						</div>
-					))}
+						))}
 				</section>
 			)}
 
