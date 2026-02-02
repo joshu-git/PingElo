@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 /* -------------------- RANK HELPERS -------------------- */
-
 const RANKS = [
 	{ min: 1600, label: "Super Grand Master" },
 	{ min: 1400, label: "Grand Master" },
@@ -23,7 +22,6 @@ const getRankLabel = (elo?: number, matches?: number) => {
 };
 
 /* -------------------- TYPES -------------------- */
-
 type Tournament = {
 	id: string;
 	tournament_name: string;
@@ -69,12 +67,14 @@ type MatchRow = {
 };
 
 /* -------------------- COMPONENT -------------------- */
-
 export default function TournamentPage() {
 	const { id: tournamentId } = useParams<{ id: string }>();
 	const router = useRouter();
 
+	// Header / basic tournament info
 	const [tournament, setTournament] = useState<Tournament | null>(null);
+
+	// Full data
 	const [signups, setSignups] = useState<Player[]>([]);
 	const [brackets, setBrackets] = useState<BracketRow[]>([]);
 	const [matchesMap, setMatchesMap] = useState<Map<string, MatchRow>>(
@@ -84,11 +84,13 @@ export default function TournamentPage() {
 		new Map()
 	);
 
+	// Groups / auth
 	const [groups, setGroups] = useState<Group[]>([]);
 	const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
 	const [authUserId, setAuthUserId] = useState<string | null>(null);
 
-	const [loadingTournamentData, setLoadingTournamentData] = useState(true);
+	// Loading states
+	const [loadingTournamentData, setLoadingTournamentData] = useState(false);
 	const [signingUp, setSigningUp] = useState(false);
 	const [starting, setStarting] = useState(false);
 
@@ -125,10 +127,10 @@ export default function TournamentPage() {
 		loadUser();
 	}, []);
 
-	/* -------------------- BASIC TOURNAMENT LOAD -------------------- */
+	/* -------------------- LOAD BASIC TOURNAMENT -------------------- */
 	useEffect(() => {
 		const loadBasicTournament = async () => {
-			const { data: t } = await supabase
+			const { data } = await supabase
 				.from("tournaments")
 				.select(
 					"id, tournament_name, tournament_description, created_by, started, completed, start_date"
@@ -136,25 +138,25 @@ export default function TournamentPage() {
 				.eq("id", tournamentId)
 				.single();
 
-			if (!t) return;
-			setTournament(t);
+			if (data) setTournament(data);
 		};
-
 		loadBasicTournament();
 	}, [tournamentId]);
 
-	/* -------------------- FULL TOURNAMENT LOAD -------------------- */
+	/* -------------------- LOAD FULL TOURNAMENT DATA -------------------- */
+	const matchCountsCache = useRef<Map<string, number>>(new Map());
+
 	const loadTournamentData = useCallback(async () => {
 		if (!tournament) return;
-
 		setLoadingTournamentData(true);
+
 		try {
-			// ---------------- SIGNUPS ----------------
+			// -------------------- SIGNUPS --------------------
 			if (!tournament.started) {
 				const { data: signupRows } = await supabase
 					.from("tournament_signups")
 					.select("player_id")
-					.eq("tournament_id", tournamentId);
+					.eq("tournament_id", tournament.id);
 
 				const playerIds = signupRows?.map((r) => r.player_id) ?? [];
 
@@ -168,18 +170,26 @@ export default function TournamentPage() {
 
 					setSignups(players ?? []);
 
-					// Fetch match counts to determine unranked
+					// Fetch match counts efficiently (like leaderboard)
 					const countsMap = new Map<string, number>();
 					await Promise.all(
 						(players ?? []).map(async (p) => {
-							const { count } = await supabase
-								.from("matches")
-								.select("*", { count: "exact", head: true })
-								.or(
-									`player_a1_id.eq.${p.id},player_b1_id.eq.${p.id}`
-								)
-								.eq("match_type", "singles");
-							countsMap.set(p.id, count ?? 0);
+							if (matchCountsCache.current.has(p.id)) {
+								countsMap.set(
+									p.id,
+									matchCountsCache.current.get(p.id)!
+								);
+							} else {
+								const { count } = await supabase
+									.from("matches")
+									.select("*", { count: "exact", head: true })
+									.or(
+										`player_a1_id.eq.${p.id},player_b1_id.eq.${p.id}`
+									)
+									.eq("match_type", "singles");
+								countsMap.set(p.id, count ?? 0);
+								matchCountsCache.current.set(p.id, count ?? 0);
+							}
 						})
 					);
 					setMatchCounts(countsMap);
@@ -190,12 +200,12 @@ export default function TournamentPage() {
 				setSignups([]);
 			}
 
-			// ---------------- BRACKETS ----------------
+			// -------------------- BRACKETS --------------------
 			if (tournament.started) {
 				const { data: rawBrackets } = await supabase
 					.from("tournament_brackets")
 					.select("*")
-					.eq("tournament_id", tournamentId)
+					.eq("tournament_id", tournament.id)
 					.order("round", { ascending: false })
 					.order("id", { ascending: true });
 
@@ -217,28 +227,8 @@ export default function TournamentPage() {
 				if (playerIds.length) {
 					const { data: players } = await supabase
 						.from("players")
-						.select(
-							"id, player_name, account_id, singles_elo, group_id"
-						)
+						.select("id, player_name, account_id")
 						.in("id", playerIds);
-
-					// Fetch match counts for all bracket players too
-					const countsMap = new Map<string, number>(matchCounts);
-					await Promise.all(
-						(players ?? []).map(async (p) => {
-							if (!countsMap.has(p.id)) {
-								const { count } = await supabase
-									.from("matches")
-									.select("*", { count: "exact", head: true })
-									.or(
-										`player_a1_id.eq.${p.id},player_b1_id.eq.${p.id}`
-									)
-									.eq("match_type", "singles");
-								countsMap.set(p.id, count ?? 0);
-							}
-						})
-					);
-					setMatchCounts(countsMap);
 
 					playersMap = new Map(players?.map((p) => [p.id, p]) ?? []);
 				}
@@ -271,11 +261,11 @@ export default function TournamentPage() {
 		} finally {
 			setLoadingTournamentData(false);
 		}
-	}, [tournament, tournamentId, matchCounts]);
+	}, [tournament]);
 
 	useEffect(() => {
-		loadTournamentData();
-	}, [loadTournamentData]);
+		if (tournament) loadTournamentData();
+	}, [tournament, loadTournamentData]);
 
 	/* -------------------- DERIVED -------------------- */
 	const bracketsByRound = useMemo(() => {
@@ -385,53 +375,51 @@ export default function TournamentPage() {
 				)}
 			</div>
 
-			{/* Loading for the rest */}
+			{/* Loading for signups/brackets */}
 			{loadingTournamentData && (
 				<p className="text-center text-text-muted py-4">Loading…</p>
 			)}
 
 			{/* SIGNUPS */}
-			{!tournament.started &&
-				signups.length > 0 &&
-				!loadingTournamentData && (
-					<section className="space-y-2 pt-4">
-						{signups
-							.sort(
-								(a, b) =>
-									(b.singles_elo ?? 0) - (a.singles_elo ?? 0)
-							)
-							.map((p) => (
-								<div
-									key={p.id}
-									className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
-								>
-									<div>
-										<Link
-											href={`/profile/${p.player_name}`}
-											className="font-semibold hover:underline"
-										>
-											{p.player_name} ·{" "}
-											{getRankLabel(
-												p.singles_elo,
-												matchCounts.get(p.id)
-											)}
-										</Link>
-										<p className="text-sm text-text-muted">
-											{groupMap.get(p.group_id ?? "") ??
-												"No Group"}
-										</p>
-									</div>
-									<div className="text-2xl font-bold">
-										{p.singles_elo ?? "-"}
-									</div>
+			{!tournament.started && signups.length > 0 && (
+				<section className="space-y-2 pt-4">
+					{signups
+						.sort(
+							(a, b) =>
+								(b.singles_elo ?? 0) - (a.singles_elo ?? 0)
+						)
+						.map((p) => (
+							<div
+								key={p.id}
+								className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+							>
+								<div>
+									<Link
+										href={`/profile/${p.player_name}`}
+										className="font-semibold hover:underline"
+									>
+										{p.player_name}
+									</Link>
+									<p className="text-sm text-text-muted">
+										{groupMap.get(p.group_id ?? "") ??
+											"No Group"}{" "}
+										·{" "}
+										{getRankLabel(
+											p.singles_elo,
+											matchCounts.get(p.id)
+										)}
+									</p>
 								</div>
-							))}
-					</section>
-				)}
+								<div className="text-2xl font-bold">
+									{p.singles_elo ?? "-"}
+								</div>
+							</div>
+						))}
+				</section>
+			)}
 
 			{/* BRACKETS */}
 			{tournament.started &&
-				!loadingTournamentData &&
 				bracketsByRound.map(([round, list]) => (
 					<section key={round} className="space-y-3">
 						<h2 className="text-lg font-semibold text-center">
@@ -455,28 +443,14 @@ export default function TournamentPage() {
 										<div className="space-y-1">
 											<p className="font-semibold">
 												{b.player_a1?.player_name ??
-													"BYE"}{" "}
-												·{" "}
-												{getRankLabel(
-													b.player_a1?.singles_elo,
-													matchCounts.get(
-														b.player_a1?.id ?? ""
-													)
-												)}
+													"BYE"}
 											</p>
 											<p className="text-text-muted">
 												vs
 											</p>
 											<p className="font-semibold">
 												{b.player_b1?.player_name ??
-													"BYE"}{" "}
-												·{" "}
-												{getRankLabel(
-													b.player_b1?.singles_elo,
-													matchCounts.get(
-														b.player_b1?.id ?? ""
-													)
-												)}
+													"BYE"}
 											</p>
 										</div>
 
