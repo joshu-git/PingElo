@@ -383,38 +383,33 @@ export default function TournamentPage() {
 			{/* SIGNUPS */}
 			{!tournament?.started && signups.length > 0 && (
 				<section className="space-y-2 pt-4">
-					{signups
-						.sort(
-							(a, b) =>
-								(b.singles_elo ?? 0) - (a.singles_elo ?? 0)
-						)
-						.map((p) => (
-							<div
-								key={p.id}
-								className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
-							>
-								<div>
-									<Link
-										href={`/profile/${p.player_name}`}
-										className="font-semibold hover:underline"
-									>
-										{p.player_name}
-									</Link>
-									<p className="text-sm text-text-muted">
-										{groupMap.get(p.group_id ?? "") ??
-											"No Group"}{" "}
-										·{" "}
-										{getRankLabel(
-											p.singles_elo,
-											matchCounts.get(p.id)
-										)}
-									</p>
-								</div>
-								<div className="text-2xl font-bold">
-									{p.singles_elo ?? "-"}
-								</div>
+					{signups.map((p) => (
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+						>
+							<div>
+								<Link
+									href={`/profile/${p.player_name}`}
+									className="font-semibold hover:underline"
+								>
+									{p.player_name}
+								</Link>
+								<p className="text-sm text-text-muted">
+									{groupMap.get(p.group_id ?? "") ??
+										"No Group"}{" "}
+									·{" "}
+									{getRankLabel(
+										p.singles_elo,
+										matchCounts.get(p.id)
+									)}
+								</p>
 							</div>
-						))}
+							<div className="text-2xl font-bold">
+								{p.singles_elo ?? "-"}
+							</div>
+						</div>
+					))}
 				</section>
 			)}
 
