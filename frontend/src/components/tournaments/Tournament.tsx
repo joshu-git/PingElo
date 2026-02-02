@@ -25,6 +25,7 @@ const getRankLabel = (elo?: number) =>
 type Tournament = {
 	id: string;
 	tournament_name: string;
+	tournament_description?: string | null;
 	created_by: string;
 	started: boolean;
 	completed: boolean;
@@ -79,11 +80,10 @@ export default function TournamentPage() {
 	);
 
 	const [groups, setGroups] = useState<Group[]>([]);
-
 	const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
 	const [authUserId, setAuthUserId] = useState<string | null>(null);
 
-	const [loading, setLoading] = useState(true);
+	const [loadingTournamentData, setLoadingTournamentData] = useState(true);
 	const [signingUp, setSigningUp] = useState(false);
 	const [starting, setStarting] = useState(false);
 
@@ -121,21 +121,31 @@ export default function TournamentPage() {
 		loadUser();
 	}, []);
 
-	/* -------------------- LOAD TOURNAMENT + DATA -------------------- */
-	const loadTournament = useCallback(async () => {
-		setLoading(true);
-
-		try {
+	/* -------------------- BASIC TOURNAMENT LOAD (name + desc + status) -------------------- */
+	useEffect(() => {
+		const loadBasicTournament = async () => {
 			const { data: t } = await supabase
 				.from("tournaments")
-				.select("*")
+				.select(
+					"id, tournament_name, tournament_description, created_by, started, completed, start_date"
+				)
 				.eq("id", tournamentId)
 				.single();
 
-			if (!t) throw new Error("Tournament not found");
+			if (!t) return;
 			setTournament(t);
+		};
 
-			if (!t.started) {
+		loadBasicTournament();
+	}, [tournamentId]);
+
+	/* -------------------- FULL TOURNAMENT LOAD (signups, brackets, matches) -------------------- */
+	const loadTournamentData = useCallback(async () => {
+		if (!tournament) return;
+
+		setLoadingTournamentData(true);
+		try {
+			if (!tournament.started) {
 				const { data: signupRows } = await supabase
 					.from("tournament_signups")
 					.select("player_id")
@@ -159,7 +169,7 @@ export default function TournamentPage() {
 				setSignups([]);
 			}
 
-			if (t.started) {
+			if (tournament.started) {
 				const { data: rawBrackets } = await supabase
 					.from("tournament_brackets")
 					.select("*")
@@ -217,13 +227,13 @@ export default function TournamentPage() {
 				setBrackets([]);
 			}
 		} finally {
-			setLoading(false);
+			setLoadingTournamentData(false);
 		}
-	}, [tournamentId]);
+	}, [tournament, tournamentId]);
 
 	useEffect(() => {
-		loadTournament();
-	}, [loadTournament]);
+		loadTournamentData();
+	}, [loadTournamentData]);
 
 	/* -------------------- DERIVED -------------------- */
 
@@ -236,27 +246,15 @@ export default function TournamentPage() {
 		return Array.from(map.entries()).sort((a, b) => b[0] - a[0]);
 	}, [brackets]);
 
-	/* -------------------- EARLY RETURN -------------------- */
-
-	if (loading || !tournament) {
-		return (
-			<div className="p-6 text-center text-text-muted">
-				Loading tournament…
-			</div>
-		);
-	}
-
-	const isOwner = authUserId === tournament.created_by;
-	const isSignedUp =
-		!!currentPlayer && signups.some((p) => p.id === currentPlayer.id);
-	const signupDisabled =
-		!currentPlayer || tournament.started || isSignedUp || signingUp;
-	const canStart = isOwner && !tournament.started && signups.length > 1;
-
 	/* -------------------- ACTIONS -------------------- */
 
 	const signup = async () => {
-		if (!currentPlayer || signupDisabled) return;
+		if (
+			!currentPlayer ||
+			!tournament ||
+			!(!currentPlayer || tournament.started)
+		)
+			return;
 		setSigningUp(true);
 
 		const { data } = await supabase.auth.getSession();
@@ -277,12 +275,12 @@ export default function TournamentPage() {
 			}
 		);
 
-		await loadTournament();
+		await loadTournamentData();
 		setSigningUp(false);
 	};
 
 	const startTournament = async () => {
-		if (!canStart || starting) return;
+		if (!tournament || starting) return;
 		setStarting(true);
 
 		const { data } = await supabase.auth.getSession();
@@ -300,11 +298,26 @@ export default function TournamentPage() {
 			}
 		);
 
-		await loadTournament();
+		await loadTournamentData();
 		setStarting(false);
 	};
 
 	/* -------------------- RENDER -------------------- */
+
+	if (!tournament) {
+		return (
+			<div className="p-6 text-center text-text-muted">
+				Loading tournament…
+			</div>
+		);
+	}
+
+	const isOwner = authUserId === tournament.created_by;
+	const isSignedUp =
+		!!currentPlayer && signups.some((p) => p.id === currentPlayer.id);
+	const signupDisabled =
+		!currentPlayer || tournament.started || isSignedUp || signingUp;
+	const canStart = isOwner && !tournament.started && signups.length > 1;
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -312,10 +325,12 @@ export default function TournamentPage() {
 				<h1 className="text-4xl md:text-5xl font-extrabold">
 					{tournament.tournament_name}
 				</h1>
-				<p className="text-text-muted">Tournament bracket</p>
+				<p className="text-text-muted">
+					{tournament.tournament_description ?? "No Description"}
+				</p>
 			</section>
 
-			<div className="flex justify-between flex-wrap gap-4 mb-1">
+			<div className="flex justify-between flex-wrap gap-4 mb-2">
 				{!tournament.started && (
 					<button
 						onClick={signup}
@@ -325,7 +340,6 @@ export default function TournamentPage() {
 						{isSignedUp ? "Signed Up" : "Sign Up"}
 					</button>
 				)}
-
 				{!tournament.started && (
 					<button
 						onClick={startTournament}
@@ -337,9 +351,13 @@ export default function TournamentPage() {
 				)}
 			</div>
 
+			{loadingTournamentData && (
+				<p className="text-center text-text-muted py-4">Loading…</p>
+			)}
+
 			{/* SIGNUPS */}
 			{!tournament.started && signups.length > 0 && (
-				<section className="space-y-4 pt-6">
+				<section className="space-y-2 pt-4">
 					<h2 className="text-xl font-semibold text-center">
 						Signed Up Players
 					</h2>
@@ -362,9 +380,8 @@ export default function TournamentPage() {
 									· {getRankLabel(p.singles_elo)}
 								</p>
 							</div>
-
 							<div className="text-2xl font-bold">
-								{p.singles_elo ?? "—"}
+								{p.singles_elo ?? "-"}
 							</div>
 						</div>
 					))}
@@ -383,7 +400,6 @@ export default function TournamentPage() {
 							const match = b.match_id
 								? matchesMap.get(b.match_id)
 								: null;
-
 							return (
 								<div
 									key={b.id}
