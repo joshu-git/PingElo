@@ -4,10 +4,7 @@ import {
 	advanceBracketRound,
 } from "./tournaments.services.js";
 
-/* ============================================================
-   ELO LOGIC (UNCHANGED)
-   ============================================================ */
-
+//Elo logic
 const BASE_K = 50;
 const IDEAL_POINTS = 7;
 
@@ -51,10 +48,7 @@ function calculateElo(
 	};
 }
 
-/* ============================================================
-   MATCH NUMBER
-   ============================================================ */
-
+//Gets the next match number
 async function getNextMatchNumber() {
 	const { data } = await supabase
 		.from("matches")
@@ -66,10 +60,7 @@ async function getNextMatchNumber() {
 	return (data?.match_number ?? 0) + 1;
 }
 
-/* ============================================================
-   CREATE SINGLES MATCH
-   ============================================================ */
-
+//Creates a singles match
 export async function createSinglesMatch(
 	userId: string,
 	playerAId: string,
@@ -83,11 +74,12 @@ export async function createSinglesMatch(
 ) {
 	let bracketId: string | null = null;
 
+	//If there is a tournament id then check the match is allowed
 	if (tournamentId) {
 		bracketId = await validateTournamentMatch(
 			tournamentId,
-			[playerAId],
-			[playerBId]
+			playerAId,
+			playerBId
 		);
 		if (!bracketId) {
 			throw new Error("Match not allowed in this tournament");
@@ -138,6 +130,7 @@ export async function createSinglesMatch(
 		.update({ singles_elo: ratingB + elo.eloChangeB })
 		.eq("id", playerBId);
 
+	//Update the matches corresponding bracket
 	if (tournamentId && bracketId) {
 		await supabase
 			.from("tournament_brackets")
@@ -154,7 +147,7 @@ export async function createSinglesMatch(
 	return { match, elo };
 }
 
-//doubles
+//Create a doubles match
 export async function createDoublesMatch(
 	userId: string,
 	a1: any,

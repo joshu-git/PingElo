@@ -1,10 +1,7 @@
 import { supabase } from "../libs/supabase.js";
 import { v4 as uuidv4 } from "uuid";
 
-/* ============================================================
-   SHUFFLE HELPER (Fisher–Yates)
-   ============================================================ */
-
+//Fisher yates shuffle algorithm
 function shuffle<T>(array: readonly T[]): T[] {
 	const arr = array.slice() as T[];
 
@@ -19,10 +16,7 @@ function shuffle<T>(array: readonly T[]): T[] {
 	return arr;
 }
 
-/* ============================================================
-   CREATE TOURNAMENT
-   ============================================================ */
-
+//Creates a tournament with its name
 export async function createTournament(
 	tournament_name: string,
 	created_by: string,
@@ -44,10 +38,7 @@ export async function createTournament(
 	return data;
 }
 
-/* ============================================================
-   SIGN UP PLAYER
-   ============================================================ */
-
+//Signs up a player to the tournament
 export async function signupPlayer(tournamentId: string, playerId: string) {
 	const { data: tournament } = await supabase
 		.from("tournaments")
@@ -68,10 +59,7 @@ export async function signupPlayer(tournamentId: string, playerId: string) {
 	if (error) throw error;
 }
 
-/* ============================================================
-   GENERATE FIRST ROUND (WITH BYES)
-   ============================================================ */
-
+//Generates the first round of the tournament
 export async function generateFirstRound(tournamentId: string) {
 	const { data: signups } = await supabase
 		.from("tournament_signups")
@@ -110,18 +98,12 @@ export async function generateFirstRound(tournamentId: string) {
 		.eq("id", tournamentId);
 }
 
-/* ============================================================
-   VALIDATE TOURNAMENT MATCH
-   ============================================================ */
-
+//Validate a match is supposed to be in the tournament
 export async function validateTournamentMatch(
 	tournamentId: string,
-	playersA: string[],
-	playersB: string[]
+	playerAId: string,
+	playerBId: string
 ): Promise<string | null> {
-	const a = playersA[0];
-	const b = playersB[0];
-
 	const { data: tournament } = await supabase
 		.from("tournaments")
 		.select("started, completed")
@@ -137,8 +119,8 @@ export async function validateTournamentMatch(
 		.select("id, match_id")
 		.eq("tournament_id", tournamentId)
 		.eq("completed", false)
-		.eq("player_a_id", a)
-		.eq("player_b_id", b)
+		.eq("player_a_id", playerAId)
+		.eq("player_b_id", playerBId)
 		.maybeSingle();
 
 	if (!bracket) {
@@ -147,8 +129,8 @@ export async function validateTournamentMatch(
 			.select("id, match_id")
 			.eq("tournament_id", tournamentId)
 			.eq("completed", false)
-			.eq("player_a_id", b)
-			.eq("player_b_id", a)
+			.eq("player_a_id", playerAId)
+			.eq("player_b_id", playerBId)
 			.maybeSingle();
 
 		bracket = res.data;
@@ -159,10 +141,7 @@ export async function validateTournamentMatch(
 	return bracket.id;
 }
 
-/* ============================================================
-   ADVANCE BRACKET ROUND
-   ============================================================ */
-
+//Advance to the next round of brackets
 export async function advanceBracketRound(
 	tournamentId: string,
 	bracketId: string
