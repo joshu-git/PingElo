@@ -108,6 +108,10 @@ export default function Tournaments() {
 						</button>
 					</Link>
 
+					<Link href="/documentation/tournaments">
+						<button className="px-4 py-2 rounded-lg">Help</button>
+					</Link>
+
 					<button
 						onClick={() => setFilter("all")}
 						className={`px-4 py-2 rounded-lg ${
