@@ -149,6 +149,7 @@ export default function TournamentPage() {
 
 		setLoadingTournamentData(true);
 		try {
+			// ---------------- SIGNUPS ----------------
 			if (!tournament.started) {
 				const { data: signupRows } = await supabase
 					.from("tournament_signups")
@@ -167,7 +168,7 @@ export default function TournamentPage() {
 
 					setSignups(players ?? []);
 
-					// Fetch match counts for each player
+					// Fetch match counts to determine unranked
 					const countsMap = new Map<string, number>();
 					await Promise.all(
 						(players ?? []).map(async (p) => {
@@ -189,6 +190,7 @@ export default function TournamentPage() {
 				setSignups([]);
 			}
 
+			// ---------------- BRACKETS ----------------
 			if (tournament.started) {
 				const { data: rawBrackets } = await supabase
 					.from("tournament_brackets")
@@ -215,8 +217,28 @@ export default function TournamentPage() {
 				if (playerIds.length) {
 					const { data: players } = await supabase
 						.from("players")
-						.select("id, player_name, account_id")
+						.select(
+							"id, player_name, account_id, singles_elo, group_id"
+						)
 						.in("id", playerIds);
+
+					// Fetch match counts for all bracket players too
+					const countsMap = new Map<string, number>(matchCounts);
+					await Promise.all(
+						(players ?? []).map(async (p) => {
+							if (!countsMap.has(p.id)) {
+								const { count } = await supabase
+									.from("matches")
+									.select("*", { count: "exact", head: true })
+									.or(
+										`player_a1_id.eq.${p.id},player_b1_id.eq.${p.id}`
+									)
+									.eq("match_type", "singles");
+								countsMap.set(p.id, count ?? 0);
+							}
+						})
+					);
+					setMatchCounts(countsMap);
 
 					playersMap = new Map(players?.map((p) => [p.id, p]) ?? []);
 				}
@@ -249,14 +271,13 @@ export default function TournamentPage() {
 		} finally {
 			setLoadingTournamentData(false);
 		}
-	}, [tournament, tournamentId]);
+	}, [tournament, tournamentId, matchCounts]);
 
 	useEffect(() => {
 		loadTournamentData();
 	}, [loadTournamentData]);
 
 	/* -------------------- DERIVED -------------------- */
-
 	const bracketsByRound = useMemo(() => {
 		const map = new Map<number, BracketRow[]>();
 		for (const b of brackets) {
@@ -267,7 +288,6 @@ export default function TournamentPage() {
 	}, [brackets]);
 
 	/* -------------------- ACTIONS -------------------- */
-
 	const signup = async () => {
 		if (!currentPlayer || !tournament || signupDisabled) return;
 		setSigningUp(true);
@@ -365,55 +385,53 @@ export default function TournamentPage() {
 				)}
 			</div>
 
-			{/* Loading */}
+			{/* Loading for the rest */}
 			{loadingTournamentData && (
 				<p className="text-center text-text-muted py-4">Loading…</p>
 			)}
 
 			{/* SIGNUPS */}
-			{!tournament.started && signups.length > 0 && (
-				<section className="space-y-2 pt-4">
-					<h2 className="text-xl font-semibold text-center">
-						Signed Up Players
-					</h2>
-
-					{signups
-						.sort(
-							(a, b) =>
-								(b.singles_elo ?? 0) - (a.singles_elo ?? 0)
-						)
-						.map((p) => (
-							<div
-								key={p.id}
-								className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
-							>
-								<div>
-									<Link
-										href={`/profile/${p.player_name}`}
-										className="font-semibold hover:underline"
-									>
-										{p.player_name}
-									</Link>
-									<p className="text-sm text-text-muted">
-										{groupMap.get(p.group_id ?? "") ??
-											"No Group"}{" "}
-										·{" "}
-										{getRankLabel(
-											p.singles_elo,
-											matchCounts.get(p.id)
-										)}
-									</p>
+			{!tournament.started &&
+				signups.length > 0 &&
+				!loadingTournamentData && (
+					<section className="space-y-2 pt-4">
+						{signups
+							.sort(
+								(a, b) =>
+									(b.singles_elo ?? 0) - (a.singles_elo ?? 0)
+							)
+							.map((p) => (
+								<div
+									key={p.id}
+									className="flex items-center justify-between bg-card p-4 rounded-xl hover-card"
+								>
+									<div>
+										<Link
+											href={`/profile/${p.player_name}`}
+											className="font-semibold hover:underline"
+										>
+											{p.player_name} ·{" "}
+											{getRankLabel(
+												p.singles_elo,
+												matchCounts.get(p.id)
+											)}
+										</Link>
+										<p className="text-sm text-text-muted">
+											{groupMap.get(p.group_id ?? "") ??
+												"No Group"}
+										</p>
+									</div>
+									<div className="text-2xl font-bold">
+										{p.singles_elo ?? "-"}
+									</div>
 								</div>
-								<div className="text-2xl font-bold">
-									{p.singles_elo ?? "-"}
-								</div>
-							</div>
-						))}
-				</section>
-			)}
+							))}
+					</section>
+				)}
 
 			{/* BRACKETS */}
 			{tournament.started &&
+				!loadingTournamentData &&
 				bracketsByRound.map(([round, list]) => (
 					<section key={round} className="space-y-3">
 						<h2 className="text-lg font-semibold text-center">
@@ -437,14 +455,28 @@ export default function TournamentPage() {
 										<div className="space-y-1">
 											<p className="font-semibold">
 												{b.player_a1?.player_name ??
-													"BYE"}
+													"BYE"}{" "}
+												·{" "}
+												{getRankLabel(
+													b.player_a1?.singles_elo,
+													matchCounts.get(
+														b.player_a1?.id ?? ""
+													)
+												)}
 											</p>
 											<p className="text-text-muted">
 												vs
 											</p>
 											<p className="font-semibold">
 												{b.player_b1?.player_name ??
-													"BYE"}
+													"BYE"}{" "}
+												·{" "}
+												{getRankLabel(
+													b.player_b1?.singles_elo,
+													matchCounts.get(
+														b.player_b1?.id ?? ""
+													)
+												)}
 											</p>
 										</div>
 
