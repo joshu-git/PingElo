@@ -12,7 +12,7 @@ type Tournament = {
 	start_date: string;
 	end_date?: string | null;
 	tournament_description?: string | null;
-	winner_id?: string | null;
+	winner?: string | null;
 };
 
 type PlayerRow = {
@@ -166,8 +166,8 @@ export default function Tournaments() {
 							: "Upcoming";
 
 					const winnerName =
-						t.completed && t.winner_id
-							? playersMap.get(t.winner_id)
+						t.completed && t.winner
+							? playersMap.get(t.winner)
 							: null;
 
 					return (
