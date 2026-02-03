@@ -11,22 +11,25 @@ import {
 
 const router = Router();
 
-/* ------------------- INPUT VALIDATION ------------------- */
+//Input validation
 function validateMatchInput(body: any, matchType: "singles" | "doubles") {
 	const { score_a, score_b } = body;
 
-	// Ensure scores exist
+	//Ensure scores are valid
 	if (score_a == null || score_b == null) throw new Error("Missing scores");
 	if (score_a < 0 || score_b < 0)
 		throw new Error("Scores cannot be negative");
 	if (Math.abs(score_a - score_b) < 2)
 		throw new Error("Match must be won by at least 2 points");
 
+	//Ensures player ids are valid
 	if (matchType === "singles") {
 		const { player_a1_id, player_b1_id, tournament_id } = body;
 		if (!player_a1_id || !player_b1_id)
 			throw new Error("Missing player IDs");
-		if (player_a1_id === player_b1_id)
+
+		const allPlayers = [player_a1_id, player_b1_id];
+		if (new Set(allPlayers).size !== 2)
 			throw new Error("Players must be unique");
 
 		return {
@@ -37,14 +40,7 @@ function validateMatchInput(body: any, matchType: "singles" | "doubles") {
 			tournamentId: tournament_id ?? null,
 		};
 	} else {
-		// doubles
-		const {
-			player_a1_id,
-			player_a2_id,
-			player_b1_id,
-			player_b2_id,
-			tournament_id,
-		} = body;
+		const { player_a1_id, player_a2_id, player_b1_id, player_b2_id } = body;
 		if (!player_a1_id || !player_a2_id || !player_b1_id || !player_b2_id)
 			throw new Error("Missing player IDs");
 
@@ -58,16 +54,15 @@ function validateMatchInput(body: any, matchType: "singles" | "doubles") {
 			throw new Error("Players must be unique");
 
 		return {
-			playerIds: allPlayers,
+			playerIds: [player_a1_id, player_a2_id, player_b1_id, player_b2_id],
 			scoreA: score_a,
 			scoreB: score_b,
 			gamePoints: Math.max(score_a, score_b),
-			tournamentId: tournament_id ?? null,
 		};
 	}
 }
 
-/* ------------------- BAN CHECK ------------------- */
+//Ban check
 async function checkBans(players: any[]) {
 	const playerIds = players.map((p) => p.id);
 	const groupIds = players.map((p) => p.group_id).filter(Boolean);
@@ -89,7 +84,7 @@ async function checkBans(players: any[]) {
 	}
 }
 
-/* ------------------- ACCESS CHECK ------------------- */
+//Check the user has access to this match
 async function checkAccess(players: any[], accountId: string) {
 	const isOwner = players.some((p) => p.account_id === accountId);
 	if (isOwner) return;
@@ -111,7 +106,7 @@ async function checkAccess(players: any[], accountId: string) {
 	if (!hasRights) throw new Error("Admin rights required for this match");
 }
 
-/* ------------------- SUBMIT SINGLES ------------------- */
+//Submit Singles
 router.post(
 	"/submit/singles",
 	requireAuth,
@@ -120,7 +115,6 @@ router.post(
 			const { playerIds, scoreA, scoreB, gamePoints, tournamentId } =
 				validateMatchInput(req.body, "singles");
 
-			// Fetch player details
 			const { data: players } = await supabase
 				.from("players")
 				.select("id, account_id, singles_elo, group_id")
@@ -153,7 +147,7 @@ router.post(
 	}
 );
 
-/* ------------------- SUBMIT DOUBLES ------------------- */
+//Submit doubles
 router.post(
 	"/submit/doubles",
 	requireAuth,
@@ -172,20 +166,24 @@ router.post(
 			await checkBans(players);
 			await checkAccess(players, req.user!.id);
 
-			const [a1, a2, b1, b2] = playerIds.map(
-				(id) => players.find((p) => p.id === id)!
-			);
+			const playerA1 = players.find((p) => p.id === playerIds[0])!;
+			const playerA2 = players.find((p) => p.id === playerIds[1])!;
+			const playerB1 = players.find((p) => p.id === playerIds[2])!;
+			const playerB2 = players.find((p) => p.id === playerIds[3])!;
 
 			const result = await createDoublesMatch(
 				req.user!.id,
-				a1,
-				a2,
-				b1,
-				b2,
+				playerA1.id,
+				playerA2.id,
+				playerB1.id,
+				playerB2.id,
 				scoreA,
 				scoreB,
-				gamePoints,
-				tournamentId
+				playerA1.doubles_elo,
+				playerA2.doubles_elo,
+				playerB1.doubles_elo,
+				playerB2.doubles_elo,
+				gamePoints
 			);
 
 			res.status(201).json(result);
