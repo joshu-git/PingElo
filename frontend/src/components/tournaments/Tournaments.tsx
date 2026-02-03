@@ -57,7 +57,7 @@ export default function Tournaments() {
 	}, []);
 
 	const playersMap = useMemo(
-		() => new Map(playersData.map((p) => [p.id, p])),
+		() => new Map(playersData.map((p) => [p.id, p.player_name])),
 		[playersData]
 	);
 
@@ -78,7 +78,6 @@ export default function Tournaments() {
 				break;
 		}
 
-		// Sort by start_date descending
 		return [...filtered].sort((a, b) => {
 			const da = a.start_date ? new Date(a.start_date).getTime() : 0;
 			const db = b.start_date ? new Date(b.start_date).getTime() : 0;
@@ -100,7 +99,6 @@ export default function Tournaments() {
 
 			{/* CONTROLS */}
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				{/* Left group: Create Tournament + All */}
 				<div className="flex flex-wrap justify-center gap-2">
 					<Link href="/tournaments/create">
 						<button className="px-4 py-2 rounded-lg">
@@ -122,7 +120,6 @@ export default function Tournaments() {
 					</button>
 				</div>
 
-				{/* Right group: Upcoming / In Progress / Completed */}
 				<div className="flex flex-wrap justify-center gap-2">
 					{["upcoming", "in_progress", "completed"].map((value) => {
 						const labels: Record<string, string> = {
@@ -168,10 +165,7 @@ export default function Tournaments() {
 							? "In Progress"
 							: "Upcoming";
 
-					const description =
-						t.tournament_description?.trim() || "No Description";
-
-					const winner =
+					const winnerName =
 						t.completed && t.winner_id
 							? playersMap.get(t.winner_id)
 							: null;
@@ -182,36 +176,39 @@ export default function Tournaments() {
 							onClick={() =>
 								(window.location.href = `/tournaments/${t.id}`)
 							}
-							className="bg-card p-6 rounded-xl hover-card cursor-pointer transition"
+							className="bg-card p-4 md:p-6 rounded-xl hover-card cursor-pointer transition"
 						>
 							<div className="flex justify-between gap-6">
-								{/* Left column: Name, Description, Winner */}
-								<div className="flex-1 space-y-2">
-									<h2 className="text-lg font-semibold">
+								{/* LEFT */}
+								<div className="flex-1 min-w-0 space-y-1.5">
+									<h2 className="font-semibold text-[clamp(1rem,4vw,1.125rem)] truncate">
 										{t.tournament_name}
 									</h2>
-									<p className="text-text-subtle text-sm">
-										{description}
+
+									<p className="text-text-subtle text-[clamp(0.8rem,3.5vw,0.875rem)] leading-snug line-clamp-2">
+										{t.tournament_description?.trim() ||
+											"No Description"}
 									</p>
-									{winner && (
-										<p className="text-sm text-text-muted">
+
+									{winnerName && (
+										<p className="text-[clamp(0.75rem,3vw,0.85rem)] text-text-muted">
 											Winner:{" "}
 											<Link
-												href={`/profile/${winner.player_name}`}
+												href={`/profile/${winnerName}`}
 												onClick={(e) =>
 													e.stopPropagation()
 												}
 												className="hover:underline"
 											>
-												{winner.player_name}
+												{winnerName}
 											</Link>
 										</p>
 									)}
 								</div>
 
-								{/* Right column: Status above Start/End Date */}
-								<div className="flex flex-col items-end text-sm text-text-muted shrink-0 space-y-1">
-									<span>{status}</span>
+								{/* RIGHT */}
+								<div className="text-right text-[clamp(0.75rem,3vw,0.85rem)] text-text-muted shrink-0 space-y-1">
+									<div className="font-medium">{status}</div>
 									<div>
 										Start:{" "}
 										{t.start_date
