@@ -148,7 +148,7 @@ export default function Tournaments() {
 			</div>
 
 			{/* TOURNAMENT CARDS */}
-			<section className="space-y-4">
+			<section className="space-y-3">
 				{loading && (
 					<p className="text-center text-text-muted py-6">
 						Loading tournaments…
