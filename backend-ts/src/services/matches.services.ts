@@ -6,15 +6,24 @@ import {
 
 //Elo logic
 const BASE_K = 50;
+const TOURNAMENT_BASE_K = 100;
 const IDEAL_POINTS = 7;
 
 function expectedScore(rA: number, rB: number) {
 	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
 
-function effectiveK(scoreA: number, scoreB: number, gamePoints: number) {
+function effectiveK(
+	scoreA: number,
+	scoreB: number,
+	gamePoints: number,
+	isTournament?: Boolean
+) {
 	const diff = Math.abs(scoreA - scoreB) / gamePoints;
 	const length = gamePoints / IDEAL_POINTS;
+	if (isTournament) {
+		return TOURNAMENT_BASE_K * diff * length;
+	}
 	return BASE_K * diff * length;
 }
 
@@ -28,17 +37,9 @@ function calculateElo(
 ) {
 	const winner = scoreA > scoreB ? "A" : "B";
 
-	if (isTournament) {
-		return {
-			winner,
-			eloChangeA: winner === "A" ? 15 : -15,
-			eloChangeB: winner === "A" ? -15 : 15,
-		};
-	}
-
 	const actualA = winner === "A" ? 1 : 0;
 	const expectedA = expectedScore(rA, rB);
-	const k = effectiveK(scoreA, scoreB, gamePoints);
+	const k = effectiveK(scoreA, scoreB, gamePoints, isTournament);
 	const deltaA = Math.round(k * (actualA - expectedA));
 
 	return {
@@ -98,6 +99,8 @@ export async function createSinglesMatch(
 	const matchNumber = await getNextMatchNumber();
 	const winnerId = elo.winner === "A" ? playerAId : playerBId;
 
+	const winners = elo.winner === "A" ? [playerAId] : [playerBId];
+
 	const { data: match } = await supabase
 		.from("matches")
 		.insert({
@@ -107,7 +110,7 @@ export async function createSinglesMatch(
 			score_b: scoreB,
 			game_points: gamePoints,
 			created_by: userId,
-			winner1: winnerId,
+			winner1: winners[0],
 			match_number: matchNumber,
 			match_type: "singles",
 			elo_change_a: elo.eloChangeA,
@@ -150,17 +153,20 @@ export async function createSinglesMatch(
 //Create a doubles match
 export async function createDoublesMatch(
 	userId: string,
-	a1: any,
-	a2: any,
-	b1: any,
-	b2: any,
+	playerA1Id: string,
+	playerA2Id: string,
+	playerB1Id: string,
+	playerB2Id: string,
 	scoreA: number,
 	scoreB: number,
 	gamePoints: number,
-	tournamentId?: string | null
+	ratingA1: number,
+	ratingA2: number,
+	ratingB1: number,
+	ratingB2: number
 ) {
-	const teamARating = (a1.doubles_elo + a2.doubles_elo) / 2;
-	const teamBRating = (b1.doubles_elo + b2.doubles_elo) / 2;
+	const teamARating = (ratingA1 + ratingA2) / 2;
+	const teamBRating = (ratingB1 + ratingB2) / 2;
 
 	const elo = calculateElo(
 		teamARating,
@@ -168,19 +174,22 @@ export async function createDoublesMatch(
 		scoreA,
 		scoreB,
 		gamePoints,
-		Boolean(tournamentId)
+		false
 	);
 
 	const matchNumber = await getNextMatchNumber();
-	const winners = elo.winner === "A" ? [a1.id, a2.id] : [b1.id, b2.id];
+	const winners =
+		elo.winner === "A"
+			? [playerA1Id, playerA2Id]
+			: [playerB1Id, playerB2Id];
 
 	const { data: match } = await supabase
 		.from("matches")
 		.insert({
-			player_a1_id: a1.id,
-			player_a2_id: a2.id,
-			player_b1_id: b1.id,
-			player_b2_id: b2.id,
+			player_a1_id: playerA1Id,
+			player_a2_id: playerA2Id,
+			player_b1_id: playerB1Id,
+			player_b2_id: playerB2Id,
 			score_a: scoreA,
 			score_b: scoreB,
 			game_points: gamePoints,
@@ -191,27 +200,33 @@ export async function createDoublesMatch(
 			match_type: "doubles",
 			elo_change_a: elo.eloChangeA,
 			elo_change_b: elo.eloChangeB,
-			elo_before_a1: a1.doubles_elo,
-			elo_before_a2: a2.doubles_elo,
-			elo_before_b1: b1.doubles_elo,
-			elo_before_b2: b2.doubles_elo,
+			elo_before_a1: ratingA1,
+			elo_before_a2: ratingA2,
+			elo_before_b1: ratingB1,
+			elo_before_b2: ratingB2,
 		})
 		.select()
 		.single();
 
-	for (const p of [a1, a2]) {
-		await supabase
-			.from("players")
-			.update({ doubles_elo: p.doubles_elo + elo.eloChangeA })
-			.eq("id", p.id);
-	}
+	await supabase
+		.from("players")
+		.update({ doubless_elo: ratingA1 + elo.eloChangeA })
+		.eq("id", playerA1Id);
 
-	for (const p of [b1, b2]) {
-		await supabase
-			.from("players")
-			.update({ doubles_elo: p.doubles_elo + elo.eloChangeB })
-			.eq("id", p.id);
-	}
+	await supabase
+		.from("players")
+		.update({ doubless_elo: ratingA2 + elo.eloChangeA })
+		.eq("id", playerA2Id);
 
-	return { match, eloData: elo };
+	await supabase
+		.from("players")
+		.update({ doubles_elo: ratingB1 + elo.eloChangeB })
+		.eq("id", playerB1Id);
+	await supabase
+
+		.from("players")
+		.update({ doubles_elo: ratingB2 + elo.eloChangeB })
+		.eq("id", playerB2Id);
+
+	return { match, elo };
 }
