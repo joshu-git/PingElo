@@ -176,7 +176,7 @@ export default function Tournaments() {
 							onClick={() =>
 								(window.location.href = `/tournaments/${t.id}`)
 							}
-							className="bg-card p-4 md:p-6 rounded-xl hover-card cursor-pointer transition"
+							className="bg-card p-4 rounded-xl hover-card cursor-pointer transition"
 						>
 							<div className="flex justify-between gap-6">
 								{/* LEFT */}
