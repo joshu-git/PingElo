@@ -323,8 +323,7 @@ export default function TournamentPage() {
 			}
 		);
 
-		await loadTournamentData();
-		setStarting(false);
+		location.reload();
 	};
 
 	const signupDisabled = !currentPlayer || tournament?.started || signingUp;
