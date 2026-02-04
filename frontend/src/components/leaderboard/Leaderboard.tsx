@@ -274,6 +274,7 @@ export default function Leaderboard() {
 								e.target.value || null
 							)
 						}
+						className="px-4 py-2 rounded-lg border border-border bg-transparent"
 					>
 						<option value="">Select Group</option>
 						{groups.map((g) => (
@@ -286,11 +287,15 @@ export default function Leaderboard() {
 					<button
 						disabled={!myGroupId}
 						onClick={() => handleFilterChange(matchType, myGroupId)}
+						className="px-4 py-2 rounded-lg disabled:opacity-50"
 					>
 						My Group
 					</button>
 
-					<button onClick={() => handleFilterChange(matchType, null)}>
+					<button
+						onClick={() => handleFilterChange(matchType, null)}
+						className="px-4 py-2 rounded-lg"
+					>
 						Global
 					</button>
 				</div>
