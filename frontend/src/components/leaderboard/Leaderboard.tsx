@@ -236,25 +236,25 @@ export default function Leaderboard() {
 			</section>
 
 			{/* Filter controls */}
-			<div className="flex flex-col gap-4 sm:flex-row sm:justify-between">
-				<div className="flex gap-2">
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-wrap justify-center gap-2">
 					<button
 						onClick={() => handleFilterChange("singles", groupId)}
-						className={
+						className={`px-4 py-2 rounded-lg ${
 							matchType === "singles"
 								? "underline font-semibold"
 								: ""
-						}
+						}`}
 					>
 						Singles
 					</button>
 					<button
 						onClick={() => handleFilterChange("doubles", groupId)}
-						className={
+						className={`px-4 py-2 rounded-lg ${
 							matchType === "doubles"
 								? "underline font-semibold"
 								: ""
-						}
+						}`}
 					>
 						Doubles
 					</button>
