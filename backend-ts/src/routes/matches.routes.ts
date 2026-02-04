@@ -108,6 +108,18 @@ async function checkAccess(players: any[], accountId: string) {
 	if (!hasRights) throw new Error("Admin rights required for this match");
 }
 
+//
+function enforceSameGroup(players: any[]) {
+	const groupIds = players.map((p) => p.group_id);
+
+	if (groupIds.some((g) => g == null))
+		throw new Error("All players must belong to a group");
+
+	if (new Set(groupIds).size !== 1) {
+		throw new Error("All players must be in the same group");
+	}
+}
+
 //Submit Singles
 router.post(
 	"/submit/singles",
@@ -126,6 +138,10 @@ router.post(
 
 			await checkBans(players);
 			await checkAccess(players, req.user!.id);
+
+			if (!tournamentId) {
+				enforceSameGroup(players);
+			}
 
 			const playerA = players.find((p) => p.id === playerIds[0])!;
 			const playerB = players.find((p) => p.id === playerIds[1])!;
@@ -155,7 +171,7 @@ router.post(
 	requireAuth,
 	async (req: AuthenticatedRequest, res) => {
 		try {
-			const { playerIds, scoreA, scoreB, gamePoints, tournamentId } =
+			const { playerIds, scoreA, scoreB, gamePoints } =
 				validateMatchInput(req.body, "doubles");
 
 			const { data: players } = await supabase
@@ -167,6 +183,8 @@ router.post(
 
 			await checkBans(players);
 			await checkAccess(players, req.user!.id);
+
+			enforceSameGroup(players);
 
 			const playerA1 = players.find((p) => p.id === playerIds[0])!;
 			const playerA2 = players.find((p) => p.id === playerIds[1])!;
