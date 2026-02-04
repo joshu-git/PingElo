@@ -129,8 +129,8 @@ export async function validateTournamentMatch(
 			.select("id, match_id")
 			.eq("tournament_id", tournamentId)
 			.eq("completed", false)
-			.eq("player_a_id", playerAId)
-			.eq("player_b_id", playerBId)
+			.eq("player_a_id", playerBId)
+			.eq("player_b_id", playerAId)
 			.maybeSingle();
 
 		bracket = res.data;
