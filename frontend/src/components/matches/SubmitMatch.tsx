@@ -151,7 +151,8 @@ export default function SubmitMatch() {
     )
   `
 					)
-					.eq("tournament_id", tournamentId);
+					.eq("tournament_id", tournamentId)
+					.eq("completed", false);
 
 				if (error || !brackets) {
 					setPlayers([]);
