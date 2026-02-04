@@ -19,6 +19,8 @@ function validateMatchInput(body: any, matchType: "singles" | "doubles") {
 	if (score_a == null || score_b == null) throw new Error("Missing scores");
 	if (score_a < 0 || score_b < 0)
 		throw new Error("Scores cannot be negative");
+	if (score_a > 21 || score_b > 21)
+		throw new Error("Scores cannot be over 21");
 	if (Math.abs(score_a - score_b) < 2)
 		throw new Error("Match must be won by at least 2 points");
 
