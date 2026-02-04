@@ -4,6 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
+//Helper function
+function unwrapPlayer(value: Player | Player[] | null): Player | null {
+	if (!value) return null;
+	return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
 //Elo logic
 const BASE_K = 50;
 const IDEAL_POINTS = 7;
@@ -119,32 +125,55 @@ export default function SubmitMatch() {
 	//Load players
 	useEffect(() => {
 		async function loadPlayers() {
+			// No group & no tournament → no players
 			if (!userGroupId && !tournamentId) {
 				setPlayers([]);
 				return;
 			}
 
+			// Tournament selected (singles only)
 			if (tournamentId && !isDoubles) {
-				const { data: brackets } = await supabase
+				const { data: brackets, error } = await supabase
 					.from("tournament_brackets")
 					.select(
-						"player:players(id, player_name, singles_elo, doubles_elo)"
+						`
+    player_a:player_a_id (
+      id,
+      player_name,
+      singles_elo,
+      doubles_elo
+    ),
+    player_b:player_b_id (
+      id,
+      player_name,
+      singles_elo,
+      doubles_elo
+    )
+  `
 					)
 					.eq("tournament_id", tournamentId);
 
-				if (!brackets) {
+				if (error || !brackets) {
 					setPlayers([]);
 					return;
 				}
 
-				const tournamentPlayers: Player[] = brackets.flatMap(
-					(b) => b.player ?? []
-				);
+				const map = new Map<string, Player>();
 
-				setPlayers(tournamentPlayers);
+				for (const row of brackets) {
+					const playerA = unwrapPlayer(row.player_a);
+					const playerB = unwrapPlayer(row.player_b);
+
+					if (playerA) map.set(playerA.id, playerA);
+					if (playerB) map.set(playerB.id, playerB);
+				}
+
+				setPlayers([...map.values()]);
+
 				return;
 			}
 
+			// Casual match → same-group players
 			if (userGroupId) {
 				const { data } = await supabase
 					.from("players")
