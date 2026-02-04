@@ -4,10 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-/* =====================
-   Elo logic
-===================== */
-
+//Elo logic
 const BASE_K = 50;
 const IDEAL_POINTS = 7;
 
@@ -30,7 +27,6 @@ function calculateElo(
 ) {
 	const winner = scoreA > scoreB ? "A" : "B";
 
-	//Tournament: guaranteed + or - 15
 	if (isTournament) {
 		return {
 			winner,
@@ -39,7 +35,6 @@ function calculateElo(
 		};
 	}
 
-	// Casual match: normal Elo calculation
 	const actualA = winner === "A" ? 1 : 0;
 	const expectedA = expectedScore(rA, rB);
 	const k = effectiveK(scoreA, scoreB, Math.max(scoreA, scoreB));
@@ -52,10 +47,7 @@ function calculateElo(
 	};
 }
 
-/* =====================
-   Types
-===================== */
-
+//Types
 type Player = {
 	id: string;
 	player_name: string;
@@ -68,10 +60,7 @@ type Tournament = {
 	tournament_name: string;
 };
 
-/* =====================
-   Component
-===================== */
-
+//Components
 export default function SubmitMatch() {
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -86,23 +75,36 @@ export default function SubmitMatch() {
 	const [scoreB, setScoreB] = useState(0);
 
 	const [tournamentId, setTournamentId] = useState<string | null>(null);
+	const [userGroupId, setUserGroupId] = useState<string | null>(null);
+
 	const [loading, setLoading] = useState(false);
 	const [canSubmit, setCanSubmit] = useState(true);
 
 	const fieldClass =
 		"w-full rounded-lg px-4 py-3 bg-card border border-border";
 
-	/* =====================
-	   Load data
-	===================== */
-
+	//Load user + tournaments
 	useEffect(() => {
-		supabase
-			.from("players")
-			.select("*")
-			.then(({ data }) => {
-				if (data) setPlayers(data);
-			});
+		async function loadUserContext() {
+			const {
+				data: { session },
+			} = await supabase.auth.getSession();
+
+			if (!session) {
+				setUserGroupId(null);
+				return;
+			}
+
+			const { data: player } = await supabase
+				.from("players")
+				.select("group_id")
+				.eq("account_id", session.user.id)
+				.single();
+
+			setUserGroupId(player?.group_id ?? null);
+		}
+
+		loadUserContext();
 
 		supabase
 			.from("tournaments")
@@ -114,28 +116,67 @@ export default function SubmitMatch() {
 			});
 	}, []);
 
-	/* =====================
-	   Helper: available players
-	===================== */
+	//Load players
+	useEffect(() => {
+		async function loadPlayers() {
+			if (!userGroupId && !tournamentId) {
+				setPlayers([]);
+				return;
+			}
 
+			if (tournamentId && !isDoubles) {
+				const { data: brackets } = await supabase
+					.from("tournament_brackets")
+					.select(
+						"player:players(id, player_name, singles_elo, doubles_elo)"
+					)
+					.eq("tournament_id", tournamentId);
+
+				if (!brackets) {
+					setPlayers([]);
+					return;
+				}
+
+				const tournamentPlayers: Player[] = brackets.flatMap(
+					(b) => b.player ?? []
+				);
+
+				setPlayers(tournamentPlayers);
+				return;
+			}
+
+			if (userGroupId) {
+				const { data } = await supabase
+					.from("players")
+					.select("*")
+					.eq("group_id", userGroupId);
+
+				setPlayers(data ?? []);
+			}
+		}
+
+		loadPlayers();
+	}, [userGroupId, tournamentId, isDoubles]);
+
+	//Disable tournaments for doubles
+	useEffect(() => {
+		if (isDoubles && tournamentId) {
+			setTournamentId(null);
+		}
+	}, [isDoubles, tournamentId]);
+
+	//Available players
 	function availablePlayers(currentValue: string) {
 		const selected = new Set([a1, a2, b1, b2].filter(Boolean));
 		selected.delete(currentValue);
 		return players.filter((p) => !selected.has(p.id));
 	}
 
-	/* =====================
-	   Validation
-	===================== */
-
+	//Validation
 	const validationErrors = useMemo(() => {
 		const errors: string[] = [];
 
 		//Score validation
-		if (Math.abs(scoreA - scoreB) < 2) {
-			errors.push("A match must be won by at least 2 points");
-		}
-
 		if (scoreA < 0 || scoreB < 0) {
 			errors.push("Scores cannot be negative");
 		}
@@ -144,12 +185,16 @@ export default function SubmitMatch() {
 			errors.push("Scores cannot be over 21");
 		}
 
+		if (Math.abs(scoreA - scoreB) < 2) {
+			errors.push("Match must be won by at least 2 points");
+		}
+
 		//Player validation
 		if (!isDoubles && (!a1 || !b1)) {
 			errors.push("Missing player IDs");
 		}
 
-		if (isDoubles && (!a1 || !b1 || !a2 || !b2)) {
+		if (isDoubles && (!a1 || !a2 || !b1 || !b2)) {
 			errors.push("Missing player IDs");
 		}
 
@@ -163,10 +208,7 @@ export default function SubmitMatch() {
 
 	const formValid = validationErrors.length === 0;
 
-	/* =====================
-	   Elo preview
-	===================== */
-
+	//Elo Preview
 	const eloPreview = useMemo(() => {
 		if (!formValid) return null;
 
@@ -211,10 +253,7 @@ export default function SubmitMatch() {
 		formValid,
 	]);
 
-	/* =====================
-	   Submit
-	===================== */
-
+	//Submit
 	async function submitMatch(e: React.FormEvent) {
 		e.preventDefault();
 		if (!formValid || !canSubmit || loading) return;
@@ -273,7 +312,7 @@ export default function SubmitMatch() {
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
-			{/* HERO */}
+			{/*HERO*/}
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 					Submit Match
@@ -306,7 +345,6 @@ export default function SubmitMatch() {
 							Doubles
 						</button>
 
-						{/* Back to Matches */}
 						<Link href="/matches">
 							<button
 								type="button"
@@ -324,6 +362,7 @@ export default function SubmitMatch() {
 						onChange={(e) =>
 							setTournamentId(e.target.value || null)
 						}
+						disabled={isDoubles}
 					>
 						<option value="">Casual Match</option>
 						{tournaments.map((t) => (
@@ -438,7 +477,6 @@ export default function SubmitMatch() {
 						</div>
 					)}
 
-					{/* Submit button */}
 					<button
 						type="submit"
 						disabled={!formValid || loading || !canSubmit}
@@ -447,7 +485,6 @@ export default function SubmitMatch() {
 						{loading ? "Submitting…" : "Submit Match"}
 					</button>
 
-					{/* Validation errors */}
 					{validationErrors.map((err) => (
 						<p
 							key={err}
@@ -457,7 +494,6 @@ export default function SubmitMatch() {
 						</p>
 					))}
 
-					{/* Cooldown */}
 					{!canSubmit && (
 						<p className="text-xs text-center text-text-muted">
 							Please wait 5 seconds before submitting another
