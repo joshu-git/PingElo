@@ -4,24 +4,27 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
-//Helper function
-function unwrapPlayer(value: Player | Player[] | null): Player | null {
-	if (!value) return null;
-	return Array.isArray(value) ? (value[0] ?? null) : value;
-}
-
 //Elo logic
 const BASE_K = 50;
+const TOURNAMENT_BASE_K = 100;
 const IDEAL_POINTS = 7;
 
 function expectedScore(rA: number, rB: number) {
 	return 1 / (1 + Math.pow(10, (rB - rA) / 400));
 }
 
-function effectiveK(scoreA: number, scoreB: number, gamePoints: number) {
+function effectiveK(
+	scoreA: number,
+	scoreB: number,
+	gamePoints: number,
+	isTournament: boolean
+) {
+	if (gamePoints <= 0) return 0;
+
 	const diff = Math.abs(scoreA - scoreB) / gamePoints;
 	const length = gamePoints / IDEAL_POINTS;
-	return BASE_K * diff * length;
+
+	return (isTournament ? TOURNAMENT_BASE_K : BASE_K) * diff * length;
 }
 
 function calculateElo(
@@ -29,21 +32,14 @@ function calculateElo(
 	rB: number,
 	scoreA: number,
 	scoreB: number,
+	gamePoints: number,
 	isTournament: boolean
 ) {
 	const winner = scoreA > scoreB ? "A" : "B";
 
-	if (isTournament) {
-		return {
-			winner,
-			eloChangeA: winner === "A" ? 15 : -15,
-			eloChangeB: winner === "A" ? -15 : 15,
-		};
-	}
-
 	const actualA = winner === "A" ? 1 : 0;
 	const expectedA = expectedScore(rA, rB);
-	const k = effectiveK(scoreA, scoreB, Math.max(scoreA, scoreB));
+	const k = effectiveK(scoreA, scoreB, gamePoints, isTournament);
 	const deltaA = Math.round(k * (actualA - expectedA));
 
 	return {
@@ -66,7 +62,6 @@ type Tournament = {
 	tournament_name: string;
 };
 
-//Components
 export default function SubmitMatch() {
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -92,19 +87,13 @@ export default function SubmitMatch() {
 	//Load user + tournaments
 	useEffect(() => {
 		async function loadUserContext() {
-			const {
-				data: { session },
-			} = await supabase.auth.getSession();
-
-			if (!session) {
-				setUserGroupId(null);
-				return;
-			}
+			const { data } = await supabase.auth.getSession();
+			if (!data.session) return;
 
 			const { data: player } = await supabase
 				.from("players")
 				.select("group_id")
-				.eq("account_id", session.user.id)
+				.eq("account_id", data.session.user.id)
 				.single();
 
 			setUserGroupId(player?.group_id ?? null);
@@ -117,64 +106,46 @@ export default function SubmitMatch() {
 			.select("id, tournament_name")
 			.eq("started", true)
 			.eq("completed", false)
-			.then(({ data }) => {
-				if (data) setTournaments(data);
-			});
+			.then(({ data }) => data && setTournaments(data));
 	}, []);
 
 	//Load players
 	useEffect(() => {
 		async function loadPlayers() {
-			// No group & no tournament → no players
 			if (!userGroupId && !tournamentId) {
 				setPlayers([]);
 				return;
 			}
 
-			// Tournament selected (singles only)
+			//Tournament singles
 			if (tournamentId && !isDoubles) {
-				const { data: brackets, error } = await supabase
+				const { data, error } = await supabase
 					.from("tournament_brackets")
 					.select(
 						`
-    player_a:player_a_id (
-      id,
-      player_name,
-      singles_elo,
-      doubles_elo
-    ),
-    player_b:player_b_id (
-      id,
-      player_name,
-      singles_elo,
-      doubles_elo
-    )
-  `
+						player_a:player_a_id (id, player_name, singles_elo, doubles_elo),
+						player_b:player_b_id (id, player_name, singles_elo, doubles_elo)
+					`
 					)
 					.eq("tournament_id", tournamentId)
 					.eq("completed", false);
 
-				if (error || !brackets) {
-					setPlayers([]);
-					return;
-				}
+				if (error || !data) return setPlayers([]);
 
 				const map = new Map<string, Player>();
 
-				for (const row of brackets) {
-					const playerA = unwrapPlayer(row.player_a);
-					const playerB = unwrapPlayer(row.player_b);
-
-					if (playerA) map.set(playerA.id, playerA);
-					if (playerB) map.set(playerB.id, playerB);
+				for (const row of data) {
+					const a = unwrapPlayer(row.player_a);
+					const b = unwrapPlayer(row.player_b);
+					if (a) map.set(a.id, a);
+					if (b) map.set(b.id, b);
 				}
 
 				setPlayers([...map.values()]);
-
 				return;
 			}
 
-			// Casual match → same-group players
+			//Group players
 			if (userGroupId) {
 				const { data } = await supabase
 					.from("players")
@@ -190,16 +161,19 @@ export default function SubmitMatch() {
 
 	//Disable tournaments for doubles
 	useEffect(() => {
-		if (isDoubles && tournamentId) {
-			setTournamentId(null);
-		}
-	}, [isDoubles, tournamentId]);
+		if (isDoubles) setTournamentId(null);
+	}, [isDoubles]);
 
-	//Available players
-	function availablePlayers(currentValue: string) {
+	//Helpers
+	function availablePlayers(current: string) {
 		const selected = new Set([a1, a2, b1, b2].filter(Boolean));
-		selected.delete(currentValue);
+		selected.delete(current);
 		return players.filter((p) => !selected.has(p.id));
+	}
+
+	function unwrapPlayer(value: Player | Player[] | null): Player | null {
+		if (!value) return null;
+		return Array.isArray(value) ? (value[0] ?? null) : value;
 	}
 
 	//Validation
@@ -207,40 +181,31 @@ export default function SubmitMatch() {
 		const errors: string[] = [];
 
 		//Score validation
-		if (scoreA < 0 || scoreB < 0) {
-			errors.push("Scores cannot be negative");
-		}
-
-		if (scoreA > 21 || scoreB > 21) {
-			errors.push("Scores cannot be over 21");
-		}
-
-		if (Math.abs(scoreA - scoreB) < 2) {
+		if (scoreA < 0 || scoreB < 0) errors.push("Scores cannot be negative");
+		if (scoreA > 21 || scoreB > 21) errors.push("Scores cannot be over 21");
+		if (Math.abs(scoreA - scoreB) < 2)
 			errors.push("Match must be won by at least 2 points");
-		}
 
 		//Player validation
-		if (!isDoubles && (!a1 || !b1)) {
+		if (!isDoubles && (!a1 || !b1)) errors.push("Missing player IDs");
+		if (isDoubles && (!a1 || !a2 || !b1 || !b2))
 			errors.push("Missing player IDs");
-		}
-
-		if (isDoubles && (!a1 || !a2 || !b1 || !b2)) {
-			errors.push("Missing player IDs");
-		}
 
 		const selected = [a1, a2, b1, b2].filter(Boolean);
-		if (new Set(selected).size !== selected.length) {
+		if (new Set(selected).size !== selected.length)
 			errors.push("Players must be unique");
-		}
 
 		return errors;
 	}, [a1, a2, b1, b2, scoreA, scoreB, isDoubles]);
 
 	const formValid = validationErrors.length === 0;
 
-	//Elo Preview
+	//Elo preview
 	const eloPreview = useMemo(() => {
 		if (!formValid) return null;
+
+		const gamePoints = Math.max(scoreA, scoreB);
+		if (gamePoints <= 0) return null;
 
 		const pA1 = players.find((p) => p.id === a1);
 		const pB1 = players.find((p) => p.id === b1);
@@ -252,6 +217,7 @@ export default function SubmitMatch() {
 				pB1.singles_elo,
 				scoreA,
 				scoreB,
+				gamePoints,
 				Boolean(tournamentId)
 			);
 		}
@@ -263,13 +229,7 @@ export default function SubmitMatch() {
 		const teamA = (pA1.doubles_elo + pA2.doubles_elo) / 2;
 		const teamB = (pB1.doubles_elo + pB2.doubles_elo) / 2;
 
-		return calculateElo(
-			teamA,
-			teamB,
-			scoreA,
-			scoreB,
-			Boolean(tournamentId)
-		);
+		return calculateElo(teamA, teamB, scoreA, scoreB, gamePoints, false);
 	}, [
 		players,
 		a1,
@@ -286,15 +246,15 @@ export default function SubmitMatch() {
 	//Submit
 	async function submitMatch(e: React.FormEvent) {
 		e.preventDefault();
-		if (!formValid || !canSubmit || loading) return;
+		if (!formValid || loading || !canSubmit) return;
 
 		setLoading(true);
 		setCanSubmit(false);
 		setTimeout(() => setCanSubmit(true), 5000);
 
 		try {
-			const session = await supabase.auth.getSession();
-			if (!session.data.session) throw new Error("Not signed in");
+			const { data } = await supabase.auth.getSession();
+			if (!data.session) throw new Error("Not signed in");
 
 			const endpoint = isDoubles
 				? "/matches/submit/doubles"
@@ -319,7 +279,7 @@ export default function SubmitMatch() {
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
-						Authorization: `Bearer ${session.data.session.access_token}`,
+						Authorization: `Bearer ${data.session.access_token}`,
 					},
 					body: JSON.stringify(body),
 				}
@@ -342,7 +302,7 @@ export default function SubmitMatch() {
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
-			{/*HERO*/}
+			{/* HERO */}
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 					Submit Match
