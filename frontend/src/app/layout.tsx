@@ -63,10 +63,10 @@ export default function RootLayout({
 				/>
 			</head>
 
-			<body className="flex flex-col min-h-screen">
+			<body className="flex min-h-screen flex-col">
 				<Header />
 
-				<main className="flex-1 max-w-4xl w-full px-4 py-6 mx-auto sm:px-6 lg:px-8">
+				<main className="flex-1 w-full max-w-5xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
 					{children}
 				</main>
 
