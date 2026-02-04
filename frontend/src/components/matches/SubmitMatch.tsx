@@ -144,12 +144,12 @@ export default function SubmitMatch() {
 			errors.push("Scores cannot be over 21");
 		}
 
-		//PLayers validation
-		if (!a1 || !b1) {
+		//Player validation
+		if (!isDoubles && (!a1 || !b1)) {
 			errors.push("Missing player IDs");
 		}
 
-		if (isDoubles && (!a2 || !b2)) {
+		if (isDoubles && (!a1 || !b1 || !a2 || !b2)) {
 			errors.push("Missing player IDs");
 		}
 
