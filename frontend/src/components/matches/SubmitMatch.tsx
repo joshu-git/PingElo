@@ -131,25 +131,31 @@ export default function SubmitMatch() {
 	const validationErrors = useMemo(() => {
 		const errors: string[] = [];
 
-		// Must select at least one player on each team
+		//Score validation
+		if (Math.abs(scoreA - scoreB) < 2) {
+			errors.push("A match must be won by at least 2 points");
+		}
+
+		if (scoreA < 0 || scoreB < 0) {
+			errors.push("Scores cannot be negative");
+		}
+
+		if (scoreA > 21 || scoreB > 21) {
+			errors.push("Scores cannot be over 21");
+		}
+
+		//PLayers validation
 		if (!a1 || !b1) {
-			errors.push("Please select Player A1 and Player B1.");
+			errors.push("Missing player IDs");
 		}
 
-		// Doubles: must select 2 players each
 		if (isDoubles && (!a2 || !b2)) {
-			errors.push("Please select Player A2 and Player B2.");
+			errors.push("Missing player IDs");
 		}
 
-		// No duplicate players
 		const selected = [a1, a2, b1, b2].filter(Boolean);
 		if (new Set(selected).size !== selected.length) {
-			errors.push("Each player can only be selected once.");
-		}
-
-		// Score validation: must win by at least 2 points
-		if (Math.abs(scoreA - scoreB) < 2) {
-			errors.push("A match must be won by at least 2 points.");
+			errors.push("Players must be unique");
 		}
 
 		return errors;
@@ -264,10 +270,6 @@ export default function SubmitMatch() {
 			setLoading(false);
 		}
 	}
-
-	/* =====================
-	   UI
-	===================== */
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
