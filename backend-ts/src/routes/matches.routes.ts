@@ -199,11 +199,11 @@ router.post(
 				playerB2.id,
 				scoreA,
 				scoreB,
+				gamePoints,
 				playerA1.doubles_elo,
 				playerA2.doubles_elo,
 				playerB1.doubles_elo,
-				playerB2.doubles_elo,
-				gamePoints
+				playerB2.doubles_elo
 			);
 
 			res.status(201).json(result);
