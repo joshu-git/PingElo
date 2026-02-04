@@ -325,7 +325,7 @@ export default function Matches({
 														{eloAfter(
 															p.before,
 															m.elo_change_a
-														) ?? "—"}
+														) ?? "-"}
 														)
 													</span>
 													{i === 0 &&

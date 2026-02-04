@@ -484,7 +484,7 @@ export default function Profile() {
 														{eloAfter(
 															p.before,
 															m.elo_change_a
-														) ?? "—"}
+														) ?? "-"}
 														)
 													</span>
 													{i === 0 &&
