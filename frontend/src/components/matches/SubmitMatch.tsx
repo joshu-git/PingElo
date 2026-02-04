@@ -62,9 +62,18 @@ type Tournament = {
 	tournament_name: string;
 };
 
+type Bracket = {
+	id: string;
+	match_id: string | null;
+	completed: boolean;
+	player_a_id: string;
+	player_b_id: string;
+};
+
 export default function SubmitMatch() {
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [tournaments, setTournaments] = useState<Tournament[]>([]);
+	const [tournamentBrackets, setTournamentBrackets] = useState<Bracket[]>([]);
 	const [isDoubles, setIsDoubles] = useState(false);
 
 	const [a1, setA1] = useState("");
@@ -114,34 +123,36 @@ export default function SubmitMatch() {
 		async function loadPlayers() {
 			if (!userGroupId && !tournamentId) {
 				setPlayers([]);
+				setTournamentBrackets([]);
 				return;
 			}
 
 			//Tournament singles
 			if (tournamentId && !isDoubles) {
-				const { data, error } = await supabase
+				const { data } = await supabase
 					.from("tournament_brackets")
-					.select(
-						`
-						player_a:player_a_id (id, player_name, singles_elo, doubles_elo),
-						player_b:player_b_id (id, player_name, singles_elo, doubles_elo)
-					`
-					)
+					.select("id, match_id, completed, player_a_id, player_b_id")
 					.eq("tournament_id", tournamentId)
 					.eq("completed", false);
 
-				if (error || !data) return setPlayers([]);
-
-				const map = new Map<string, Player>();
-
-				for (const row of data) {
-					const a = unwrapPlayer(row.player_a);
-					const b = unwrapPlayer(row.player_b);
-					if (a) map.set(a.id, a);
-					if (b) map.set(b.id, b);
+				if (!data) {
+					setPlayers([]);
+					setTournamentBrackets([]);
+					return;
 				}
 
-				setPlayers([...map.values()]);
+				setTournamentBrackets(data as Bracket[]);
+
+				const ids = Array.from(
+					new Set(data.flatMap((b) => [b.player_a_id, b.player_b_id]))
+				);
+
+				const { data: playersData } = await supabase
+					.from("players")
+					.select("*")
+					.in("id", ids);
+
+				setPlayers(playersData ?? []);
 				return;
 			}
 
@@ -153,6 +164,7 @@ export default function SubmitMatch() {
 					.eq("group_id", userGroupId);
 
 				setPlayers(data ?? []);
+				setTournamentBrackets([]);
 			}
 		}
 
@@ -177,9 +189,21 @@ export default function SubmitMatch() {
 		return players.filter((p) => !selected.has(p.id));
 	}
 
-	function unwrapPlayer(value: Player | Player[] | null): Player | null {
-		if (!value) return null;
-		return Array.isArray(value) ? (value[0] ?? null) : value;
+	//Frontend tournament validation
+	function validateTournamentMatch(
+		brackets: Bracket[],
+		playerAId: string,
+		playerBId: string
+	): string | null {
+		const match = brackets.find(
+			(b) =>
+				!b.completed &&
+				!b.match_id &&
+				((b.player_a_id === playerAId && b.player_b_id === playerBId) ||
+					(b.player_a_id === playerBId &&
+						b.player_b_id === playerAId))
+		);
+		return match?.id ?? null;
 	}
 
 	//Validation
@@ -201,8 +225,24 @@ export default function SubmitMatch() {
 		if (new Set(selected).size !== selected.length)
 			errors.push("Players must be unique");
 
+		if (tournamentId && !isDoubles) {
+			if (!validateTournamentMatch(tournamentBrackets, a1, b1)) {
+				errors.push("This match is not allowed in the tournament");
+			}
+		}
+
 		return errors;
-	}, [a1, a2, b1, b2, scoreA, scoreB, isDoubles]);
+	}, [
+		a1,
+		a2,
+		b1,
+		b2,
+		scoreA,
+		scoreB,
+		isDoubles,
+		tournamentId,
+		tournamentBrackets,
+	]);
 
 	const formValid = validationErrors.length === 0;
 
