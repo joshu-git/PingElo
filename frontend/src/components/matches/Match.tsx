@@ -36,6 +36,7 @@ export default function Match() {
 	const [players, setPlayers] = useState<Map<string, PlayersRow>>(new Map());
 	const [group, setGroup] = useState<GroupsRow | null>(null);
 	const [tournamentName, setTournamentName] = useState<string>("Casual");
+	const [tournamentId, setTournamentId] = useState<string | null>(null);
 	const [createdByName, setCreatedByName] = useState<string>("Unknown");
 	const [loading, setLoading] = useState(true);
 
@@ -81,7 +82,7 @@ export default function Match() {
 				match.tournament_id
 					? supabase
 							.from("tournaments")
-							.select("tournament_name")
+							.select("id, tournament_name")
 							.eq("id", match.tournament_id)
 							.single()
 					: Promise.resolve({ data: null }),
@@ -109,6 +110,8 @@ export default function Match() {
 
 			if (tournamentData?.tournament_name)
 				setTournamentName(tournamentData.tournament_name);
+
+			if (tournamentData?.id) setTournamentId(tournamentData.id);
 
 			if (creator?.player_name) setCreatedByName(creator.player_name);
 		};
@@ -321,7 +324,7 @@ export default function Match() {
 					<p className="text-text-muted">Tournament</p>
 					{match.tournament_id ? (
 						<Link
-							href={`/tournaments/${tournamentName}`}
+							href={`/tournaments/${tournamentId}`}
 							className="font-medium hover:underline"
 						>
 							{tournamentName}
