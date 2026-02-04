@@ -108,7 +108,7 @@ async function checkAccess(players: any[], accountId: string) {
 	if (!hasRights) throw new Error("Admin rights required for this match");
 }
 
-//
+//Ensures all players are in the same group
 function enforceSameGroup(players: any[]) {
 	const groupIds = players.map((p) => p.group_id);
 
