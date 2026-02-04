@@ -84,7 +84,7 @@ export default function Header() {
 
 	return (
 		<header className="bg-card shadow-md sticky top-0 z-50 rounded-none">
-			<div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
+			<div className="container py-4 flex items-center justify-between gap-3">
 				{/* Logo */}
 				<Link
 					href="/"
