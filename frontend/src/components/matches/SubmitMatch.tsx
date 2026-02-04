@@ -159,9 +159,15 @@ export default function SubmitMatch() {
 		loadPlayers();
 	}, [userGroupId, tournamentId, isDoubles]);
 
-	//Disable tournaments for doubles
+	//Disable tournaments for doubles + reset form
 	useEffect(() => {
-		if (isDoubles) setTournamentId(null);
+		setTournamentId((prev) => (isDoubles ? null : prev));
+		setA1("");
+		setA2("");
+		setB1("");
+		setB2("");
+		setScoreA(0);
+		setScoreB(0);
 	}, [isDoubles]);
 
 	//Helpers
@@ -229,6 +235,7 @@ export default function SubmitMatch() {
 		const teamA = (pA1.doubles_elo + pA2.doubles_elo) / 2;
 		const teamB = (pB1.doubles_elo + pB2.doubles_elo) / 2;
 
+		//Doubles never have tournaments
 		return calculateElo(teamA, teamB, scoreA, scoreB, gamePoints, false);
 	}, [
 		players,
