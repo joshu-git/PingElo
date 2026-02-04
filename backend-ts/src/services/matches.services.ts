@@ -210,12 +210,12 @@ export async function createDoublesMatch(
 
 	await supabase
 		.from("players")
-		.update({ doubless_elo: ratingA1 + elo.eloChangeA })
+		.update({ doubles_elo: ratingA1 + elo.eloChangeA })
 		.eq("id", playerA1Id);
 
 	await supabase
 		.from("players")
-		.update({ doubless_elo: ratingA2 + elo.eloChangeA })
+		.update({ doubles_elo: ratingA2 + elo.eloChangeA })
 		.eq("id", playerA2Id);
 
 	await supabase
