@@ -186,32 +186,46 @@ export default function GroupsPage() {
 			</section>
 
 			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-				<div className="flex flex-wrap justify-center gap-2">
-					{["all", "open", "request"].map((f) => (
-						<button
-							key={f}
-							onClick={() =>
-								setFilter(f as "all" | "open" | "request")
-							}
-							className={`px-4 py-2 rounded-lg ${
-								filter === f ? "font-semibold underline" : ""
-							}`}
-						>
-							{f === "all"
-								? "All"
-								: f === "open"
-									? "Open"
-									: "Request Only"}
-						</button>
-					))}
-				</div>
-
-				<div className="flex flex-wrap justify-center gap-2">
+				{/* Left Side */}
+				<div className="flex flex-wrap items-center gap-2">
 					<Link href="/groups/create">
 						<button className="px-4 py-2 rounded-lg">
 							Create Group
 						</button>
 					</Link>
+					<Link href="/documentation/groups">
+						<button className="px-4 py-2 rounded-lg">Guide</button>
+					</Link>
+					<button
+						onClick={() => setFilter("all")}
+						className={`px-4 py-2 rounded-lg ${
+							filter === "all" ? "font-semibold underline" : ""
+						}`}
+					>
+						All
+					</button>
+				</div>
+
+				{/* Right Side */}
+				<div className="flex flex-wrap items-center gap-2">
+					<button
+						onClick={() => setFilter("open")}
+						className={`px-4 py-2 rounded-lg ${
+							filter === "open" ? "font-semibold underline" : ""
+						}`}
+					>
+						Open
+					</button>
+					<button
+						onClick={() => setFilter("request")}
+						className={`px-4 py-2 rounded-lg ${
+							filter === "request"
+								? "font-semibold underline"
+								: ""
+						}`}
+					>
+						Request
+					</button>
 					<button className="px-4 py-2 rounded-lg">Find Group</button>
 				</div>
 			</div>
@@ -228,21 +242,21 @@ export default function GroupsPage() {
 							onClick={() =>
 								router.push(`/groups/${g.group_name}`)
 							}
-							className="bg-card p-4 rounded-xl hover-card cursor-pointer"
+							className="bg-card p-4 rounded-xl hover-card cursor-pointer transition"
 						>
 							<div className="flex justify-between gap-6">
 								<div className="flex-1 min-w-0 space-y-1.5">
-									<h2 className="font-semibold truncate">
+									<h2 className="font-semibold text-[clamp(1rem,4vw,1.125rem)] truncate">
 										{g.group_name}
 									</h2>
 
-									<p className="text-text-subtle line-clamp-2">
+									<p className="text-text-subtle text-[clamp(0.8rem,3.5vw,0.875rem)] leading-snug line-clamp-2">
 										{g.group_description?.trim() ||
 											"No Description"}
 									</p>
 
 									{owner && (
-										<p className="text-text-muted text-sm">
+										<p className="text-[clamp(0.75rem,3vw,0.85rem)] text-text-muted">
 											Owner:{" "}
 											<Link
 												href={`/profile/${owner.player_name}`}
@@ -257,7 +271,7 @@ export default function GroupsPage() {
 									)}
 								</div>
 
-								<div className="text-right text-text-muted text-sm shrink-0 space-y-1">
+								<div className="text-right text-[clamp(0.75rem,3vw,0.85rem)] text-text-muted shrink-0 space-y-1">
 									<div className="font-medium">
 										{g.open ? "Open" : "Request Only"}
 									</div>
@@ -267,7 +281,7 @@ export default function GroupsPage() {
 											g.created_at
 										).toLocaleDateString()}
 									</div>
-									<div>Location: —</div>
+									<div>Location: Coming Soon</div>
 								</div>
 							</div>
 						</div>
