@@ -127,7 +127,7 @@ async function checkAccess(
 			.eq("id", tournamentId)
 			.single();
 		if (tournamentOwner !== accountId)
-			throw new Error("Owner required for this match");
+			throw new Error("Tournament owner required for this match");
 	}
 }
 
