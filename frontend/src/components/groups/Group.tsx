@@ -41,7 +41,7 @@ type ChartPoint = {
 };
 
 export default function Group() {
-	const { groupname } = useParams<{ groupname: string }>();
+	const { groupName } = useParams<{ groupName: string }>();
 	const router = useRouter();
 
 	const [group, setGroup] = useState<GroupData | null>(null);
@@ -75,7 +75,7 @@ export default function Group() {
 				.select(
 					`id, group_name, group_description, players(id, player_name, claim_code, singles_elo, doubles_elo, account_id)`
 				)
-				.eq("group_name", decodeURIComponent(groupname))
+				.eq("group_name", decodeURIComponent(groupName))
 				.single();
 
 			if (groupError || !groupData) {
@@ -102,7 +102,7 @@ export default function Group() {
 						doubles_elo: p.doubles_elo ?? 1000,
 						account_id: p.account_id ?? null,
 						is_admin: p.account_id
-							? adminsMap.get(p.account_id) ?? false
+							? (adminsMap.get(p.account_id) ?? false)
 							: false,
 					})
 				);
@@ -128,7 +128,7 @@ export default function Group() {
 		return () => {
 			cancelled = true;
 		};
-	}, [groupname, router, sessionUserId]);
+	}, [groupName, router, sessionUserId]);
 
 	/* ---------- Load matches ---------- */
 	useEffect(() => {
@@ -270,25 +270,6 @@ export default function Group() {
 		return "text-text-muted";
 	};
 
-	/* ---------- Join / Leave / Dashboard ---------- */
-	const handleJoin = async () => {
-		if (!sessionUserId || !group) return;
-		await supabase
-			.from("players")
-			.update({ group_id: group.id })
-			.eq("account_id", sessionUserId);
-		setGroup({ ...group, is_member: true, can_leave: true });
-	};
-
-	const handleLeave = async () => {
-		if (!sessionUserId || !group) return;
-		await supabase
-			.from("players")
-			.update({ group_id: null })
-			.eq("account_id", sessionUserId);
-		setGroup({ ...group, is_member: false, can_leave: false });
-	};
-
 	if (loading || !group)
 		return (
 			<p className="text-center text-text-muted py-16">Loading group…</p>
@@ -351,17 +332,11 @@ export default function Group() {
 								Dashboard
 							</Link>
 						) : group.is_member ? (
-							<button
-								onClick={handleLeave}
-								className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold"
-							>
+							<button className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold">
 								Leave Group
 							</button>
 						) : (
-							<button
-								onClick={handleJoin}
-								className="px-4 py-2 rounded-lg bg-primary text-white font-semibold"
-							>
+							<button className="px-4 py-2 rounded-lg bg-primary text-white font-semibold">
 								Join Group
 							</button>
 						))}
@@ -406,7 +381,7 @@ export default function Group() {
 									? new Date(point.date).toLocaleDateString(
 											"en-GB",
 											{ month: "2-digit", day: "2-digit" }
-									  )
+										)
 									: "";
 							}}
 							tick={{ fill: "#aaa", fontSize: 12 }}
@@ -454,8 +429,8 @@ export default function Group() {
 					const statusLabel = p.is_admin
 						? "Admin"
 						: p.claim_code
-						? "Unclaimed"
-						: "Claimed";
+							? "Unclaimed"
+							: "Claimed";
 					return (
 						<div
 							key={p.id}
