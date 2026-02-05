@@ -87,25 +87,48 @@ async function checkBans(players: any[]) {
 }
 
 //Check the user has access to this match
-async function checkAccess(players: any[], accountId: string) {
+async function checkAccess(
+	players: any[],
+	accountId: string,
+	tournamentId?: string
+) {
 	const isOwner = players.some((p) => p.account_id === accountId);
 	if (isOwner) return;
 
-	const { data: admin } = await supabase
+	const { data: manager } = await supabase
 		.from("account")
-		.select("is_admin")
+		.select("is_manager")
 		.eq("id", accountId)
 		.single();
-	if (!admin?.is_admin) throw new Error("Admin privileges required");
+	if (manager) return;
 
-	const { data: userPlayer } = await supabase
-		.from("players")
-		.select("group_id")
-		.eq("account_id", accountId)
-		.single();
+	if (!tournamentId) {
+		const { data: admin } = await supabase
+			.from("account")
+			.select("is_admin")
+			.eq("id", accountId)
+			.single();
+		if (!admin?.is_admin) throw new Error("Admin privileges required");
 
-	const hasRights = players.some((p) => p.group_id === userPlayer?.group_id);
-	if (!hasRights) throw new Error("Admin rights required for this match");
+		const { data: userPlayer } = await supabase
+			.from("players")
+			.select("group_id")
+			.eq("account_id", accountId)
+			.single();
+
+		const hasRights = players.some(
+			(p) => p.group_id === userPlayer?.group_id
+		);
+		if (!hasRights) throw new Error("Admin rights required for this match");
+	} else {
+		const { data: tournamentOwner } = await supabase
+			.from("tournaments")
+			.select<string>("created_by")
+			.eq("id", tournamentId)
+			.single();
+		if (tournamentOwner !== accountId)
+			throw new Error("Owner required for this match");
+	}
 }
 
 //Ensures all players are in the same group
@@ -137,7 +160,7 @@ router.post(
 				return res.status(400).json({ error: "Invalid players" });
 
 			await checkBans(players);
-			await checkAccess(players, req.user!.id);
+			await checkAccess(players, req.user!.id, tournamentId);
 
 			if (!tournamentId) {
 				enforceSameGroup(players);
