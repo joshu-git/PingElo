@@ -265,7 +265,7 @@ export default function Leaderboard() {
 					</Link>
 				</div>
 
-				<div className="flex gap-2">
+				<div className="flex flex-wrap justify-center gap-2">
 					<select
 						value={groupId ?? ""}
 						onChange={(e) =>
