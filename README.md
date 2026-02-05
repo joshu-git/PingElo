@@ -7,7 +7,6 @@
   <li>Public leaderboard and matches</li>
   <li>Secure authentication</li>
   <li>Match submission with automatic Elo updates</li>
-  <li>Smart player claiming and creation system</li>
   <li>Tournament setup with fair Elo adjustments</li>
 </ul>
 
@@ -25,7 +24,7 @@
 <ul>
   <li>Next.js & TypeScript</li>
   <li>Node.js & Express</li>
-  <li>PostgreSQL (Supabas)</li>
+  <li>PostgreSQL (Supabase)</li>
 </ul>
 
 <h3>Authentication</h3>
@@ -35,6 +34,6 @@
 <p>Users must sign in to:</p>
 <ul>
   <li>Create groups</li>
-  <li>Claim players</li>
   <li>Submit matches</li>
+  <li>Join Tournaments</li>
 </ul>
