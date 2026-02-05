@@ -33,7 +33,7 @@ export default function GroupsPage() {
 
 	const [groups, setGroups] = useState<GroupRow[]>([]);
 	const [players, setPlayers] = useState<PlayerRow[]>([]);
-	const [loading, setLoading] = useState(false);
+	const [showLoading, setShowLoading] = useState(false); // controls Loading text
 	const [hasMore, setHasMore] = useState(true);
 
 	const [filter, setFilter] = useState<"all" | "open" | "request">("all");
@@ -75,7 +75,9 @@ export default function GroupsPage() {
 			if (!hasMore && !reset) return;
 
 			fetchingRef.current = true;
-			if (groups.length > 0 || !reset) setLoading(true);
+
+			// Only show Loading for incremental fetches
+			if (!reset) setShowLoading(true);
 
 			if (reset) {
 				cursorRef.current = null;
@@ -138,14 +140,14 @@ export default function GroupsPage() {
 
 			setGroups((prev) => (reset ? enriched : [...prev, ...enriched]));
 
-			setLoading(false);
+			setShowLoading(false); // stop showing Loading text
 			fetchingRef.current = false;
 		},
-		[filter, hasMore, groups.length]
+		[filter, hasMore]
 	);
 
 	/* ------------------------------
-	   RESET ON FILTER CHANGE (FIXED)
+	   RESET ON FILTER CHANGE
 	------------------------------ */
 	useEffect(() => {
 		(async () => {
@@ -154,7 +156,7 @@ export default function GroupsPage() {
 	}, [filter, loadGroups]);
 
 	/* ------------------------------
-	   INFINITE SCROLL (MATCHES)
+	   INFINITE SCROLL
 	------------------------------ */
 	useEffect(() => {
 		const onScroll = () => {
@@ -288,7 +290,8 @@ export default function GroupsPage() {
 					);
 				})}
 
-				{loading && (groups.length > 0 || hasMore) && (
+				{/* Show Loading text only when needed */}
+				{showLoading && (
 					<p className="text-center text-text-muted py-4">Loading…</p>
 				)}
 			</section>
