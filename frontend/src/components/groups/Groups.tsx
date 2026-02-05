@@ -83,7 +83,7 @@ export default function GroupsPage() {
 			if (reset) {
 				cursorRef.current = null;
 				setHasMore(true);
-				setGroups([]);
+				// Do NOT clear groups here — keeps current cards visible
 			}
 
 			let query = supabase
@@ -141,7 +141,7 @@ export default function GroupsPage() {
 
 			setGroups((prev) => (reset ? enriched : [...prev, ...enriched]));
 
-			setShowLoading(false); // stop showing Loading text
+			setShowLoading(false);
 			fetchingRef.current = false;
 			didInitialLoadRef.current = true;
 		},
@@ -153,7 +153,7 @@ export default function GroupsPage() {
 	------------------------------ */
 	useEffect(() => {
 		(async () => {
-			await loadGroups(true);
+			await loadGroups(false); // keep current groups visible, just fetch new if needed
 		})();
 	}, [filter, loadGroups]);
 
@@ -176,6 +176,20 @@ export default function GroupsPage() {
 		window.addEventListener("scroll", onScroll);
 		return () => window.removeEventListener("scroll", onScroll);
 	}, [hasMore, loadGroups]);
+
+	/* ------------------------------
+	   FILTERED GROUPS (for render only)
+	------------------------------ */
+	const filteredGroups = useMemo(() => {
+		switch (filter) {
+			case "open":
+				return groups.filter((g) => g.open);
+			case "request":
+				return groups.filter((g) => !g.open);
+			default:
+				return groups;
+		}
+	}, [groups, filter]);
 
 	/* ------------------------------
 	   RENDER
@@ -235,7 +249,7 @@ export default function GroupsPage() {
 			</div>
 
 			<section className="space-y-3">
-				{groups.map((g) => {
+				{filteredGroups.map((g) => {
 					const owner = g.group_owner_id
 						? playerByAccount.get(g.group_owner_id)
 						: null;
@@ -292,7 +306,7 @@ export default function GroupsPage() {
 					);
 				})}
 
-				{/* Show Loading text for first load or incremental scroll */}
+				{/* Loading indicator only for first load or incremental fetch */}
 				{showLoading && (
 					<p className="text-center text-text-muted py-4">Loading…</p>
 				)}
