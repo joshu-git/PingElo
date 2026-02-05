@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
@@ -27,19 +27,23 @@ type GroupWithActivity = Group & {
 type Filter = "all" | "open" | "request";
 
 export default function Groups() {
+	const [allGroups, setAllGroups] = useState<GroupWithActivity[]>([]);
 	const [groups, setGroups] = useState<GroupWithActivity[]>([]);
 	const [players, setPlayers] = useState<PlayerRow[]>([]);
 	const [filter, setFilter] = useState<Filter>("all");
-	const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
+	const cursorRef = useRef(0);
+	const fetchingRef = useRef(false);
+
+	const [hasMore, setHasMore] = useState(true);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 
-	/* ---------- Load everything ---------- */
+	/* ---------- Initial load ---------- */
 	useEffect(() => {
 		const load = async () => {
 			try {
-				const [{ data: groupsData }, { data: playersData }] =
+				const [{ data: groupRows }, { data: playerRows }] =
 					await Promise.all([
 						supabase
 							.from("groups")
@@ -51,18 +55,17 @@ export default function Groups() {
 							.select("player_name, account_id"),
 					]);
 
-				if (!groupsData) {
-					setGroups([]);
+				setPlayers(playerRows ?? []);
+
+				if (!groupRows) {
 					setLoading(false);
 					return;
 				}
 
-				setPlayers(playersData ?? []);
-
-				// 🔴 Fetch latest match PER GROUP
+				// Fetch latest match PER GROUP
 				const enriched: GroupWithActivity[] = [];
 
-				for (const g of groupsData) {
+				for (const g of groupRows) {
 					const { data: match } = await supabase
 						.from("matches")
 						.select("created_at")
@@ -84,7 +87,10 @@ export default function Groups() {
 						new Date(a.last_activity).getTime()
 				);
 
-				setGroups(enriched);
+				setAllGroups(enriched);
+				setGroups(enriched.slice(0, PAGE_SIZE));
+				cursorRef.current = PAGE_SIZE;
+				setHasMore(enriched.length > PAGE_SIZE);
 			} catch (e) {
 				console.error(e);
 				setError("Failed to load groups.");
@@ -107,20 +113,59 @@ export default function Groups() {
 		[players]
 	);
 
-	/* ---------- Filter ---------- */
-	const filteredGroups = useMemo(() => {
-		let list = [...groups];
-
+	/* ---------- Filtered source ---------- */
+	const filteredSource = useMemo(() => {
 		if (filter === "open") {
-			list = list.filter((g) => g.open);
-		} else if (filter === "request") {
-			list = list.filter((g) => !g.open);
+			return allGroups.filter((g) => g.open);
 		}
+		if (filter === "request") {
+			return allGroups.filter((g) => !g.open);
+		}
+		return allGroups;
+	}, [allGroups, filter]);
 
-		return list;
-	}, [groups, filter]);
+	/* ---------- Load more (infinite scroll) ---------- */
+	const loadMore = useCallback(() => {
+		if (fetchingRef.current || !hasMore) return;
 
-	const visibleGroups = filteredGroups.slice(0, visibleCount);
+		fetchingRef.current = true;
+
+		const next = filteredSource.slice(
+			cursorRef.current,
+			cursorRef.current + PAGE_SIZE
+		);
+
+		setGroups((prev) => [...prev, ...next]);
+		cursorRef.current += PAGE_SIZE;
+		setHasMore(cursorRef.current < filteredSource.length);
+
+		fetchingRef.current = false;
+	}, [filteredSource, hasMore]);
+
+	/* ---------- Reset on filter change ---------- */
+	useEffect(() => {
+		cursorRef.current = PAGE_SIZE;
+		setGroups(filteredSource.slice(0, PAGE_SIZE));
+		setHasMore(filteredSource.length > PAGE_SIZE);
+	}, [filter, filteredSource]);
+
+	/* ---------- Scroll listener ---------- */
+	useEffect(() => {
+		const onScroll = () => {
+			if (
+				fetchingRef.current ||
+				!hasMore ||
+				window.innerHeight + window.scrollY <
+					document.body.offsetHeight - 300
+			)
+				return;
+
+			loadMore();
+		};
+
+		window.addEventListener("scroll", onScroll);
+		return () => window.removeEventListener("scroll", onScroll);
+	}, [loadMore, hasMore]);
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
@@ -140,10 +185,7 @@ export default function Groups() {
 					].map(([v, label]) => (
 						<button
 							key={v}
-							onClick={() => {
-								setFilter(v as Filter);
-								setVisibleCount(PAGE_SIZE);
-							}}
+							onClick={() => setFilter(v as Filter)}
 							className={`px-4 py-2 rounded-lg ${
 								filter === v ? "font-semibold underline" : ""
 							}`}
@@ -165,13 +207,7 @@ export default function Groups() {
 
 			{/* GROUP CARDS */}
 			<section className="space-y-3">
-				{loading && (
-					<p className="text-center text-text-muted py-6">
-						Loading groups…
-					</p>
-				)}
-
-				{visibleGroups.map((g) => {
+				{groups.map((g) => {
 					const ownerName = g.group_owner_id
 						? ownerMap.get(g.group_owner_id)
 						: null;
@@ -185,18 +221,19 @@ export default function Groups() {
 							className="bg-card p-4 rounded-xl hover-card cursor-pointer transition"
 						>
 							<div className="flex justify-between gap-6">
+								{/* LEFT */}
 								<div className="flex-1 min-w-0 space-y-1.5">
-									<h2 className="font-semibold truncate">
+									<h2 className="font-semibold text-[clamp(1rem,4vw,1.125rem)] truncate">
 										{g.group_name}
 									</h2>
 
-									<p className="text-text-subtle line-clamp-2">
+									<p className="text-text-subtle text-[clamp(0.8rem,3.5vw,0.875rem)] leading-snug line-clamp-2">
 										{g.group_description?.trim() ||
 											"No Description"}
 									</p>
 
 									{ownerName && (
-										<p className="text-text-muted">
+										<p className="text-[clamp(0.75rem,3vw,0.85rem)] text-text-muted">
 											Owner:{" "}
 											<Link
 												href={`/profile/${ownerName}`}
@@ -211,9 +248,10 @@ export default function Groups() {
 									)}
 								</div>
 
-								<div className="text-right text-text-muted shrink-0 space-y-1">
+								{/* RIGHT */}
+								<div className="text-right text-[clamp(0.75rem,3vw,0.85rem)] text-text-muted shrink-0 space-y-1">
 									<div className="font-medium">
-										{g.open ? "Open" : "Request Only"}
+										{g.open ? "Open" : "Request"}
 									</div>
 									<div>
 										Created:{" "}
@@ -228,17 +266,8 @@ export default function Groups() {
 					);
 				})}
 
-				{visibleCount < filteredGroups.length && (
-					<div className="text-center pt-6">
-						<button
-							onClick={() =>
-								setVisibleCount((v) => v + PAGE_SIZE)
-							}
-							className="px-4 py-2 rounded-lg"
-						>
-							Load More
-						</button>
-					</div>
+				{loading && (
+					<p className="text-center text-text-muted py-4">Loading…</p>
 				)}
 
 				{error && (
