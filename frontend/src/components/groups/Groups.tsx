@@ -75,7 +75,7 @@ export default function GroupsPage() {
 			if (!hasMore && !reset) return;
 
 			fetchingRef.current = true;
-			setLoading(true);
+			if (groups.length > 0 || !reset) setLoading(true);
 
 			if (reset) {
 				cursorRef.current = null;
@@ -141,7 +141,7 @@ export default function GroupsPage() {
 			setLoading(false);
 			fetchingRef.current = false;
 		},
-		[filter, hasMore]
+		[filter, hasMore, groups.length]
 	);
 
 	/* ------------------------------
