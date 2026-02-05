@@ -18,7 +18,6 @@ import type { MatchesRow } from "@/types/database";
 type GroupPlayer = {
 	id: string;
 	player_name: string;
-	claim_code: string | null;
 	account_id: string | null;
 	singles_elo: number;
 	doubles_elo: number;
@@ -73,7 +72,7 @@ export default function Group() {
 			const { data: groupData, error: groupError } = await supabase
 				.from("groups")
 				.select(
-					`id, group_name, group_description, players(id, player_name, claim_code, singles_elo, doubles_elo, account_id)`
+					`id, group_name, group_description, players(id, player_name, singles_elo, doubles_elo, account_id)`
 				)
 				.eq("group_name", decodeURIComponent(groupName))
 				.single();
@@ -97,7 +96,6 @@ export default function Group() {
 					(p) => ({
 						id: p.id,
 						player_name: p.player_name,
-						claim_code: p.claim_code ?? null,
 						singles_elo: p.singles_elo ?? 1000,
 						doubles_elo: p.doubles_elo ?? 1000,
 						account_id: p.account_id ?? null,
@@ -426,11 +424,7 @@ export default function Group() {
 			{/* LEADERBOARD */}
 			<section className="space-y-2">
 				{leaderboardPlayers.map((p, i) => {
-					const statusLabel = p.is_admin
-						? "Admin"
-						: p.claim_code
-							? "Unclaimed"
-							: "Claimed";
+					const statusLabel = p.is_admin ? "Admin" : "Player";
 					return (
 						<div
 							key={p.id}
