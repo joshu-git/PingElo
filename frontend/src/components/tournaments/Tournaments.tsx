@@ -70,7 +70,6 @@ export default function Tournaments() {
 			if (reset) {
 				cursorRef.current = null;
 				setHasMore(true);
-				setTournaments([]);
 			}
 
 			let query = supabase
@@ -109,13 +108,13 @@ export default function Tournaments() {
 	);
 
 	/* ------------------------------
-	   RESET ON FILTER CHANGE
+	   INITIAL LOAD
 	------------------------------ */
 	useEffect(() => {
 		(async () => {
 			await loadTournaments(true);
 		})();
-	}, [filter, loadTournaments]);
+	}, [loadTournaments]);
 
 	/* ------------------------------
 	   INFINITE SCROLL (MATCHES)
