@@ -343,7 +343,7 @@ export default function SubmitMatch() {
 			setB1("");
 			setB2("");
 		} finally {
-			setLoading(false);
+			location.reload();
 		}
 	}
 
