@@ -185,9 +185,9 @@ export default function GroupsPage() {
 				</p>
 			</section>
 
-			<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+			<div className="flex flex-col items-center gap-2 sm:flex-row sm:items-center sm:justify-between">
 				{/* Left Side */}
-				<div className="flex flex-wrap items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2 justify-center">
 					<Link href="/groups/create">
 						<button className="px-4 py-2 rounded-lg">
 							Create Group
@@ -207,7 +207,7 @@ export default function GroupsPage() {
 				</div>
 
 				{/* Right Side */}
-				<div className="flex flex-wrap items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2 justify-center">
 					<button
 						onClick={() => setFilter("open")}
 						className={`px-4 py-2 rounded-lg ${
@@ -250,7 +250,7 @@ export default function GroupsPage() {
 										{g.group_name}
 									</h2>
 
-									<p className="text-text-subtle text-[clamp(0.8rem,3.5vw,0.875rem)] leading-snug line-clamp-2">
+									<p className="text-text-subtle text-[clamp(0.8rem,3.5vw,0.875rem)] leading-snug line-clamp-2 truncate">
 										{g.group_description?.trim() ||
 											"No Description"}
 									</p>

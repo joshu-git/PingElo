@@ -256,7 +256,7 @@ export default function Tournaments() {
 										{t.tournament_name}
 									</h2>
 
-									<p className="text-text-subtle text-[clamp(0.8rem,3.5vw,0.875rem)] leading-snug line-clamp-2">
+									<p className="text-text-subtle text-[clamp(0.8rem,3.5vw,0.875rem)] leading-snug line-clamp-2 truncate">
 										{t.tournament_description?.trim() ||
 											"No Description"}
 									</p>
