@@ -302,15 +302,7 @@ export default function Tournaments() {
 				})}
 
 				{loading && (
-					<p className="text-center text-text-muted py-6">
-						Loading tournaments…
-					</p>
-				)}
-
-				{!loading && filteredTournaments.length === 0 && (
-					<p className="text-center text-text-muted py-6">
-						No tournaments found.
-					</p>
+					<p className="text-center text-text-muted py-6">Loading…</p>
 				)}
 
 				{error && (
