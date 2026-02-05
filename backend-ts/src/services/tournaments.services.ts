@@ -66,17 +66,40 @@ export async function generateFirstRound(tournamentId: string) {
 		.select("player_id")
 		.eq("tournament_id", tournamentId);
 
-	if (!signups || signups.length < 5) {
-		throw new Error("Not enough players");
-	}
+	if (!signups) throw new Error("No signups found");
+	if (signups.length < 2) throw new Error("Not enough players");
 
-	const players = shuffle(signups.map((s) => s.player_id));
+	const players = signups.map((s) => s.player_id);
+	const nextPowerOfTwo = Math.pow(2, Math.ceil(Math.log2(players.length)));
+	const requiredByes = nextPowerOfTwo - players.length;
+
+	//Shuffle and split: some get byes, others play
+	const shuffled = shuffle(players);
+	const [byePlayers, playingPlayers] = [
+		shuffled.slice(0, requiredByes),
+		shuffled.slice(requiredByes),
+	];
 
 	const inserts = [];
 
-	for (let i = 0; i < players.length; i += 2) {
-		const a = players[i];
-		const b = players[i + 1] ?? null;
+	//Add players with byes: they auto-advance
+	byePlayers.forEach((playerId) => {
+		inserts.push({
+			id: uuidv4(),
+			tournament_id: tournamentId,
+			round: 1,
+			player_a_id: playerId,
+			player_b_id: null,
+			winner_id: playerId,
+			match_id: null,
+			completed: true,
+		});
+	});
+
+	// Create matches for the rest
+	for (let i = 0; i < playingPlayers.length; i += 2) {
+		const a = playingPlayers[i];
+		const b = playingPlayers[i + 1] ?? null;
 
 		inserts.push({
 			id: uuidv4(),
