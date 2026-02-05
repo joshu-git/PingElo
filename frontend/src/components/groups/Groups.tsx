@@ -40,6 +40,7 @@ export default function GroupsPage() {
 
 	const cursorRef = useRef<string | null>(null);
 	const fetchingRef = useRef(false);
+	const didInitialLoadRef = useRef(false);
 
 	/* ------------------------------
 	   LOAD PLAYERS (OWNER LOOKUP)
@@ -76,8 +77,8 @@ export default function GroupsPage() {
 
 			fetchingRef.current = true;
 
-			// Only show Loading for incremental fetches
-			if (!reset) setShowLoading(true);
+			// Show Loading for first load OR incremental loads
+			if (!didInitialLoadRef.current || !reset) setShowLoading(true);
 
 			if (reset) {
 				cursorRef.current = null;
@@ -142,6 +143,7 @@ export default function GroupsPage() {
 
 			setShowLoading(false); // stop showing Loading text
 			fetchingRef.current = false;
+			didInitialLoadRef.current = true;
 		},
 		[filter, hasMore]
 	);
@@ -290,7 +292,7 @@ export default function GroupsPage() {
 					);
 				})}
 
-				{/* Show Loading text only when needed */}
+				{/* Show Loading text for first load or incremental scroll */}
 				{showLoading && (
 					<p className="text-center text-text-muted py-4">Loading…</p>
 				)}
