@@ -288,7 +288,7 @@ export default function GroupsPage() {
 					);
 				})}
 
-				{loading && (
+				{loading && groups.length > 0 && (
 					<p className="text-center text-text-muted py-4">Loading…</p>
 				)}
 			</section>
