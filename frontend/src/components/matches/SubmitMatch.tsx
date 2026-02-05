@@ -354,20 +354,25 @@ export default function SubmitMatch() {
 				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 					Submit Match
 				</h1>
-				<p className="text-lg max-w-2xl mx-auto">
+				<p className="text-text-muted max-w-2xl mx-auto">
 					Record a match and preview Elo changes before submitting.
 				</p>
 			</section>
 
-			<section className="max-w-2xl mx-auto space-y-8">
-				<form onSubmit={submitMatch} className="space-y-6">
+			<section className="space-y-8">
+				<form
+					onSubmit={submitMatch}
+					className="bg-card rounded-xl p-6 md:p-8 space-y-6 hover-card"
+				>
 					{/* Mode toggle */}
-					<div className="flex justify-center gap-2">
+					<div className="flex flex-wrap justify-center gap-2">
 						<button
 							type="button"
 							onClick={() => setIsDoubles(false)}
 							className={`px-4 py-2 rounded-lg ${
-								!isDoubles ? "font-semibold" : "text-text-muted"
+								!isDoubles
+									? "font-semibold underline"
+									: "text-text-muted"
 							}`}
 						>
 							Singles
@@ -376,7 +381,9 @@ export default function SubmitMatch() {
 							type="button"
 							onClick={() => setIsDoubles(true)}
 							className={`px-4 py-2 rounded-lg ${
-								isDoubles ? "font-semibold" : "text-text-muted"
+								isDoubles
+									? "font-semibold underline"
+									: "text-text-muted"
 							}`}
 						>
 							Doubles
@@ -410,7 +417,7 @@ export default function SubmitMatch() {
 					</select>
 
 					{/* Teams */}
-					<div className="grid grid-cols-2 gap-6">
+					<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 						{/* Team A */}
 						<div className="space-y-2">
 							<label className="font-medium">Team A</label>
@@ -517,7 +524,7 @@ export default function SubmitMatch() {
 					<button
 						type="submit"
 						disabled={!formValid || loading || !canSubmit}
-						className="w-full px-4 py-3 rounded-lg"
+						className="w-full px-4 py-3 rounded-lg font-semibold"
 					>
 						{loading ? "Submitting…" : "Submit Match"}
 					</button>
