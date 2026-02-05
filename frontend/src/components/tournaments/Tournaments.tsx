@@ -37,9 +37,7 @@ export default function Tournaments() {
 	const fetchingRef = useRef(false);
 	const didInitialLoadRef = useRef(false);
 
-	/* ------------------------------
-	   LOAD PLAYERS (ONCE)
-	------------------------------ */
+	//Load players
 	useEffect(() => {
 		const loadPlayers = async () => {
 			const { data, error } = await supabase
@@ -57,9 +55,7 @@ export default function Tournaments() {
 		loadPlayers();
 	}, []);
 
-	/* ------------------------------
-	   LOAD TOURNAMENTS (PAGINATED)
-	------------------------------ */
+	//Load tournaments
 	const loadTournaments = useCallback(
 		async (reset: boolean) => {
 			if (fetchingRef.current) return;
@@ -108,9 +104,7 @@ export default function Tournaments() {
 		[hasMore]
 	);
 
-	/* ------------------------------
-	   INITIAL LOAD
-	------------------------------ */
+	//Initial load
 	useEffect(() => {
 		(async () => {
 			if (didInitialLoadRef.current) return;
@@ -120,9 +114,7 @@ export default function Tournaments() {
 		})();
 	}, [loadTournaments]);
 
-	/* ------------------------------
-	   INFINITE SCROLL (MATCHES)
-	------------------------------ */
+	//Infinite scroll
 	useEffect(() => {
 		const onScroll = () => {
 			if (
