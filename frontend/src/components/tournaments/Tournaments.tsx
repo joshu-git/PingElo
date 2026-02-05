@@ -35,6 +35,7 @@ export default function Tournaments() {
 
 	const cursorRef = useRef<string | null>(null);
 	const fetchingRef = useRef(false);
+	const didInitialLoadRef = useRef(false);
 
 	/* ------------------------------
 	   LOAD PLAYERS (ONCE)
@@ -112,7 +113,10 @@ export default function Tournaments() {
 	------------------------------ */
 	useEffect(() => {
 		(async () => {
-			await loadTournaments(true);
+			if (didInitialLoadRef.current) return;
+
+			didInitialLoadRef.current = true;
+			loadTournaments(true);
 		})();
 	}, [loadTournaments]);
 
