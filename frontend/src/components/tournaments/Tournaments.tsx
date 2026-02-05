@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
@@ -13,6 +13,7 @@ type Tournament = {
 	end_date?: string | null;
 	tournament_description?: string | null;
 	winner?: string | null;
+	created_at: string;
 };
 
 type PlayerRow = {
@@ -22,39 +23,119 @@ type PlayerRow = {
 
 type Filter = "all" | "upcoming" | "in_progress" | "completed";
 
+const PAGE_SIZE = 50;
+
 export default function Tournaments() {
 	const [tournaments, setTournaments] = useState<Tournament[]>([]);
 	const [playersData, setPlayersData] = useState<PlayerRow[]>([]);
-	const [loading, setLoading] = useState<boolean>(true);
+	const [loading, setLoading] = useState<boolean>(false);
 	const [error, setError] = useState<string | null>(null);
 	const [filter, setFilter] = useState<Filter>("all");
+	const [hasMore, setHasMore] = useState(true);
 
+	const cursorRef = useRef<string | null>(null);
+	const fetchingRef = useRef(false);
+
+	/* ------------------------------
+	   LOAD PLAYERS (ONCE)
+	------------------------------ */
 	useEffect(() => {
-		const fetchData = async () => {
-			try {
-				const [tournamentsRes, playersRes] = await Promise.all([
-					supabase
-						.from("tournaments")
-						.select("*")
-						.order("created_at", { ascending: false }),
-					supabase.from("players").select("id, player_name"),
-				]);
+		const loadPlayers = async () => {
+			const { data, error } = await supabase
+				.from("players")
+				.select("id, player_name");
 
-				if (tournamentsRes.error) throw tournamentsRes.error;
-				if (playersRes.error) throw playersRes.error;
-
-				if (tournamentsRes.data) setTournaments(tournamentsRes.data);
-				if (playersRes.data) setPlayersData(playersRes.data);
-			} catch (err: unknown) {
-				if (err instanceof Error) setError(err.message);
-				else setError("Failed to fetch tournaments");
-			} finally {
-				setLoading(false);
+			if (error) {
+				setError(error.message);
+				return;
 			}
+
+			if (data) setPlayersData(data);
 		};
 
-		fetchData();
+		loadPlayers();
 	}, []);
+
+	/* ------------------------------
+	   LOAD TOURNAMENTS (PAGINATED)
+	------------------------------ */
+	const loadTournaments = useCallback(
+		async (reset: boolean) => {
+			if (fetchingRef.current) return;
+			if (!hasMore && !reset) return;
+
+			fetchingRef.current = true;
+			setLoading(true);
+
+			if (reset) {
+				cursorRef.current = null;
+				setHasMore(true);
+				setTournaments([]);
+			}
+
+			let query = supabase
+				.from("tournaments")
+				.select("*")
+				.order("created_at", { ascending: false })
+				.limit(PAGE_SIZE);
+
+			if (cursorRef.current) {
+				query = query.lt("created_at", cursorRef.current);
+			}
+
+			const { data, error } = await query;
+
+			if (error) {
+				setError(error.message);
+				setLoading(false);
+				fetchingRef.current = false;
+				return;
+			}
+
+			const rows = (data ?? []) as Tournament[];
+
+			if (rows.length < PAGE_SIZE) setHasMore(false);
+
+			if (rows.length) {
+				cursorRef.current = rows[rows.length - 1].created_at;
+			}
+
+			setTournaments((prev) => (reset ? rows : [...prev, ...rows]));
+
+			setLoading(false);
+			fetchingRef.current = false;
+		},
+		[hasMore]
+	);
+
+	/* ------------------------------
+	   RESET ON FILTER CHANGE
+	------------------------------ */
+	useEffect(() => {
+		(async () => {
+			await loadTournaments(true);
+		})();
+	}, [filter, loadTournaments]);
+
+	/* ------------------------------
+	   INFINITE SCROLL (MATCHES)
+	------------------------------ */
+	useEffect(() => {
+		const onScroll = () => {
+			if (
+				fetchingRef.current ||
+				!hasMore ||
+				window.innerHeight + window.scrollY <
+					document.body.offsetHeight - 300
+			)
+				return;
+
+			loadTournaments(false);
+		};
+
+		window.addEventListener("scroll", onScroll);
+		return () => window.removeEventListener("scroll", onScroll);
+	}, [hasMore, loadTournaments]);
 
 	const playersMap = useMemo(
 		() => new Map(playersData.map((p) => [p.id, p.player_name])),
@@ -146,18 +227,6 @@ export default function Tournaments() {
 
 			{/* TOURNAMENT CARDS */}
 			<section className="space-y-3">
-				{loading && (
-					<p className="text-center text-text-muted py-6">
-						Loading tournaments…
-					</p>
-				)}
-
-				{!loading && filteredTournaments.length === 0 && (
-					<p className="text-center text-text-muted py-6">
-						No tournaments found.
-					</p>
-				)}
-
 				{filteredTournaments.map((t) => {
 					const status = t.completed
 						? "Completed"
@@ -179,7 +248,6 @@ export default function Tournaments() {
 							className="bg-card p-4 rounded-xl hover-card cursor-pointer transition"
 						>
 							<div className="flex justify-between gap-6">
-								{/* LEFT */}
 								<div className="flex-1 min-w-0 space-y-1.5">
 									<h2 className="font-semibold text-[clamp(1rem,4vw,1.125rem)] truncate">
 										{t.tournament_name}
@@ -206,7 +274,6 @@ export default function Tournaments() {
 									)}
 								</div>
 
-								{/* RIGHT */}
 								<div className="text-right text-[clamp(0.75rem,3vw,0.85rem)] text-text-muted shrink-0 space-y-1">
 									<div className="font-medium">{status}</div>
 									<div>
@@ -230,6 +297,18 @@ export default function Tournaments() {
 						</div>
 					);
 				})}
+
+				{loading && (
+					<p className="text-center text-text-muted py-6">
+						Loading tournaments…
+					</p>
+				)}
+
+				{!loading && filteredTournaments.length === 0 && (
+					<p className="text-center text-text-muted py-6">
+						No tournaments found.
+					</p>
+				)}
 
 				{error && (
 					<p className="text-center text-red-500 py-4">
