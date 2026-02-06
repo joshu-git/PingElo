@@ -25,8 +25,33 @@ router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 			return res.status(400).json({ error: "Missing required fields" });
 		}
 
+		const trimmedName = tournament_name.trim();
+		if (!trimmedName) {
+			return res
+				.status(400)
+				.json({ error: "Tournament name is required" });
+		}
+
+		const { data: existingTournament, error: checkError } = await supabase
+			.from("tournaments")
+			.select("id")
+			.eq("tournament_name", trimmedName)
+			.maybeSingle();
+
+		if (checkError) {
+			return res
+				.status(500)
+				.json({ error: "Failed to check tournament name" });
+		}
+
+		if (existingTournament) {
+			return res.status(400).json({
+				error: "A tournament with this name already exists",
+			});
+		}
+
 		const tournament = await createTournament(
-			tournament_name,
+			trimmedName,
 			tournament_description,
 			req.user!.id,
 			start_date
