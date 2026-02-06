@@ -13,11 +13,10 @@ export default function CreateTournament() {
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	// EXACT same fieldClass as SubmitMatch
 	const fieldClass =
 		"w-full rounded-lg px-4 py-3 bg-transparent border border-border focus:outline-none focus:ring-1 focus:ring-border";
 
-	// Load admin status from public.account
+	//Load admin status
 	useEffect(() => {
 		async function loadAdminStatus() {
 			const { data } = await supabase.auth.getSession();
@@ -87,11 +86,11 @@ export default function CreateTournament() {
 					Create Tournament
 				</h1>
 				<p className="text-text-muted max-w-2xl mx-auto">
-					Create a new singles tournament for your group.
+					Create a new tournament for anyone to join.
 				</p>
 			</section>
 
-			{/* FORM — FULL WIDTH (matches SubmitMatch) */}
+			{/* FORM*/}
 			<form onSubmit={createTournament} className="w-full space-y-8">
 				<input
 					className={fieldClass}
@@ -101,7 +100,7 @@ export default function CreateTournament() {
 				/>
 
 				<textarea
-					className={`${fieldClass} min-h-[120px] resize-none`}
+					className={fieldClass}
 					placeholder="Tournament description"
 					value={description}
 					onChange={(e) => setDescription(e.target.value)}
