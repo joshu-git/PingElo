@@ -64,25 +64,20 @@ router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 });
 
 //Ban check
-async function checkBans(players: any[]) {
-	const playerIds = players.map((p) => p.id);
-	const groupIds = players.map((p) => p.group_id).filter(Boolean);
-
+async function checkBans(players: any) {
 	const { data: playerBans } = await supabase
 		.from("player_bans")
 		.select("id")
-		.in("player_id", playerIds)
+		.in("player_id", players.id)
 		.eq("active", true);
 	if (playerBans?.length) throw new Error("One or more players are banned");
 
-	if (groupIds.length > 0) {
-		const { data: groupBans } = await supabase
-			.from("group_bans")
-			.select("id")
-			.in("group_id", groupIds)
-			.eq("active", true);
-		if (groupBans?.length) throw new Error("One or more groups are banned");
-	}
+	const { data: groupBans } = await supabase
+		.from("group_bans")
+		.select("id")
+		.in("group_id", players.group_id)
+		.eq("active", true);
+	if (groupBans?.length) throw new Error("One or more groups are banned");
 }
 
 //Sign up to the tournament
@@ -113,9 +108,13 @@ router.post("/signup", requireAuth, async (req: AuthenticatedRequest, res) => {
 		const { data: players } = await supabase
 			.from("players")
 			.select("id, account_id, group_id")
-			.in("id", player_id);
+			.eq("id", player_id)
+			.single();
 
 		if (!players) return res.status(400).json({ error: "Invalid players" });
+		if (players.account_id !== req.user!.id) {
+			return res.status(403).json({ error: "Not your player" });
+		}
 
 		await checkBans(players);
 
