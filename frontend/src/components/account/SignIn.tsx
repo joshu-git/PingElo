@@ -51,17 +51,17 @@ export default function SignIn() {
 				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
 					Sign in to PingElo
 				</h1>
-				<p className="text-lg max-w-2xl mx-auto">
+				<p className="text-lg max-w-2xl mx-auto text-text-muted">
 					Continue competing in tournaments and groups for elo.
 				</p>
 			</section>
 
 			{/* FORM */}
-			<section className="max-w-2xl mx-auto space-y-8">
+			<section className="max-w-2xl mx-auto">
 				<form
 					onSubmit={signIn}
 					aria-busy={loading}
-					className="space-y-6"
+					className="space-y-6 bg-card border border-border rounded-xl p-6"
 				>
 					<div className="space-y-2">
 						<label
@@ -79,7 +79,7 @@ export default function SignIn() {
 							onChange={(e) => setEmail(e.target.value)}
 							className="
 								w-full rounded-lg px-4 py-3
-								bg-card border border-border
+								bg-background border border-border
 								text-text placeholder:text-text-muted
 								focus-visible:outline-none
 								focus-visible:ring-2
@@ -105,7 +105,7 @@ export default function SignIn() {
 							onChange={(e) => setPassword(e.target.value)}
 							className="
 								w-full rounded-lg px-4 py-3
-								bg-card border border-border
+								bg-background border border-border
 								text-text placeholder:text-text-muted
 								focus-visible:outline-none
 								focus-visible:ring-2
@@ -116,7 +116,7 @@ export default function SignIn() {
 					</div>
 
 					{/* Forgot password */}
-					<div className="w-full flex justify-center">
+					<div className="flex justify-center">
 						<Link
 							href="/account/recover"
 							className="text-sm text-text-muted hover:underline"
@@ -125,13 +125,17 @@ export default function SignIn() {
 						</Link>
 					</div>
 
+					{/* PRIMARY BUTTON */}
 					<button
 						type="submit"
 						disabled={loading}
 						className="
-							w-full px-4 py-3 rounded-lg
+							w-full py-3 rounded-lg font-semibold
+							bg-primary text-primary-foreground
+							hover:opacity-90
 							disabled:opacity-60
 							disabled:cursor-not-allowed
+							transition
 						"
 					>
 						{loading ? "Signing in…" : "Sign In"}
@@ -139,10 +143,18 @@ export default function SignIn() {
 				</form>
 
 				{/* SECONDARY CTA */}
-				<div className="text-center space-y-3">
+				<div className="mt-8 text-center space-y-3">
 					<p className="text-sm text-text-muted">New to PingElo?</p>
 					<Link href="/account/signup">
-						<button className="px-4 py-2 rounded-lg">
+						<button
+							type="button"
+							className="
+								w-full py-3 rounded-lg
+								border border-border
+								bg-card hover:bg-background
+								transition
+							"
+						>
 							Create an account
 						</button>
 					</Link>
