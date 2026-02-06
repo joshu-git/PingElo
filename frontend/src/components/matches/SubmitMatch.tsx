@@ -515,14 +515,21 @@ export default function SubmitMatch() {
 					{loading ? "Submitting…" : "Submit Match"}
 				</button>
 
-				{validationErrors.map((err) => (
-					<p
-						key={err}
-						className="text-xs text-center text-text-muted"
-					>
-						{err}
+				{!userGroupId && (
+					<p className="text-xs text-center text-text-muted">
+						You need to sign into submit a match
 					</p>
-				))}
+				)}
+
+				{userGroupId &&
+					validationErrors.map((err) => (
+						<p
+							key={err}
+							className="text-xs text-center text-text-muted"
+						>
+							{err}
+						</p>
+					))}
 
 				{!canSubmit && (
 					<p className="text-xs text-center text-text-muted">
