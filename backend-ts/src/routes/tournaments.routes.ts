@@ -11,14 +11,15 @@ import {
 	generateFirstRound,
 } from "../services/tournaments.services.js";
 
+import { supabase } from "../libs/supabase.js";
+
 const router = Router();
 
-/**
- * CREATE TOURNAMENT (ADMIN ONLY)
- */
+//Create tournament
 router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 	try {
-		const { tournament_name, start_date } = req.body;
+		const { tournament_name, tournament_description, start_date } =
+			req.body;
 
 		if (!tournament_name || !start_date) {
 			return res.status(400).json({ error: "Missing required fields" });
@@ -26,6 +27,7 @@ router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 
 		const tournament = await createTournament(
 			tournament_name,
+			tournament_description,
 			req.user!.id,
 			start_date
 		);
@@ -36,9 +38,29 @@ router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 	}
 });
 
-/**
- * SIGN UP PLAYER (ANY AUTHENTICATED USER)
- */
+//Ban check
+async function checkBans(players: any[]) {
+	const playerIds = players.map((p) => p.id);
+	const groupIds = players.map((p) => p.group_id).filter(Boolean);
+
+	const { data: playerBans } = await supabase
+		.from("player_bans")
+		.select("id")
+		.in("player_id", playerIds)
+		.eq("active", true);
+	if (playerBans?.length) throw new Error("One or more players are banned");
+
+	if (groupIds.length > 0) {
+		const { data: groupBans } = await supabase
+			.from("group_bans")
+			.select("id")
+			.in("group_id", groupIds)
+			.eq("active", true);
+		if (groupBans?.length) throw new Error("One or more groups are banned");
+	}
+}
+
+//Sign up to the tournament
 router.post("/signup", requireAuth, async (req: AuthenticatedRequest, res) => {
 	try {
 		const { tournament_id, player_id } = req.body;
@@ -49,6 +71,29 @@ router.post("/signup", requireAuth, async (req: AuthenticatedRequest, res) => {
 				.json({ error: "Missing tournament or player" });
 		}
 
+		const { data: tournament } = await supabase
+			.from("tournaments")
+			.select("started, completed")
+			.eq("id", tournament_id)
+			.single();
+
+		if (!tournament)
+			return res.status(400).json({ error: "Tournament not found" });
+
+		if (tournament.started || tournament.completed)
+			return res
+				.status(400)
+				.json({ error: "Tournament already started" });
+
+		const { data: players } = await supabase
+			.from("players")
+			.select("id, account_id, group_id")
+			.in("id", player_id);
+
+		if (!players) return res.status(400).json({ error: "Invalid players" });
+
+		await checkBans(players);
+
 		await signupPlayer(tournament_id, player_id);
 		res.status(201).json({ success: true });
 	} catch (err: any) {
@@ -56,9 +101,7 @@ router.post("/signup", requireAuth, async (req: AuthenticatedRequest, res) => {
 	}
 });
 
-/**
- * GENERATE FIRST ROUND / START TOURNAMENT (ADMIN ONLY)
- */
+//Generate first round of tournament
 router.post(
 	"/generate-brackets",
 	requireAdmin,
@@ -70,7 +113,17 @@ router.post(
 				return res.status(400).json({ error: "Missing tournament_id" });
 			}
 
-			await generateFirstRound(tournament_id);
+			const { data: signups } = await supabase
+				.from("tournament_signups")
+				.select("player_id")
+				.eq("tournament_id", tournament_id);
+
+			if (!signups) throw new Error("No signups found");
+			if (signups.length < 5) throw new Error("Not enough players");
+
+			const players = signups.map((s) => s.player_id);
+
+			await generateFirstRound(tournament_id, players);
 			res.status(201).json({ success: true });
 		} catch (err: any) {
 			res.status(400).json({ error: err.message });

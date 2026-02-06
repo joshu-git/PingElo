@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 interface Tournament {
 	id: string;
 	tournament_name: string;
+	tournament_description?: string;
 	start_date: string;
 	match_type: "singles";
 	started: boolean;
@@ -13,78 +14,93 @@ interface Tournament {
 }
 
 export default function CreateTournament() {
-	const [name, setName] = useState<string>("");
-	const [startDate, setStartDate] = useState<string>("");
-	const [loading, setLoading] = useState<boolean>(false);
+	const [name, setName] = useState("");
+	const [description, setDescription] = useState("");
+	const [startDate, setStartDate] = useState("");
+	const [loading, setLoading] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	async function createTournament(): Promise<void> {
+	const fieldClass =
+		"w-full rounded-lg px-4 py-3 bg-transparent border border-border focus:outline-none focus:ring-1 focus:ring-border";
+
+	async function createTournament() {
 		setLoading(true);
 		setMessage(null);
 		setError(null);
 
 		try {
-			// Get user session
-			const sessionRes = await supabase.auth.getSession();
-			const session = sessionRes.data.session;
-			if (!session) throw new Error("You must be signed in");
+			const { data } = await supabase.auth.getSession();
+			if (!data.session) throw new Error("You must be signed in");
 
-			const token: string = session.access_token;
-
-			// Create the singles tournament
-			const createRes: Response = await fetch(
+			const res = await fetch(
 				`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/create`,
 				{
 					method: "POST",
 					headers: {
 						"Content-Type": "application/json",
-						Authorization: `Bearer ${token}`,
+						Authorization: `Bearer ${data.session.access_token}`,
 					},
 					body: JSON.stringify({
 						tournament_name: name,
+						tournament_description: description,
 						start_date: startDate,
 						match_type: "singles",
 					}),
 				}
 			);
 
-			if (!createRes.ok) {
-				const errorText: string = await createRes.text();
-				throw new Error(errorText || "Failed to create tournament");
-			}
+			if (!res.ok) throw new Error(await res.text());
 
-			const tournament: Tournament = await createRes.json();
+			const tournament: Tournament = await res.json();
 
-			// Show success message inline
 			setName("");
+			setDescription("");
 			setStartDate("");
-			setMessage(`Tournament created successfully! ID: ${tournament.id}`);
-		} catch (err: unknown) {
-			if (err instanceof Error) setError(err.message);
-			else setError("Something went wrong");
+			setMessage(
+				`Tournament created successfully (ID: ${tournament.id})`
+			);
+		} catch (err) {
+			setError(
+				err instanceof Error ? err.message : "Something went wrong"
+			);
 		} finally {
 			setLoading(false);
 		}
 	}
 
 	return (
-		<div className="p-6 max-w-xl mx-auto">
-			<h1 className="text-3xl font-bold mb-6">
-				Create Singles Tournament
-			</h1>
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			{/* HERO */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold">
+					Create Tournament
+				</h1>
+				<p className="text-text-muted max-w-2xl mx-auto">
+					Set up a new singles tournament and invite players to
+					compete.
+				</p>
+			</section>
 
-			<div className="space-y-4">
+			{/* FORM */}
+			<div className="max-w-xl mx-auto space-y-6">
 				<input
-					className="w-full rounded-lg bg-black/40 border border-white/10 p-3"
+					className={fieldClass}
 					placeholder="Tournament name"
 					value={name}
 					onChange={(e) => setName(e.target.value)}
 				/>
 
+				<textarea
+					className={`${fieldClass} min-h-[120px] resize-none`}
+					placeholder="Tournament description (optional)"
+					value={description}
+					onChange={(e) => setDescription(e.target.value)}
+				/>
+
 				<input
 					type="date"
-					className="w-full rounded-lg bg-black/40 border border-white/10 p-3"
+					className={fieldClass}
 					value={startDate}
 					onChange={(e) => setStartDate(e.target.value)}
 				/>
@@ -92,23 +108,21 @@ export default function CreateTournament() {
 				<button
 					onClick={createTournament}
 					disabled={loading}
-					className="w-full rounded-lg bg-white text-black font-semibold py-3 hover:bg-gray-200 transition"
+					className="w-full px-4 py-3 rounded-lg font-semibold"
 				>
-					{loading ? "Creating..." : "Create Tournament"}
+					{loading ? "Creating…" : "Create Tournament"}
 				</button>
 
 				{message && (
-					<div className="mt-4 p-3 bg-green-500 text-white rounded">
+					<p className="text-sm text-center text-green-400">
 						{message}
-					</div>
+					</p>
 				)}
 
 				{error && (
-					<div className="mt-4 p-3 bg-red-500 text-white rounded">
-						{error}
-					</div>
+					<p className="text-sm text-center text-red-400">{error}</p>
 				)}
 			</div>
-		</div>
+		</main>
 	);
 }

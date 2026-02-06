@@ -20,12 +20,14 @@ function shuffle<T>(array: readonly T[]): T[] {
 export async function createTournament(
 	tournament_name: string,
 	created_by: string,
-	start_date: string
+	start_date: string,
+	tournament_description?: string
 ) {
 	const { data, error } = await supabase
 		.from("tournaments")
 		.insert({
 			tournament_name,
+			tournament_description,
 			created_by,
 			start_date,
 			started: false,
@@ -36,6 +38,16 @@ export async function createTournament(
 
 	if (error) throw error;
 	return data;
+}
+
+//Signs up a player to the tournament
+export async function signupPlayer(tournamentId: string, playerId: string) {
+	const { error } = await supabase.from("tournament_signups").insert({
+		tournament_id: tournamentId,
+		player_id: playerId,
+	});
+
+	if (error) throw error;
 }
 
 //Validate a match is supposed to be in the tournament
@@ -81,38 +93,8 @@ export async function validateTournamentMatch(
 	return bracket.id;
 }
 
-//Signs up a player to the tournament
-export async function signupPlayer(tournamentId: string, playerId: string) {
-	const { data: tournament } = await supabase
-		.from("tournaments")
-		.select("started, completed")
-		.eq("id", tournamentId)
-		.single();
-
-	if (!tournament) throw new Error("Tournament not found");
-	if (tournament.started || tournament.completed) {
-		throw new Error("Tournament already started");
-	}
-
-	const { error } = await supabase.from("tournament_signups").insert({
-		tournament_id: tournamentId,
-		player_id: playerId,
-	});
-
-	if (error) throw error;
-}
-
 //Generates the first round of the tournament
-export async function generateFirstRound(tournamentId: string) {
-	const { data: signups } = await supabase
-		.from("tournament_signups")
-		.select("player_id")
-		.eq("tournament_id", tournamentId);
-
-	if (!signups) throw new Error("No signups found");
-	if (signups.length < 2) throw new Error("Not enough players");
-
-	const players = signups.map((s) => s.player_id);
+export async function generateFirstRound(tournamentId: string, players: any) {
 	const nextPowerOfTwo = Math.pow(2, Math.ceil(Math.log2(players.length)));
 	const requiredByes = nextPowerOfTwo - players.length;
 
