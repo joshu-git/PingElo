@@ -43,6 +43,26 @@ export default function CreateTournament() {
 		setError(null);
 
 		try {
+			const trimmedName = name.trim();
+			if (!trimmedName) {
+				throw new Error("Tournament name is required");
+			}
+
+			const { data: existingTournament, error: checkError } =
+				await supabase
+					.from("tournaments")
+					.select("id")
+					.eq("tournament_name", trimmedName)
+					.maybeSingle();
+
+			if (checkError) {
+				throw new Error("Failed to check tournament name");
+			}
+
+			if (existingTournament) {
+				throw new Error("A tournament with this name already exists");
+			}
+
 			const { data } = await supabase.auth.getSession();
 			if (!data.session) throw new Error("Not signed in");
 
@@ -55,7 +75,7 @@ export default function CreateTournament() {
 						Authorization: `Bearer ${data.session.access_token}`,
 					},
 					body: JSON.stringify({
-						tournament_name: name,
+						tournament_name: trimmedName,
 						tournament_description: description,
 						start_date: startDate,
 						match_type: "singles",
@@ -63,7 +83,9 @@ export default function CreateTournament() {
 				}
 			);
 
-			if (!res.ok) throw new Error(await res.text());
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
 
 			setName("");
 			setDescription("");
@@ -121,7 +143,6 @@ export default function CreateTournament() {
 					{loading ? "Creating…" : "Create Tournament"}
 				</button>
 
-				{/* Admin restriction message */}
 				{!isAdmin && (
 					<p className="text-xs text-center text-text-muted">
 						Only admins can create tournaments
