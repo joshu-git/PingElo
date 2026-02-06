@@ -1,39 +1,49 @@
 import { supabase } from "../libs/supabase.js";
 
-export async function insertGroup(group_name: string) {
-	const { data, error } = await supabase
+export async function createGroup(
+	groupName: string,
+	open: boolean,
+	ownerId: string,
+	playerId: string,
+	groupDescription?: string
+) {
+	//Create group
+	const { data: group, error: groupError } = await supabase
 		.from("groups")
-		.insert({ group_name })
-		.select()
+		.insert({
+			group_name: groupName,
+			group_description: groupDescription,
+			open,
+			group_owner_id: ownerId,
+		})
+		.select("id, group_name")
 		.single();
 
-	if (error) throw error;
-	return data;
-}
+	if (groupError) {
+		throw new Error(groupError.message);
+	}
 
-export async function addPlayerToGroup(playerId: string, groupId: string) {
-	const { error } = await supabase
+	//Assign player to group
+	const { error: updatePlayerError } = await supabase
 		.from("players")
-		.update({ group_id: groupId })
+		.update({ group_id: group.id })
 		.eq("id", playerId);
 
-	if (error) throw error;
-}
+	if (updatePlayerError) {
+		throw new Error(updatePlayerError.message);
+	}
 
-export async function removePlayerFromGroup(playerId: string) {
-	const { error } = await supabase
-		.from("players")
-		.update({ group_id: null })
-		.eq("id", playerId);
+	const { error: updatePermsError } = await supabase
+		.from("accounts")
+		.update({ admin: true })
+		.eq("id", ownerId);
 
-	if (error) throw error;
-}
+	if (updatePermsError) {
+		throw new Error(updatePermsError.message);
+	}
 
-export async function setAccountAdmin(id: string, is_admin: boolean) {
-	const { error } = await supabase
-		.from("account")
-		.update({ is_admin })
-		.eq("id", id);
-
-	if (error) throw error;
+	return {
+		id: group.id,
+		group_name: group.group_name,
+	};
 }
