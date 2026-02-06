@@ -64,6 +64,7 @@ type MatchRow = {
 	id: string;
 	score_a: number;
 	score_b: number;
+	created_at?: string;
 };
 
 /* -------------------- COMPONENT -------------------- */
@@ -227,7 +228,7 @@ export default function TournamentPage() {
 				if (playerIds.length) {
 					const { data: players } = await supabase
 						.from("players")
-						.select("id, player_name, account_id")
+						.select("id, player_name, account_id, singles_elo")
 						.in("id", playerIds);
 
 					playersMap = new Map(players?.map((p) => [p.id, p]) ?? []);
@@ -236,7 +237,7 @@ export default function TournamentPage() {
 				if (matchIds.length) {
 					const { data: matches } = await supabase
 						.from("matches")
-						.select("id, score_a, score_b")
+						.select("id, score_a, score_b, created_at")
 						.in("id", matchIds);
 
 					setMatchesMap(
@@ -374,7 +375,7 @@ export default function TournamentPage() {
 				</div>
 			)}
 
-			{/* Loading for signups/brackets */}
+			{/* Loading */}
 			{loadingTournamentData && (
 				<p className="text-center text-text-muted py-4">Loading…</p>
 			)}
@@ -414,57 +415,181 @@ export default function TournamentPage() {
 
 			{/* BRACKETS */}
 			{tournament?.started &&
-				bracketsByRound.map(([round, list]) => (
-					<section key={round} className="space-y-3">
-						<h2 className="text-lg font-semibold text-center">
-							Round {round}
-						</h2>
+				bracketsByRound.map(([round, list]) => {
+					let roundLabel = `Round ${round}`;
+					if (list.length === 1) roundLabel = "Finals";
+					if (list.length === 2) roundLabel = "Semi-Finals";
 
-						{list.map((b) => {
-							const match = b.match_id
-								? matchesMap.get(b.match_id)
-								: null;
-							return (
-								<div
-									key={b.id}
-									onClick={() =>
-										b.match_id &&
-										router.push(`/matches/${b.match_id}`)
-									}
-									className="bg-card p-4 rounded-xl hover-card cursor-pointer"
-								>
-									<div className="flex justify-between">
-										<div className="space-y-1">
-											<p className="font-semibold">
-												{b.player_a1?.player_name ??
-													"BYE"}
-											</p>
-											<p className="text-text-muted">
-												vs
-											</p>
-											<p className="font-semibold">
-												{b.player_b1?.player_name ??
-													"BYE"}
-											</p>
-										</div>
+					return (
+						<section key={round} className="space-y-3">
+							<h2 className="text-lg font-semibold text-center">
+								{roundLabel}
+							</h2>
 
-										{match && (
-											<div className="text-right shrink-0">
-												<div className="text-lg font-bold">
-													{match.score_a} -{" "}
-													{match.score_b}
+							{list.map((b) => {
+								const match = b.match_id
+									? matchesMap.get(b.match_id)
+									: null;
+
+								const teamA: {
+									id?: string;
+									name: string;
+									elo?: number;
+								}[] = b.player_a1
+									? [
+											{
+												id: b.player_a1.id,
+												name: b.player_a1.player_name,
+												elo: b.player_a1.singles_elo,
+											},
+										]
+									: b.player_b1
+										? [{ name: "BYE" }]
+										: [{ name: "BYE" }];
+
+								const teamB: {
+									id?: string;
+									name: string;
+									elo?: number;
+								}[] = b.player_b1
+									? [
+											{
+												id: b.player_b1.id,
+												name: b.player_b1.player_name,
+												elo: b.player_b1.singles_elo,
+											},
+										]
+									: b.player_a1
+										? [{ name: "BYE" }]
+										: [{ name: "BYE" }];
+
+								const teamAWon = match
+									? match.score_a > match.score_b
+									: false;
+
+								return (
+									<div
+										key={b.id}
+										onClick={() =>
+											b.match_id &&
+											router.push(
+												`/matches/${b.match_id}`
+											)
+										}
+										className="bg-card p-4 rounded-xl hover-card cursor-pointer"
+									>
+										<div className="flex justify-between gap-6">
+											<div className="flex-1 space-y-3">
+												{/* TEAM A */}
+												<div className="flex justify-between items-center">
+													<div className="flex gap-2 whitespace-nowrap text-[clamp(0.85rem,4vw,1rem)]">
+														{teamA.map((p, i) => (
+															<span
+																key={p.id ?? i}
+																className="flex items-center gap-1"
+															>
+																{p.id ? (
+																	<Link
+																		href={`/profile/${p.name}`}
+																		onClick={(
+																			e
+																		) =>
+																			e.stopPropagation()
+																		}
+																		className="hover:underline cursor-pointer"
+																	>
+																		{p.name}
+																	</Link>
+																) : (
+																	p.name
+																)}
+																{p.elo !==
+																	undefined && (
+																	<span className="text-text-subtle text-[clamp(0.7rem,3vw,0.85rem)]">
+																		({p.elo}
+																		)
+																	</span>
+																)}
+															</span>
+														))}
+													</div>
+
+													{match && (
+														<div className="flex items-center gap-2 shrink-0">
+															<span className="text-sm text-text-muted">
+																{match.score_a}
+															</span>
+														</div>
+													)}
 												</div>
-												<div className="text-sm text-text-muted">
-													Completed
+
+												{/* TEAM B */}
+												<div className="flex justify-between items-center">
+													<div className="flex gap-2 whitespace-nowrap text-[clamp(0.85rem,4vw,1rem)]">
+														{teamB.map((p, i) => (
+															<span
+																key={p.id ?? i}
+																className="flex items-center gap-1"
+															>
+																{p.id ? (
+																	<Link
+																		href={`/profile/${p.name}`}
+																		onClick={(
+																			e
+																		) =>
+																			e.stopPropagation()
+																		}
+																		className="hover:underline cursor-pointer"
+																	>
+																		{p.name}
+																	</Link>
+																) : (
+																	p.name
+																)}
+																{p.elo !==
+																	undefined && (
+																	<span className="text-text-subtle text-[clamp(0.7rem,3vw,0.85rem)]">
+																		({p.elo}
+																		)
+																	</span>
+																)}
+															</span>
+														))}
+													</div>
+
+													{match && (
+														<div className="flex items-center gap-2 shrink-0">
+															<span className="text-sm text-text-muted">
+																{match.score_b}
+															</span>
+														</div>
+													)}
 												</div>
 											</div>
-										)}
+
+											{/* RIGHT: Meta */}
+											{match && (
+												<div className="text-sm text-text-muted text-right shrink-0">
+													<div>
+														{teamAWon
+															? "Team A Won"
+															: "Team B Won"}
+													</div>
+													<div>
+														{match.created_at &&
+															new Date(
+																match.created_at
+															).toLocaleDateString()}
+													</div>
+												</div>
+											)}
+										</div>
 									</div>
-								</div>
-							);
-						})}
-					</section>
-				))}
+								);
+							})}
+						</section>
+					);
+				})}
 		</main>
 	);
 }
