@@ -131,8 +131,8 @@ export default function CreateGroup() {
 					disabled={!canCreate}
 				/>
 
-				<textarea
-					className={`${fieldClass} min-h-[120px] resize-none`}
+				<input
+					className={fieldClass}
 					placeholder="Group description (optional)"
 					value={description}
 					onChange={(e) => setDescription(e.target.value)}

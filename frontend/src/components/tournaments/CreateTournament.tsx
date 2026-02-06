@@ -121,7 +121,7 @@ export default function CreateTournament() {
 					onChange={(e) => setName(e.target.value)}
 				/>
 
-				<textarea
+				<input
 					className={fieldClass}
 					placeholder="Tournament description"
 					value={description}
