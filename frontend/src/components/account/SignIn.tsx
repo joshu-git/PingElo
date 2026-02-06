@@ -12,6 +12,9 @@ export default function SignIn() {
 	const [password, setPassword] = useState("");
 	const [loading, setLoading] = useState(false);
 
+	const fieldClass =
+		"w-full rounded-lg px-4 py-3 bg-transparent border border-border focus:outline-none focus:ring-1 focus:ring-border";
+
 	async function signIn(e: React.FormEvent) {
 		e.preventDefault();
 		setLoading(true);
@@ -45,121 +48,64 @@ export default function SignIn() {
 	}
 
 	return (
-		<main className="max-w-5xl mx-auto px-4 py-16 space-y-16">
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* HERO */}
 			<section className="text-center space-y-4">
-				<h1 className="text-4xl md:text-5xl font-extrabold tracking-tight">
-					Sign in to PingElo
-				</h1>
-				<p className="text-lg max-w-2xl mx-auto text-text-muted">
+				<h1 className="text-4xl md:text-5xl font-extrabold">Sign in</h1>
+				<p className="text-text-muted max-w-2xl mx-auto">
 					Continue competing in tournaments and groups for elo.
 				</p>
 			</section>
 
 			{/* FORM */}
-			<section className="max-w-2xl mx-auto">
-				<form
-					onSubmit={signIn}
-					aria-busy={loading}
-					className="space-y-6 bg-card border border-border rounded-xl p-6"
+			<form onSubmit={signIn} className="w-full space-y-8">
+				<input
+					type="email"
+					placeholder="Email address"
+					autoComplete="email"
+					required
+					value={email}
+					onChange={(e) => setEmail(e.target.value)}
+					className={fieldClass}
+				/>
+
+				<input
+					type="password"
+					placeholder="Password"
+					autoComplete="current-password"
+					required
+					value={password}
+					onChange={(e) => setPassword(e.target.value)}
+					className={fieldClass}
+				/>
+
+				<button
+					type="submit"
+					disabled={loading}
+					className="w-full px-4 py-3 rounded-lg font-semibold"
 				>
-					<div className="space-y-2">
-						<label
-							htmlFor="email"
-							className="block text-sm font-medium"
-						>
-							Email address
-						</label>
-						<input
-							id="email"
-							type="email"
-							autoComplete="email"
-							required
-							value={email}
-							onChange={(e) => setEmail(e.target.value)}
-							className="
-								w-full rounded-lg px-4 py-3
-								bg-background border border-border
-								text-text placeholder:text-text-muted
-								focus-visible:outline-none
-								focus-visible:ring-2
-								focus-visible:ring-border
-							"
-							placeholder="you@example.com"
-						/>
-					</div>
+					{loading ? "Signing in…" : "Sign In"}
+				</button>
 
-					<div className="space-y-2">
-						<label
-							htmlFor="password"
-							className="block text-sm font-medium"
-						>
-							Password
-						</label>
-						<input
-							id="password"
-							type="password"
-							autoComplete="current-password"
-							required
-							value={password}
-							onChange={(e) => setPassword(e.target.value)}
-							className="
-								w-full rounded-lg px-4 py-3
-								bg-background border border-border
-								text-text placeholder:text-text-muted
-								focus-visible:outline-none
-								focus-visible:ring-2
-								focus-visible:ring-border
-							"
-							placeholder="••••••••"
-						/>
-					</div>
-
-					{/* Forgot password */}
-					<div className="flex justify-center">
-						<Link
-							href="/account/recover"
-							className="text-sm text-text-muted hover:underline"
-						>
-							Forgot your password?
-						</Link>
-					</div>
-
-					{/* PRIMARY BUTTON */}
-					<button
-						type="submit"
-						disabled={loading}
-						className="
-							w-full py-3 rounded-lg font-semibold
-							bg-primary text-primary-foreground
-							hover:opacity-90
-							disabled:opacity-60
-							disabled:cursor-not-allowed
-							transition
-						"
+				<div className="text-center space-y-2">
+					<Link
+						href="/account/recover"
+						className="text-sm text-text-muted hover:underline"
 					>
-						{loading ? "Signing in…" : "Sign In"}
-					</button>
-				</form>
+						Forgot your password?
+					</Link>
 
-				{/* SECONDARY CTA */}
-				<div className="mt-8 text-center space-y-3">
-					<p className="text-sm text-text-muted">New to PingElo?</p>
-					<Link href="/account/signup">
-						<button
-							type="button"
-							className="
-								w-full py-3 rounded-lg
-								border border-border
-								bg-card hover:bg-background
-								transition
-							"
+					<p className="text-sm text-text-muted">
+						New here?{" "}
+						<Link
+							href="/account/signup"
+							className="hover:underline"
 						>
 							Create an account
-						</button>
-					</Link>
+						</Link>
+					</p>
 				</div>
-			</section>
+			</form>
 		</main>
 	);
 }
