@@ -52,9 +52,9 @@ router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 
 		const tournament = await createTournament(
 			trimmedName,
-			tournament_description,
 			req.user!.id,
-			start_date
+			start_date,
+			tournament_description
 		);
 
 		res.status(201).json(tournament);
