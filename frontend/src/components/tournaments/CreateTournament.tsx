@@ -8,16 +8,16 @@ export default function CreateTournament() {
 	const [description, setDescription] = useState("");
 	const [startDate, setStartDate] = useState("");
 
-	const [isAdmin, setIsAdmin] = useState<boolean>(false);
+	const [isAdmin, setIsAdmin] = useState(false);
 	const [loading, setLoading] = useState(false);
 	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	// EXACT same field styling as SubmitMatch
+	// EXACT same fieldClass as SubmitMatch
 	const fieldClass =
 		"w-full rounded-lg px-4 py-3 bg-transparent border border-border focus:outline-none focus:ring-1 focus:ring-border";
 
-	// Load admin status
+	// Load admin status from public.account
 	useEffect(() => {
 		async function loadAdminStatus() {
 			const { data } = await supabase.auth.getSession();
@@ -69,7 +69,7 @@ export default function CreateTournament() {
 			setName("");
 			setDescription("");
 			setStartDate("");
-			setMessage(`Tournament created successfully`);
+			setMessage("Tournament created successfully");
 		} catch (err) {
 			setError(
 				err instanceof Error ? err.message : "Something went wrong"
@@ -81,7 +81,7 @@ export default function CreateTournament() {
 
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
-			{/* HERO — matches SubmitMatch */}
+			{/* HERO */}
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold">
 					Create Tournament
@@ -91,11 +91,8 @@ export default function CreateTournament() {
 				</p>
 			</section>
 
-			{/* FORM */}
-			<form
-				onSubmit={createTournament}
-				className="max-w-xl mx-auto space-y-8"
-			>
+			{/* FORM — FULL WIDTH (matches SubmitMatch) */}
+			<form onSubmit={createTournament} className="w-full space-y-8">
 				<input
 					className={fieldClass}
 					placeholder="Tournament name"
