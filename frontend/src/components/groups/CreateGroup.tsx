@@ -25,7 +25,11 @@ export default function CreateGroup() {
 	useEffect(() => {
 		async function checkUserGroup() {
 			const { data: sessionData } = await supabase.auth.getSession();
-			if (!sessionData.session) return;
+			if (!sessionData.session) {
+				setCanCreate(false);
+				setError("You need to sign in to create a group");
+				return;
+			}
 
 			const userId = sessionData.session.user.id;
 
@@ -78,7 +82,8 @@ export default function CreateGroup() {
 			}
 
 			const { data: sessionData } = await supabase.auth.getSession();
-			if (!sessionData.session) throw new Error("Not signed in");
+			if (!sessionData.session)
+				throw new Error("You need to sign in to create a group");
 
 			const { error: insertError } = await supabase
 				.from("groups")
