@@ -1,108 +1,175 @@
 "use client";
 
-import { useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
-//Function for signing up
 export default function CreateGroup() {
 	const router = useRouter();
 
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
+	const [name, setName] = useState("");
+	const [description, setDescription] = useState("");
+	const [open, setOpen] = useState(true);
+
+	const [canCreate, setCanCreate] = useState(false);
+	const [alreadyInGroup, setAlreadyInGroup] = useState(false);
+
 	const [loading, setLoading] = useState(false);
+	const [message, setMessage] = useState<string | null>(null);
+	const [error, setError] = useState<string | null>(null);
 
-	//Uses the sign up information
-	async function signUp(e: React.FormEvent) {
+	const fieldClass =
+		"w-full rounded-lg px-4 py-3 bg-transparent border border-border focus:outline-none focus:ring-1 focus:ring-border";
+
+	//Load user + check if already in a group
+	useEffect(() => {
+		async function checkUserGroup() {
+			const { data: sessionData } = await supabase.auth.getSession();
+			if (!sessionData.session) return;
+
+			const userId = sessionData.session.user.id;
+
+			const { data: playerData, error: playerError } = await supabase
+				.from("players")
+				.select("group_id")
+				.eq("account_id", userId)
+				.maybeSingle();
+
+			if (playerError) {
+				console.error(playerError);
+				setCanCreate(false);
+				return;
+			}
+
+			if (playerData?.group_id) {
+				setAlreadyInGroup(true);
+				setCanCreate(false);
+			} else {
+				setAlreadyInGroup(false);
+				setCanCreate(true);
+			}
+		}
+
+		checkUserGroup();
+	}, []);
+
+	async function createGroup(e: React.FormEvent) {
 		e.preventDefault();
+		if (!canCreate || loading) return;
+
 		setLoading(true);
+		setMessage(null);
+		setError(null);
 
-		//Create user
-		const { error } = await supabase.auth.signUp({
-			email,
-			password,
-		});
+		try {
+			const trimmedName = name.trim();
+			if (!trimmedName) throw new Error("Group name is required");
 
-		//Sets loading status
-		setLoading(false);
+			const { data: existingGroup, error: checkError } = await supabase
+				.from("groups")
+				.select("id, group_name")
+				.eq("group_name", trimmedName)
+				.maybeSingle();
 
-		//Shows error message or pushes user to /profile
-		if (error) {
-			alert(error.message);
-		} else {
-			router.push("/account/claim");
+			if (checkError) throw new Error("Failed to check group name");
+
+			if (existingGroup) {
+				throw new Error("A group with this name already exists");
+			}
+
+			const { data: sessionData } = await supabase.auth.getSession();
+			if (!sessionData.session) throw new Error("Not signed in");
+
+			const { error: insertError } = await supabase
+				.from("groups")
+				.insert({
+					group_name: trimmedName,
+					group_description: description,
+					open,
+					group_owner_id: sessionData.session.user.id,
+				});
+
+			if (insertError) throw insertError;
+
+			setName("");
+			setDescription("");
+			setOpen(true);
+			setMessage("Group created successfully");
+
+			const encodedGroupName = encodeURIComponent(trimmedName);
+			router.push(`/groups/${encodedGroupName}`);
+		} catch (err: unknown) {
+			if (err instanceof Error) setError(err.message);
+			else setError("Something went wrong");
+		} finally {
+			setLoading(false);
 		}
 	}
 
-	//Displays sign up information
 	return (
-		<div className="w-full flex justify-center mt-10">
-			<form
-				onSubmit={signUp}
-				className="
-                    w-full 
-                    max-w-md 
-                    sm:max-w-lg
-                    md:max-w-xl
-                    bg-black/40 
-                    border border-white/10 
-                    rounded-xl 
-                    p-6 
-                    flex flex-col gap-4 
-                    shadow-lg
-                "
-			>
-				<h1 className="text-2xl font-bold text-center mb-1">Sign Up</h1>
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold">
+					Create Group
+				</h1>
+				<p className="text-text-muted max-w-2xl mx-auto">
+					Create a new group and configure its basic settings.
+				</p>
+			</section>
 
+			<form onSubmit={createGroup} className="w-full space-y-8">
 				<input
-					type="email"
-					placeholder="Email"
-					value={email}
-					onChange={(e) => setEmail(e.target.value)}
-					className="bg-black/60 border border-white/20 rounded-lg p-3"
-					required
+					className={fieldClass}
+					placeholder="Group name"
+					value={name}
+					onChange={(e) => setName(e.target.value)}
+					disabled={!canCreate}
 				/>
 
-				<input
-					type="password"
-					placeholder="Password"
-					value={password}
-					onChange={(e) => setPassword(e.target.value)}
-					className="bg-black/60 border border-white/20 rounded-lg p-3"
-					required
+				<textarea
+					className={`${fieldClass} min-h-[120px] resize-none`}
+					placeholder="Group description (optional)"
+					value={description}
+					onChange={(e) => setDescription(e.target.value)}
+					disabled={!canCreate}
 				/>
+
+				<div className="flex items-center space-x-2">
+					<input
+						id="open"
+						type="checkbox"
+						checked={open}
+						onChange={(e) => setOpen(e.target.checked)}
+						className="h-5 w-5"
+						disabled={!canCreate}
+					/>
+					<label htmlFor="open" className="text-text-muted">
+						Open to new members
+					</label>
+				</div>
 
 				<button
 					type="submit"
-					disabled={loading}
-					className="
-                        w-full py-3 bg-purple-600 
-                        hover:bg-purple-700 
-                        rounded-lg font-semibold 
-                        transition
-                    "
+					disabled={!canCreate || loading}
+					className="w-full px-4 py-3 rounded-lg font-semibold"
 				>
-					{loading ? "Signing Up..." : "Sign Up"}
+					{loading ? "Creating…" : "Create Group"}
 				</button>
 
-				<div className="text-center text-sm text-white/70 mt-2">
-					Have an account?
-				</div>
-
-				<Link
-					href="/account/signin"
-					className="
-                        w-full text-center py-2 
-                        border border-white/20 
-                        rounded-lg 
-                        hover:bg-white/10 
-                        transition
-                    "
-				>
-					Sign In
-				</Link>
+				{alreadyInGroup && (
+					<p className="text-xs text-center text-text-muted">
+						You are already in a group
+					</p>
+				)}
+				{message && (
+					<p className="text-xs text-center text-green-400">
+						{message}
+					</p>
+				)}
+				{error && (
+					<p className="text-xs text-center text-red-400">{error}</p>
+				)}
 			</form>
-		</div>
+		</main>
 	);
 }
