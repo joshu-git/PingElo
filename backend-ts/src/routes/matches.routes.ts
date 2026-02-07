@@ -95,12 +95,13 @@ async function checkAccess(
 	const isOwner = players.some((p) => p.account_id === accountId);
 	if (isOwner) return;
 
-	const { data: manager } = await supabase
+	const { data: account } = await supabase
 		.from("account")
 		.select("is_manager")
 		.eq("id", accountId)
 		.single();
-	if (manager) return;
+
+	if (account?.is_manager && !tournamentId) return;
 
 	if (!tournamentId) {
 		const { data: admin } = await supabase
@@ -121,13 +122,15 @@ async function checkAccess(
 		);
 		if (!hasRights) throw new Error("Admin rights required for this match");
 	} else {
-		const { data: tournamentOwner } = await supabase
+		const { data: tournament } = await supabase
 			.from("tournaments")
-			.select<string>("created_by")
+			.select("created_by")
 			.eq("id", tournamentId)
 			.single();
-		if (tournamentOwner !== accountId)
+
+		if (!tournament || tournament.created_by !== accountId) {
 			throw new Error("Tournament owner required for this match");
+		}
 	}
 }
 
