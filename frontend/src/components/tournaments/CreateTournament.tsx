@@ -129,7 +129,7 @@ export default function CreateTournament() {
 				/>
 
 				<label className="text-sm text-text-muted font-medium">
-					Start Date (won`t start automatically)
+					Start Date
 				</label>
 				<input
 					type="date"
