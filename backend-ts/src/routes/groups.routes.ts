@@ -8,20 +8,20 @@ import { createGroup } from "../services/groups.services.js";
 
 const router = Router();
 
-/* ================= CREATE GROUP ================= */
+//Create group
 router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 	try {
 		const { group_name, group_description, open } = req.body as {
-			group_name?: string;
+			group_name: string;
 			group_description?: string;
-			open?: boolean;
+			open: boolean;
 		};
 
 		if (!group_name || !group_name.trim()) {
 			return res.status(400).json({ error: "Group name is required" });
 		}
 
-		// User must have a player
+		//User must have a player
 		const { data: player, error: playerError } = await supabase
 			.from("players")
 			.select("id, group_id")
@@ -42,7 +42,7 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 			});
 		}
 
-		// Group name must be unique
+		//Group name must be unique
 		const { data: existingGroup } = await supabase
 			.from("groups")
 			.select("id")

@@ -78,7 +78,6 @@ export default function CreateTournament() {
 						tournament_name: trimmedName,
 						tournament_description: description,
 						start_date: startDate,
-						match_type: "singles",
 					}),
 				}
 			);

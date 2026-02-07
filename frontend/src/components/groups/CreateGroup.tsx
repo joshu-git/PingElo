@@ -66,6 +66,9 @@ export default function CreateGroup() {
 		setError(null);
 
 		try {
+			const { data } = await supabase.auth.getSession();
+			if (!data.session) return;
+
 			const trimmedName = name.trim();
 			if (!trimmedName) throw new Error("Group name is required");
 
@@ -85,16 +88,25 @@ export default function CreateGroup() {
 			if (!sessionData.session)
 				throw new Error("You need to sign in to create a group");
 
-			const { error: insertError } = await supabase
-				.from("groups")
-				.insert({
-					group_name: trimmedName,
-					group_description: description,
-					open,
-					group_owner_id: sessionData.session.user.id,
-				});
+			const res = await fetch(
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/create`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${data.session.access_token}`,
+					},
+					body: JSON.stringify({
+						group_name: trimmedName,
+						group_description: description,
+						open,
+					}),
+				}
+			);
 
-			if (insertError) throw insertError;
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
 
 			setName("");
 			setDescription("");

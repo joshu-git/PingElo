@@ -15,6 +15,7 @@ export async function createGroup(
 			group_description: groupDescription,
 			open,
 			group_owner_id: ownerId,
+			created_by: ownerId,
 		})
 		.select("id, group_name")
 		.single();
