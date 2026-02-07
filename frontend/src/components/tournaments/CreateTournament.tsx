@@ -116,20 +116,21 @@ export default function CreateTournament() {
 			<form onSubmit={createTournament} className="w-full space-y-8">
 				<input
 					className={fieldClass}
-					placeholder="Tournament name"
+					placeholder="Tournament Name"
 					value={name}
 					onChange={(e) => setName(e.target.value)}
 				/>
 
 				<input
 					className={fieldClass}
-					placeholder="Tournament description"
+					placeholder="Tournament Description"
 					value={description}
 					onChange={(e) => setDescription(e.target.value)}
 				/>
 
 				<input
 					type="date"
+					placeholder="Start Date"
 					className={fieldClass}
 					value={startDate}
 					onChange={(e) => setStartDate(e.target.value)}
