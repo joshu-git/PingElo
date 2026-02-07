@@ -48,7 +48,7 @@ export default function SignUp() {
 			<form onSubmit={signUp} className="w-full space-y-8">
 				<input
 					type="email"
-					placeholder="Email address"
+					placeholder="Email Address"
 					required
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
@@ -66,7 +66,7 @@ export default function SignUp() {
 
 				<input
 					type="text"
-					placeholder="Player name"
+					placeholder="Player Name"
 					value={playerName}
 					onChange={(e) => setPlayerName(e.target.value)}
 					className={fieldClass}

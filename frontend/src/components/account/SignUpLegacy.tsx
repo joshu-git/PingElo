@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-export default function SignIn() {
+export default function SignUpLegacy() {
 	const router = useRouter();
 
 	const [email, setEmail] = useState("");
@@ -15,33 +15,19 @@ export default function SignIn() {
 	const fieldClass =
 		"w-full rounded-lg px-4 py-3 bg-transparent border border-border focus:outline-none focus:ring-1 focus:ring-border";
 
-	async function signIn(e: React.FormEvent) {
+	async function signUp(e: React.FormEvent) {
 		e.preventDefault();
 		setLoading(true);
 
-		const { data, error } = await supabase.auth.signInWithPassword({
+		const { error } = await supabase.auth.signUp({
 			email,
 			password,
 		});
 
-		if (error) {
-			setLoading(false);
-			alert(error.message);
-			return;
-		}
-
-		const userId = data.user.id;
-
-		const { data: player } = await supabase
-			.from("players")
-			.select("player_name")
-			.eq("account_id", userId)
-			.maybeSingle();
-
 		setLoading(false);
 
-		if (player && player.player_name) {
-			router.push(`/profile/${player.player_name}`);
+		if (error) {
+			alert(error.message);
 		} else {
 			router.push("/account/claim");
 		}
@@ -51,18 +37,17 @@ export default function SignIn() {
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* HERO */}
 			<section className="text-center space-y-4">
-				<h1 className="text-4xl md:text-5xl font-extrabold">Sign in</h1>
+				<h1 className="text-4xl md:text-5xl font-extrabold">Sign up</h1>
 				<p className="text-text-muted max-w-2xl mx-auto">
-					Continue competing in tournaments and groups for elo.
+					Create an account to start competing for elo.
 				</p>
 			</section>
 
 			{/* FORM */}
-			<form onSubmit={signIn} className="w-full space-y-8">
+			<form onSubmit={signUp} className="w-full space-y-8">
 				<input
 					type="email"
-					placeholder="Email Address"
-					autoComplete="email"
+					placeholder="Email address"
 					required
 					value={email}
 					onChange={(e) => setEmail(e.target.value)}
@@ -72,7 +57,6 @@ export default function SignIn() {
 				<input
 					type="password"
 					placeholder="Password"
-					autoComplete="current-password"
 					required
 					value={password}
 					onChange={(e) => setPassword(e.target.value)}
@@ -84,16 +68,18 @@ export default function SignIn() {
 					disabled={loading}
 					className="w-full px-4 py-3 rounded-lg font-semibold"
 				>
-					{loading ? "Signing in…" : "Sign In"}
+					{loading ? "Signing up…" : "Sign Up"}
 				</button>
 
 				<div className="text-center space-y-2">
-					<p className="text-sm text-text-muted">New to PingElo?</p>
+					<p className="text-sm text-text-muted">
+						Already have an account?
+					</p>
 					<Link
-						href="/account/signup"
+						href="/account/signin"
 						className="text-sm hover:underline"
 					>
-						Sign up
+						Sign in
 					</Link>
 				</div>
 			</form>
