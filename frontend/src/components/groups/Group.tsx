@@ -22,12 +22,14 @@ type GroupPlayer = {
 	singles_elo: number;
 	doubles_elo: number;
 	is_admin: boolean;
+	is_owner: boolean; // 👈 NEW
 };
 
 type GroupData = {
 	id: string;
 	group_name: string;
 	group_description: string | null;
+	group_owner_id: string;
 	players: GroupPlayer[];
 	is_member: boolean;
 	can_leave: boolean;
@@ -41,31 +43,15 @@ type ChartPoint = {
 
 const PAGE_SIZE = 1000;
 
-const fetchAllMatchesForGroup = async (groupId: string) => {
-	let from = 0;
-	let to = PAGE_SIZE - 1;
-	const all: MatchesRow[] = [];
-
-	while (true) {
-		const { data, error } = await supabase
-			.from("matches")
-			.select("*")
-			.eq("group_id", groupId)
-			.order("created_at", { ascending: true })
-			.range(from, to);
-
-		if (error) throw error;
-		if (!data || data.length === 0) break;
-
-		all.push(...data);
-		if (data.length < PAGE_SIZE) break;
-
-		from += PAGE_SIZE;
-		to += PAGE_SIZE;
-	}
-
-	return all;
-};
+const RANKS = [
+	{ min: 1600, label: "Super Grand Master" },
+	{ min: 1400, label: "Grand Master" },
+	{ min: 1200, label: "Master" },
+	{ min: 1000, label: "Competitor" },
+	{ min: 800, label: "Advanced" },
+	{ min: 600, label: "Beginner" },
+	{ min: 0, label: "Bikini Bottom" },
+];
 
 export default function Group() {
 	const { groupName } = useParams<{ groupName: string }>();
@@ -99,7 +85,7 @@ export default function Group() {
 			const { data: groupData, error: groupError } = await supabase
 				.from("groups")
 				.select(
-					`id, group_name, group_description, players(id, player_name, singles_elo, doubles_elo, account_id)`
+					`id, group_name, group_description, group_owner_id, players(id, player_name, singles_elo, doubles_elo, account_id)`
 				)
 				.eq("group_name", decodeURIComponent(groupName))
 				.single();
@@ -128,6 +114,7 @@ export default function Group() {
 						is_admin: p.account_id
 							? (adminsMap.get(p.account_id) ?? false)
 							: false,
+						is_owner: p.account_id === groupData.group_owner_id, // 👑 Owner logic
 					})
 				);
 
@@ -139,6 +126,7 @@ export default function Group() {
 					id: groupData.id,
 					group_name: groupData.group_name,
 					group_description: groupData.group_description ?? null,
+					group_owner_id: groupData.group_owner_id,
 					players,
 					is_member,
 					can_leave: is_member && players.length > 1,
@@ -157,8 +145,33 @@ export default function Group() {
 	/* ---------- Load matches ---------- */
 	useEffect(() => {
 		if (!group) return;
-
 		let cancelled = false;
+
+		const fetchAllMatchesForGroup = async (groupId: string) => {
+			let from = 0;
+			let to = PAGE_SIZE - 1;
+			const all: MatchesRow[] = [];
+
+			while (true) {
+				const { data, error } = await supabase
+					.from("matches")
+					.select("*")
+					.eq("group_id", groupId)
+					.order("created_at", { ascending: true })
+					.range(from, to);
+
+				if (error) throw error;
+				if (!data || data.length === 0) break;
+
+				all.push(...data);
+				if (data.length < PAGE_SIZE) break;
+
+				from += PAGE_SIZE;
+				to += PAGE_SIZE;
+			}
+
+			return all;
+		};
 
 		const loadMatches = async () => {
 			const all = await fetchAllMatchesForGroup(group.id);
@@ -166,7 +179,6 @@ export default function Group() {
 		};
 
 		loadMatches();
-
 		return () => {
 			cancelled = true;
 		};
@@ -185,45 +197,33 @@ export default function Group() {
 
 	/* ---------- Stats ---------- */
 	const stats = useMemo(() => {
-		if (!group) {
-			return {
-				players: 0,
-				matches: 0,
-				averageElo: 0,
-			};
-		}
-
+		if (!group) return { players: 0, matches: 0, averageElo: 0 };
 		const playersCount = group.players.length;
 		const matchesCount = filteredMatches.length;
-
-		const totalElo = group.players.reduce((sum, p) => {
-			return (
-				sum + (matchType === "singles" ? p.singles_elo : p.doubles_elo)
-			);
-		}, 0);
-
-		const averageElo =
-			playersCount > 0 ? Math.round(totalElo / playersCount) : 0;
-
+		const totalElo = group.players.reduce(
+			(sum, p) =>
+				sum + (matchType === "singles" ? p.singles_elo : p.doubles_elo),
+			0
+		);
 		return {
 			players: playersCount,
 			matches: matchesCount,
-			averageElo,
+			averageElo: playersCount ? Math.round(totalElo / playersCount) : 0,
 		};
 	}, [group, filteredMatches, matchType]);
 
 	/* ---------- Chart Data ---------- */
-	const chartData: ChartPoint[] = useMemo(() => {
+	const chartData = useMemo(() => {
 		if (!filteredMatches.length) return [];
 		const matchesByDay: Record<string, MatchesRow[]> = {};
 		filteredMatches.forEach((m) => {
 			const day = new Date(m.created_at);
 			const dayStr = `${day.getFullYear()}-${(day.getMonth() + 1)
 				.toString()
-				.padStart(2, "0")}-${day
-				.getDate()
-				.toString()
-				.padStart(2, "0")}`;
+				.padStart(
+					2,
+					"0"
+				)}-${day.getDate().toString().padStart(2, "0")}`;
 			if (!matchesByDay[dayStr]) matchesByDay[dayStr] = [];
 			matchesByDay[dayStr].push(m);
 		});
@@ -244,12 +244,7 @@ export default function Group() {
 		const dayArray: string[] = [];
 		const current = new Date(firstDay);
 		while (current <= lastDay) {
-			const dayStr = `${current.getFullYear()}-${(current.getMonth() + 1)
-				.toString()
-				.padStart(2, "0")}-${current
-				.getDate()
-				.toString()
-				.padStart(2, "0")}`;
+			const dayStr = `${current.getFullYear()}-${(current.getMonth() + 1).toString().padStart(2, "0")}-${current.getDate().toString().padStart(2, "0")}`;
 			dayArray.push(dayStr);
 			current.setDate(current.getDate() + 1);
 		}
@@ -276,23 +271,42 @@ export default function Group() {
 	const eloValue = (p: GroupPlayer) =>
 		matchType === "singles" ? p.singles_elo : p.doubles_elo;
 
-	const getRank = (elo: number) => {
-		if (elo >= 1400) return "Grand Master";
-		if (elo >= 1300) return "Master";
-		if (elo >= 1200) return "Expert";
-		if (elo >= 1100) return "Advanced";
-		if (elo >= 1000) return "Competitor";
-		if (elo >= 900) return "Amateur";
-		if (elo >= 800) return "Beginner";
-		if (elo >= 700) return "Novice";
-		return "Rookie";
+	const matchCounts = useMemo(() => {
+		const map = new Map<string, number>();
+		filteredMatches.forEach((m) => {
+			[m.player_a1_id, m.player_b1_id, m.player_a2_id, m.player_b2_id]
+				.filter(Boolean)
+				.forEach((id) => map.set(id!, (map.get(id!) ?? 0) + 1));
+		});
+		return map;
+	}, [filteredMatches]);
+
+	const getRankLabel = (elo: number, matches: number) => {
+		if (matches < 5) return "Unranked";
+		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	};
+
+	const { rankedPlayers, unrankedPlayers } = useMemo(() => {
+		const ranked: GroupPlayer[] = [];
+		const unranked: GroupPlayer[] = [];
+		leaderboardPlayers.forEach((p) => {
+			const matches = matchCounts.get(p.id) ?? 0;
+			(matches < 5 ? unranked : ranked).push(p);
+		});
+		return { rankedPlayers: ranked, unrankedPlayers: unranked };
+	}, [leaderboardPlayers, matchCounts]);
 
 	const rankStyle = (rank: number) => {
 		if (rank === 1) return "text-yellow-500";
 		if (rank === 2) return "text-gray-400";
 		if (rank === 3) return "text-amber-600";
 		return "text-text-muted";
+	};
+
+	const getStatusLabel = (p: GroupPlayer) => {
+		if (p.is_owner) return "Owner";
+		if (p.is_admin) return "Admin";
+		return "Player";
 	};
 
 	if (loading || !group)
@@ -329,25 +343,16 @@ export default function Group() {
 				<div className="flex flex-wrap justify-center gap-2">
 					<button
 						onClick={() => setMatchType("singles")}
-						className={`px-4 py-2 rounded-lg ${
-							matchType === "singles"
-								? "font-semibold underline"
-								: ""
-						}`}
+						className={`px-4 py-2 rounded-lg ${matchType === "singles" ? "font-semibold underline" : ""}`}
 					>
 						Singles
 					</button>
 					<button
 						onClick={() => setMatchType("doubles")}
-						className={`px-4 py-2 rounded-lg ${
-							matchType === "doubles"
-								? "font-semibold underline"
-								: ""
-						}`}
+						className={`px-4 py-2 rounded-lg ${matchType === "doubles" ? "font-semibold underline" : ""}`}
 					>
 						Doubles
 					</button>
-
 					{sessionUserId &&
 						(isLoggedInAdmin ? (
 							<Link
@@ -372,18 +377,14 @@ export default function Group() {
 						<button
 							key={d}
 							onClick={() => setRange(d)}
-							className={`px-4 py-2 rounded-lg ${
-								range === d ? "font-semibold underline" : ""
-							}`}
+							className={`px-4 py-2 rounded-lg ${range === d ? "font-semibold underline" : ""}`}
 						>
 							Last {d} Days
 						</button>
 					))}
 					<button
 						onClick={() => setRange(null)}
-						className={`px-4 py-2 rounded-lg ${
-							range === null ? "font-semibold underline" : ""
-						}`}
+						className={`px-4 py-2 rounded-lg ${range === null ? "font-semibold underline" : ""}`}
 					>
 						All Time
 					</button>
@@ -450,8 +451,9 @@ export default function Group() {
 
 			{/* LEADERBOARD */}
 			<section className="space-y-2">
-				{leaderboardPlayers.map((p, i) => {
-					const statusLabel = p.is_admin ? "Admin" : "Player";
+				{/* Ranked */}
+				{rankedPlayers.map((p, i) => {
+					const elo = eloValue(p);
 					return (
 						<div
 							key={p.id}
@@ -459,9 +461,7 @@ export default function Group() {
 						>
 							<div className="flex items-center gap-4">
 								<div
-									className={`text-lg font-bold w-8 ${rankStyle(
-										i + 1
-									)}`}
+									className={`text-lg font-bold w-8 ${rankStyle(i + 1)}`}
 								>
 									#{i + 1}
 								</div>
@@ -473,13 +473,48 @@ export default function Group() {
 										{p.player_name}
 									</Link>
 									<p className="text-sm text-text-muted">
-										{statusLabel} · {getRank(eloValue(p))}
+										{getStatusLabel(p)} ·{" "}
+										{getRankLabel(
+											elo,
+											matchCounts.get(p.id) ?? 0
+										)}
 									</p>
 								</div>
 							</div>
-							<div className="text-2xl font-bold">
-								{eloValue(p)}
+							<div className="text-2xl font-bold">{elo}</div>
+						</div>
+					);
+				})}
+
+				{/* Unranked */}
+				{unrankedPlayers.length > 0 && (
+					<>
+						<div className="py-6" />
+						<h2 className="text-center text-text-muted font-semibold">
+							Unranked (less than 5 matches)
+						</h2>
+					</>
+				)}
+
+				{unrankedPlayers.map((p) => {
+					const elo = eloValue(p);
+					return (
+						<div
+							key={p.id}
+							className="flex items-center justify-between bg-card p-4 rounded-xl opacity-70"
+						>
+							<div>
+								<Link
+									href={`/profile/${p.player_name}`}
+									className="font-semibold hover:underline"
+								>
+									{p.player_name}
+								</Link>
+								<p className="text-sm text-text-muted">
+									{getStatusLabel(p)} · Unranked
+								</p>
 							</div>
+							<div className="text-2xl font-bold">{elo}</div>
 						</div>
 					);
 				})}
