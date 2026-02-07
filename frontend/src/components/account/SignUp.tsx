@@ -12,26 +12,86 @@ export default function SignUp() {
 	const [password, setPassword] = useState("");
 	const [playerName, setPlayerName] = useState("");
 	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState<string | null>(null);
 
 	const fieldClass =
 		"w-full rounded-lg px-4 py-3 bg-transparent border border-border focus:outline-none focus:ring-1 focus:ring-border";
 
 	async function signUp(e: React.FormEvent) {
 		e.preventDefault();
+		setError(null);
+
+		const trimmedPlayerName = playerName.trim();
+		if (!trimmedPlayerName) {
+			setError("Player name is required");
+			return;
+		}
+
 		setLoading(true);
 
-		const { error } = await supabase.auth.signUp({
+		const { data: existingPlayer, error: checkError } = await supabase
+			.from("players")
+			.select("id")
+			.eq("player_name", trimmedPlayerName)
+			.maybeSingle();
+
+		if (checkError) {
+			setLoading(false);
+			setError("Failed to check player name");
+			return;
+		}
+
+		if (existingPlayer) {
+			setLoading(false);
+			setError("A player with this name already exists");
+			return;
+		}
+
+		//Create account
+		const { error: signUpError } = await supabase.auth.signUp({
 			email,
 			password,
 		});
 
+		if (signUpError) {
+			setLoading(false);
+			setError(signUpError.message);
+			return;
+		}
+
+		//Get session
+		const { data: sessionData } = await supabase.auth.getSession();
+		if (!sessionData.session) {
+			setLoading(false);
+			setError("Failed to create session");
+			return;
+		}
+
+		//Create player
+		const res = await fetch(
+			`${process.env.NEXT_PUBLIC_BACKEND_URL}/players/create`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionData.session.access_token}`,
+				},
+				body: JSON.stringify({
+					player_name: trimmedPlayerName,
+				}),
+			}
+		);
+
+		if (!res.ok) {
+			const { error } = await res.json();
+			setLoading(false);
+			setError(error || "Failed to create player");
+			return;
+		}
+
 		setLoading(false);
 
-		if (error) {
-			alert(error.message);
-		} else {
-			router.push("/account/claim");
-		}
+		router.push(`/profile/${trimmedPlayerName}`);
 	}
 
 	return (
@@ -40,7 +100,7 @@ export default function SignUp() {
 			<section className="text-center space-y-4">
 				<h1 className="text-4xl md:text-5xl font-extrabold">Sign up</h1>
 				<p className="text-text-muted max-w-2xl mx-auto">
-					Create an account to start competing for elo.
+					Create an account to start competing.
 				</p>
 			</section>
 
@@ -67,6 +127,7 @@ export default function SignUp() {
 				<input
 					type="text"
 					placeholder="Player Name"
+					required
 					value={playerName}
 					onChange={(e) => setPlayerName(e.target.value)}
 					className={fieldClass}
@@ -79,6 +140,10 @@ export default function SignUp() {
 				>
 					{loading ? "Signing up…" : "Sign Up"}
 				</button>
+
+				{error && (
+					<p className="text-xs text-center text-red-400">{error}</p>
+				)}
 
 				<div className="text-center space-y-2">
 					<p className="text-sm text-text-muted">
