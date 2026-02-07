@@ -125,7 +125,7 @@ export default function CreateGroup() {
 			<form onSubmit={createGroup} className="w-full space-y-8">
 				<input
 					className={fieldClass}
-					placeholder="Group name"
+					placeholder="Group Name"
 					value={name}
 					onChange={(e) => setName(e.target.value)}
 					disabled={!canCreate}
@@ -133,7 +133,7 @@ export default function CreateGroup() {
 
 				<input
 					className={fieldClass}
-					placeholder="Group description (optional)"
+					placeholder="Description (optional)"
 					value={description}
 					onChange={(e) => setDescription(e.target.value)}
 					disabled={!canCreate}

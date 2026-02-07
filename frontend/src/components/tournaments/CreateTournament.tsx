@@ -123,7 +123,7 @@ export default function CreateTournament() {
 
 				<input
 					className={fieldClass}
-					placeholder="Tournament Description"
+					placeholder="Description (optional)"
 					value={description}
 					onChange={(e) => setDescription(e.target.value)}
 				/>
