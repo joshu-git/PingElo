@@ -22,7 +22,7 @@ type GroupPlayer = {
 	singles_elo: number;
 	doubles_elo: number;
 	is_admin: boolean;
-	is_owner: boolean; // 👈 NEW
+	is_owner: boolean;
 };
 
 type GroupData = {
@@ -114,7 +114,7 @@ export default function Group() {
 						is_admin: p.account_id
 							? (adminsMap.get(p.account_id) ?? false)
 							: false,
-						is_owner: p.account_id === groupData.group_owner_id, // 👑 Owner logic
+						is_owner: p.account_id === groupData.group_owner_id,
 					})
 				);
 
@@ -319,6 +319,86 @@ export default function Group() {
 	);
 	const isLoggedInAdmin = loggedInUser?.is_admin ?? false;
 
+	/* ------------------ Join / Leave handlers ------------------ */
+	const handleJoinGroup = async () => {
+		if (!group) return;
+
+		const myPlayer = group.players.find(
+			(p) => p.account_id === sessionUserId
+		);
+
+		if (myPlayer) {
+			alert("You are already in a group");
+			return;
+		}
+
+		try {
+			const { data } = await supabase.auth.getSession();
+			if (!data.session) throw new Error("Not signed in");
+
+			const res = await fetch(
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/groups/join`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${data.session.access_token}`,
+					},
+					body: JSON.stringify({
+						groupId: group.id,
+					}),
+				}
+			);
+
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
+		} finally {
+			location.reload();
+		}
+	};
+
+	const handleLeaveGroup = async () => {
+		if (!group) return;
+
+		const myPlayer = group.players.find(
+			(p) => p.account_id === sessionUserId
+		);
+		if (!myPlayer) {
+			alert("You are not in this group");
+			return;
+		}
+		if (myPlayer.is_owner) {
+			alert("Owner cannot leave their own group");
+			return;
+		}
+
+		try {
+			const { data } = await supabase.auth.getSession();
+			if (!data.session) throw new Error("Not signed in");
+
+			const res = await fetch(
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/groups/leave`,
+				{
+					method: "POST",
+					headers: {
+						"Content-Type": "application/json",
+						Authorization: `Bearer ${data.session.access_token}`,
+					},
+					body: JSON.stringify({
+						groupId: group.id,
+					}),
+				}
+			);
+
+			if (!res.ok) {
+				throw new Error(await res.text());
+			}
+		} finally {
+			location.reload();
+		}
+	};
+
 	return (
 		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
 			{/* HEADER */}
@@ -362,11 +442,17 @@ export default function Group() {
 								Dashboard
 							</Link>
 						) : group.is_member ? (
-							<button className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold">
+							<button
+								className="px-4 py-2 rounded-lg bg-red-500 text-white font-semibold"
+								onClick={handleLeaveGroup}
+							>
 								Leave Group
 							</button>
 						) : (
-							<button className="px-4 py-2 rounded-lg bg-primary text-white font-semibold">
+							<button
+								className="px-4 py-2 rounded-lg bg-primary text-white font-semibold"
+								onClick={handleJoinGroup}
+							>
 								Join Group
 							</button>
 						))}
