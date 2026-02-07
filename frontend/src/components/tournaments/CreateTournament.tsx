@@ -1,9 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 export default function CreateTournament() {
+	const router = useRouter();
+
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [startDate, setStartDate] = useState("");
@@ -86,10 +89,14 @@ export default function CreateTournament() {
 				throw new Error(await res.text());
 			}
 
+			const tournament = await res.json();
+
 			setName("");
 			setDescription("");
 			setStartDate("");
 			setMessage("Tournament created successfully");
+
+			router.push(`/tournaments/${tournament.id}`);
 		} catch (err) {
 			setError(
 				err instanceof Error ? err.message : "Something went wrong"
