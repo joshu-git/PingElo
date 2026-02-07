@@ -11,13 +11,15 @@ import { createPlayer } from "../services/players.services.js";
 
 const router = Router();
 
-//Route for creating a new player
+//Player creation validation
 router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 	try {
 		const { player_name } = req.body;
 
-		if (!player_name)
-			return res.status(400).json({ error: "Player name required" });
+		const trimmedName = player_name.trim();
+		if (!trimmedName) {
+			return res.status(400).json({ error: "Player name is required" });
+		}
 
 		const { data: duplicatePlayer } = await supabase
 			.from("players")
@@ -29,7 +31,25 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 				.status(400)
 				.json({ error: "Account already has a player" });
 
-		const player = await createPlayer(player_name, req.group_id!);
+		const { data: existingPlayer, error: checkError } = await supabase
+			.from("player")
+			.select("id")
+			.eq("player_name", trimmedName)
+			.maybeSingle();
+
+		if (checkError) {
+			return res
+				.status(500)
+				.json({ error: "Failed to check player name" });
+		}
+
+		if (existingPlayer) {
+			return res.status(400).json({
+				error: "A player with this name already exists",
+			});
+		}
+
+		const player = await createPlayer(player_name, req.user!.id);
 
 		res.status(201).json({
 			message: "Player created successfully",

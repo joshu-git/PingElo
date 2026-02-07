@@ -1,14 +1,12 @@
-//For using supabase calls
 import { supabase } from "../libs/supabase.js";
 
-//Used for creating a player
-export async function createPlayer(playerName: string, group_id: string) {
-	//Create the new player in players
+//Player creation
+export async function createPlayer(player_name: string, account_id: string) {
 	const { data, error } = await supabase
 		.from("players")
 		.insert({
-			player_name: playerName,
-			group_id: group_id,
+			player_name,
+			account_id,
 		})
 		.select()
 		.single();
