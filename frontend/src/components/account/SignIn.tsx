@@ -88,22 +88,13 @@ export default function SignIn() {
 				</button>
 
 				<div className="text-center space-y-2">
+					<p className="text-sm text-text-muted">New to PingElo?</p>
 					<Link
-						href="/account/recover"
-						className="text-sm text-text-muted hover:underline"
+						href="/account/signin"
+						className="text-sm hover:underline"
 					>
-						Forgot your password?
+						Sign up
 					</Link>
-
-					<p className="text-sm text-text-muted">
-						New here?{" "}
-						<Link
-							href="/account/signup"
-							className="hover:underline"
-						>
-							Create an account
-						</Link>
-					</p>
 				</div>
 			</form>
 		</main>
