@@ -89,7 +89,7 @@ export default function CreateGroup() {
 				throw new Error("You need to sign in to create a group");
 
 			const res = await fetch(
-				`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/create`,
+				`${process.env.NEXT_PUBLIC_BACKEND_URL}/groups/create`,
 				{
 					method: "POST",
 					headers: {
