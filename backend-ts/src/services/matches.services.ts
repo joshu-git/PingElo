@@ -73,6 +73,22 @@ export async function createSinglesMatch(
 	ratingB: number,
 	tournamentId?: string | null
 ) {
+	let groupId: string | null = null;
+
+	if (!tournamentId) {
+		const { data, error } = await supabase
+			.from("players")
+			.select("group_id")
+			.eq("id", playerAId)
+			.single();
+
+		if (error) {
+			throw new Error("Failed to fetch group_id");
+		}
+
+		groupId = data.group_id;
+	}
+
 	let bracketId: string | null = null;
 
 	//If there is a tournament id then check the match is allowed
@@ -119,6 +135,7 @@ export async function createSinglesMatch(
 			elo_before_b1: ratingB,
 			tournament_id: tournamentId ?? null,
 			bracket_id: bracketId,
+			group_id: groupId,
 		})
 		.select()
 		.single();
@@ -165,6 +182,18 @@ export async function createDoublesMatch(
 	ratingB1: number,
 	ratingB2: number
 ) {
+	const { data, error } = await supabase
+		.from("players")
+		.select("group_id")
+		.eq("id", playerA1Id)
+		.single();
+
+	if (error) {
+		throw new Error("Failed to fetch group_id");
+	}
+
+	const groupId = data.group_id;
+
 	const teamARating = (ratingA1 + ratingA2) / 2;
 	const teamBRating = (ratingB1 + ratingB2) / 2;
 
@@ -204,6 +233,7 @@ export async function createDoublesMatch(
 			elo_before_a2: ratingA2,
 			elo_before_b1: ratingB1,
 			elo_before_b2: ratingB2,
+			group_id: groupId,
 		})
 		.select()
 		.single();
