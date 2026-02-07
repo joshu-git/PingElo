@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -6,106 +5,93 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
-//Function for signing up
 export default function SignUp() {
-    const router = useRouter();
+	const router = useRouter();
 
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
-    const [loading, setLoading] = useState(false);
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [playerName, setPlayerName] = useState("");
+	const [loading, setLoading] = useState(false);
 
-    //Uses the sign up information
-    async function signUp(e: React.FormEvent) {
-        e.preventDefault();
-        setLoading(true);
+	const fieldClass =
+		"w-full rounded-lg px-4 py-3 bg-transparent border border-border focus:outline-none focus:ring-1 focus:ring-border";
 
-        //Create user
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-        });
+	async function signUp(e: React.FormEvent) {
+		e.preventDefault();
+		setLoading(true);
 
-        //Sets loading status
-        setLoading(false);
-        
-        //Shows error message or pushes user to /profile
-        if (error) {
-            alert(error.message);
-        } else {
-            router.push("/account/claim");
-        }
-    }
+		const { error } = await supabase.auth.signUp({
+			email,
+			password,
+		});
 
-    //Displays sign up information
-    return (
-        <div className="w-full flex justify-center mt-10">
-            <form
-                onSubmit={signUp}
-                className="
-                    w-full 
-                    max-w-md 
-                    sm:max-w-lg
-                    md:max-w-xl
-                    bg-black/40 
-                    border border-white/10 
-                    rounded-xl 
-                    p-6 
-                    flex flex-col gap-4 
-                    shadow-lg
-                "
-            >
-                <h1 className="text-2xl font-bold text-center mb-1">
-                    Sign Up
-                </h1>
+		setLoading(false);
 
-                <input
-                    type="email"
-                    placeholder="Email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="bg-black/60 border border-white/20 rounded-lg p-3"
-                    required
-                />
+		if (error) {
+			alert(error.message);
+		} else {
+			router.push("/account/claim");
+		}
+	}
 
-                <input
-                    type="password"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="bg-black/60 border border-white/20 rounded-lg p-3"
-                    required
-                />
+	return (
+		<main className="max-w-5xl mx-auto px-4 py-16 space-y-12">
+			{/* HERO */}
+			<section className="text-center space-y-4">
+				<h1 className="text-4xl md:text-5xl font-extrabold">Sign up</h1>
+				<p className="text-text-muted max-w-2xl mx-auto">
+					Create an account to start competing for elo.
+				</p>
+			</section>
 
-                <button
-                    type="submit"
-                    disabled={loading}
-                    className="
-                        w-full py-3 bg-purple-600 
-                        hover:bg-purple-700 
-                        rounded-lg font-semibold 
-                        transition
-                    "
-                >
-                    {loading ? "Signing Up..." : "Sign Up"}
-                </button>
+			{/* FORM */}
+			<form onSubmit={signUp} className="w-full space-y-8">
+				<input
+					type="email"
+					placeholder="Email address"
+					required
+					value={email}
+					onChange={(e) => setEmail(e.target.value)}
+					className={fieldClass}
+				/>
 
-                <div className="text-center text-sm text-white/70 mt-2">
-                    Have an account?
-                </div>
+				<input
+					type="password"
+					placeholder="Password"
+					required
+					value={password}
+					onChange={(e) => setPassword(e.target.value)}
+					className={fieldClass}
+				/>
 
-                <Link
-                    href="/account/signin"
-                    className="
-                        w-full text-center py-2 
-                        border border-white/20 
-                        rounded-lg 
-                        hover:bg-white/10 
-                        transition
-                    "
-                >
-                    Sign In
-                </Link>
-            </form>
-        </div>
-    );
+				<input
+					type="text"
+					placeholder="Player name"
+					value={playerName}
+					onChange={(e) => setPlayerName(e.target.value)}
+					className={fieldClass}
+				/>
+
+				<button
+					type="submit"
+					disabled={loading}
+					className="w-full px-4 py-3 rounded-lg font-semibold"
+				>
+					{loading ? "Signing up…" : "Sign Up"}
+				</button>
+
+				<div className="text-center space-y-2">
+					<p className="text-sm text-text-muted">
+						Already have an account?
+					</p>
+					<Link
+						href="/account/signin"
+						className="text-sm hover:underline"
+					>
+						Sign in
+					</Link>
+				</div>
+			</form>
+		</main>
+	);
 }
