@@ -39,6 +39,34 @@ type ChartPoint = {
 	matches: number;
 };
 
+const PAGE_SIZE = 1000;
+
+const fetchAllMatchesForGroup = async (groupId: string) => {
+	let from = 0;
+	let to = PAGE_SIZE - 1;
+	const all: MatchesRow[] = [];
+
+	while (true) {
+		const { data, error } = await supabase
+			.from("matches")
+			.select("*")
+			.eq("group_id", groupId)
+			.order("created_at", { ascending: true })
+			.range(from, to);
+
+		if (error) throw error;
+		if (!data || data.length === 0) break;
+
+		all.push(...data);
+		if (data.length < PAGE_SIZE) break;
+
+		from += PAGE_SIZE;
+		to += PAGE_SIZE;
+	}
+
+	return all;
+};
+
 export default function Group() {
 	const { groupName } = useParams<{ groupName: string }>();
 	const router = useRouter();
@@ -68,7 +96,6 @@ export default function Group() {
 		const loadGroup = async () => {
 			setLoading(true);
 
-			// Load group with players
 			const { data: groupData, error: groupError } = await supabase
 				.from("groups")
 				.select(
@@ -82,7 +109,6 @@ export default function Group() {
 				return;
 			}
 
-			// Load admin status for all accounts
 			const { data: adminData } = await supabase
 				.from("account")
 				.select("id, is_admin");
@@ -132,17 +158,18 @@ export default function Group() {
 	useEffect(() => {
 		if (!group) return;
 
-		const loadMatches = async () => {
-			const { data } = await supabase
-				.from("matches")
-				.select("*")
-				.eq("group_id", group.id)
-				.order("created_at", { ascending: true });
+		let cancelled = false;
 
-			setMatches(data ?? []);
+		const loadMatches = async () => {
+			const all = await fetchAllMatchesForGroup(group.id);
+			if (!cancelled) setMatches(all);
 		};
 
 		loadMatches();
+
+		return () => {
+			cancelled = true;
+		};
 	}, [group]);
 
 	/* ---------- Filter matches by type and range ---------- */
