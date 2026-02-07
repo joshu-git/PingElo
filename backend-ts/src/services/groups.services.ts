@@ -1,5 +1,6 @@
 import { supabase } from "../libs/supabase.js";
 
+//Create group
 export async function createGroup(
 	groupName: string,
 	open: boolean,
@@ -7,7 +8,6 @@ export async function createGroup(
 	playerId: string,
 	groupDescription?: string
 ) {
-	//Create group
 	const { data: group, error: groupError } = await supabase
 		.from("groups")
 		.insert({
@@ -20,31 +20,51 @@ export async function createGroup(
 		.select("id, group_name")
 		.single();
 
-	if (groupError) {
-		throw new Error(groupError.message);
-	}
+	if (groupError) throw new Error(groupError.message);
 
-	//Assign player to group
 	const { error: updatePlayerError } = await supabase
 		.from("players")
 		.update({ group_id: group.id })
 		.eq("id", playerId);
 
-	if (updatePlayerError) {
-		throw new Error(updatePlayerError.message);
-	}
+	if (updatePlayerError) throw new Error(updatePlayerError.message);
 
 	const { error: updatePermsError } = await supabase
 		.from("account")
 		.update({ is_admin: true })
 		.eq("id", ownerId);
 
-	if (updatePermsError) {
-		throw new Error(updatePermsError.message);
-	}
+	if (updatePermsError) throw new Error(updatePermsError.message);
 
 	return {
 		id: group.id,
 		group_name: group.group_name,
 	};
+}
+
+//Join group
+export async function joinGroup(playerId: string, groupId: string) {
+	const { error } = await supabase
+		.from("players")
+		.update({ group_id: groupId })
+		.eq("id", playerId);
+
+	if (error) throw new Error(error.message);
+}
+
+//Leave group
+export async function leaveGroup(playerId: string, accountId: string) {
+	const { error } = await supabase
+		.from("players")
+		.update({ group_id: null })
+		.eq("id", playerId);
+
+	if (error) throw new Error(error.message);
+
+	const { error: permsError } = await supabase
+		.from("account")
+		.update({ is_admin: false })
+		.eq("id", accountId);
+
+	if (permsError) throw new Error(permsError.message);
 }
