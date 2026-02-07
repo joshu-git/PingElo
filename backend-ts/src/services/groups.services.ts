@@ -36,7 +36,7 @@ export async function createGroup(
 
 	const { error: updatePermsError } = await supabase
 		.from("account")
-		.update({ admin: true })
+		.update({ is_admin: true })
 		.eq("id", ownerId);
 
 	if (updatePermsError) {
