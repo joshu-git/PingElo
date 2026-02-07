@@ -7,7 +7,6 @@ export async function createPlayer(player_name: string, account_id: string) {
 		.insert({
 			player_name,
 			account_id,
-			created_by: account_id,
 		})
 		.select()
 		.single();
