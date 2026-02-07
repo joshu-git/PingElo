@@ -128,6 +128,9 @@ export default function CreateTournament() {
 					onChange={(e) => setDescription(e.target.value)}
 				/>
 
+				<label className="text-sm text-text-muted font-medium">
+					Start Date (won`t start automatically)
+				</label>
 				<input
 					type="date"
 					placeholder="Start Date"
