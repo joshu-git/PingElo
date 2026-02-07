@@ -21,18 +21,26 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 			return res.status(400).json({ error: "Player name is required" });
 		}
 
-		const { data: duplicatePlayer } = await supabase
+		const { data: duplicatePlayer, error: dupError } = await supabase
 			.from("players")
-			.select("account_id")
-			.eq("account_id", req.user!.id);
+			.select("id")
+			.eq("account_id", req.user!.id)
+			.maybeSingle();
 
-		if (duplicatePlayer)
+		if (dupError) {
+			return res
+				.status(500)
+				.json({ error: "Failed to check existing player" });
+		}
+
+		if (duplicatePlayer) {
 			return res
 				.status(400)
 				.json({ error: "Account already has a player" });
+		}
 
 		const { data: existingPlayer, error: checkError } = await supabase
-			.from("player")
+			.from("players")
 			.select("id")
 			.eq("player_name", trimmedName)
 			.maybeSingle();
