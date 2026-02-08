@@ -15,7 +15,6 @@ export default function CreateGroup() {
 	const [alreadyInGroup, setAlreadyInGroup] = useState(false);
 
 	const [loading, setLoading] = useState(false);
-	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	const fieldClass =
@@ -61,66 +60,78 @@ export default function CreateGroup() {
 		e.preventDefault();
 		if (!canCreate || loading) return;
 
-		setLoading(true);
-		setMessage(null);
 		setError(null);
 
-		try {
-			const { data } = await supabase.auth.getSession();
-			if (!data.session) return;
+		const trimmedName = name.trim();
+		if (!trimmedName) throw new Error("Group name is required");
 
-			const trimmedName = name.trim();
-			if (!trimmedName) throw new Error("Group name is required");
+		setLoading(true);
 
-			const { data: existingGroup, error: checkError } = await supabase
-				.from("groups")
-				.select("id, group_name")
-				.eq("group_name", trimmedName)
-				.maybeSingle();
-
-			if (checkError) throw new Error("Failed to check group name");
-
-			if (existingGroup) {
-				throw new Error("A group with this name already exists");
-			}
-
-			const { data: sessionData } = await supabase.auth.getSession();
-			if (!sessionData.session)
-				throw new Error("You need to sign in to create a group");
-
-			const res = await fetch(
-				`${process.env.NEXT_PUBLIC_BACKEND_URL}/groups/create`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${data.session.access_token}`,
-					},
-					body: JSON.stringify({
-						group_name: trimmedName,
-						group_description: description,
-						open,
-					}),
-				}
-			);
-
-			if (!res.ok) {
-				throw new Error(await res.text());
-			}
-
-			setName("");
-			setDescription("");
-			setOpen(true);
-			setMessage("Group created successfully");
-
-			const encodedGroupName = encodeURIComponent(trimmedName);
-			router.push(`/groups/${encodedGroupName}`);
-		} catch (err: unknown) {
-			if (err instanceof Error) setError(err.message);
-			else setError("Something went wrong");
-		} finally {
+		const validNameRegex = /^[A-Za-z0-9 ]+$/;
+		if (!validNameRegex.test(trimmedName)) {
+			setError("Group name can only contain letters and numbers");
 			setLoading(false);
+			return;
 		}
+
+		if (trimmedName.length > 25) {
+			setError("Group name cannot be longer than 25 characters");
+			setLoading(false);
+			return;
+		}
+
+		const { data: existingGroup, error: checkError } = await supabase
+			.from("groups")
+			.select("id, group_name")
+			.eq("group_name", trimmedName)
+			.maybeSingle();
+
+		if (checkError) {
+			setLoading(false);
+			setError("Failed to check group name");
+			return;
+		}
+
+		if (existingGroup) {
+			setLoading(false);
+			setError("A group with this name already exists");
+			return;
+		}
+
+		const { data: sessionData } = await supabase.auth.getSession();
+		if (!sessionData.session) {
+			setLoading(false);
+			setError("Not signed in");
+			return;
+		}
+
+		const res = await fetch(
+			`${process.env.NEXT_PUBLIC_BACKEND_URL}/groups/create`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionData.session.access_token}`,
+				},
+				body: JSON.stringify({
+					group_name: trimmedName,
+					group_description: description,
+					open,
+				}),
+			}
+		);
+
+		if (!res.ok) {
+			const { error } = await res.json();
+			setLoading(false);
+			setError(error || "Failed to create group");
+			return;
+		}
+
+		setLoading(false);
+
+		const encodedGroupName = encodeURIComponent(trimmedName);
+		router.push(`/groups/${encodedGroupName}`);
 	}
 
 	return (
@@ -178,11 +189,7 @@ export default function CreateGroup() {
 						You are already in a group
 					</p>
 				)}
-				{message && (
-					<p className="text-xs text-center text-green-400">
-						{message}
-					</p>
-				)}
+
 				{error && (
 					<p className="text-xs text-center text-red-400">{error}</p>
 				)}

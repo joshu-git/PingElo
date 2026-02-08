@@ -106,7 +106,7 @@ export default function CreateTournament() {
 		if (!res.ok) {
 			const { error } = await res.json();
 			setLoading(false);
-			setError(error || "Failed to create player");
+			setError(error || "Failed to create tournament");
 			return;
 		}
 

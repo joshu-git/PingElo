@@ -21,8 +21,26 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 			open: boolean;
 		};
 
-		if (!group_name || !group_name.trim()) {
+		if (!group_name || !open) {
+			return res.status(400).json({ error: "Missing required fields" });
+		}
+
+		const trimmedName = group_name.trim();
+		if (!trimmedName) {
 			return res.status(400).json({ error: "Group name is required" });
+		}
+
+		const validNameRegex = /^[A-Za-z0-9 ]+$/;
+		if (!validNameRegex.test(trimmedName)) {
+			return res.status(400).json({
+				error: "Group  name can only contain letters and numbers",
+			});
+		}
+
+		if (trimmedName.length > 25) {
+			return res.status(400).json({
+				error: "Group name cannot be longer than 25 characters",
+			});
 		}
 
 		//User must have a player
@@ -50,7 +68,7 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 		const { data: existingGroup } = await supabase
 			.from("groups")
 			.select("id")
-			.eq("group_name", group_name.trim())
+			.eq("group_name", trimmedName)
 			.maybeSingle();
 
 		if (existingGroup) {
@@ -60,7 +78,7 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 		}
 
 		const group = await createGroup(
-			group_name.trim(),
+			trimmedName,
 			open ?? true,
 			req.user!.id,
 			player.id,
