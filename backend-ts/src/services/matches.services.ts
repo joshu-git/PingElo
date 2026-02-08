@@ -260,3 +260,194 @@ export async function createDoublesMatch(
 
 	return { match, elo };
 }
+
+const PAGE_SIZE = 1000;
+
+type EloState = { singles: number; doubles: number };
+
+function assertExists<T>(value: T | null | undefined, message: string): T {
+	if (value === null || value === undefined) throw new Error(message);
+	return value;
+}
+
+export async function rebuildAllElos(): Promise<void> {
+	console.log("Starting Elo rebuild");
+
+	//Load players
+	const eloMap: Record<string, EloState> = {};
+	let playerOffset = 0;
+
+	while (true) {
+		const { data, error } = await supabase
+			.from("players")
+			.select("id")
+			.order("created_at", { ascending: true })
+			.range(playerOffset, playerOffset + PAGE_SIZE - 1);
+
+		if (error) throw error;
+		if (!data || data.length === 0) break;
+
+		for (const row of data) {
+			const id = assertExists(row.id, "Player id missing");
+			eloMap[id] = { singles: 1000, doubles: 1000 };
+		}
+
+		playerOffset += PAGE_SIZE;
+	}
+
+	console.log(`Loaded ${Object.keys(eloMap).length} players`);
+
+	//Replay matches
+	let matchOffset = 0;
+
+	while (true) {
+		const { data, error } = await supabase
+			.from("matches")
+			.select("*")
+			.order("match_number", { ascending: true })
+			.range(matchOffset, matchOffset + PAGE_SIZE - 1);
+
+		if (error) throw error;
+		if (!data || data.length === 0) break;
+
+		console.log(
+			`Replaying matches ${matchOffset + 1} → ${
+				matchOffset + data.length
+			}`
+		);
+
+		for (const match of data) {
+			const matchId = assertExists(match.id, "Match id missing");
+			if (match.match_type === "singles") {
+				await replaySingles(match, eloMap);
+			} else if (match.match_type === "doubles") {
+				await replayDoubles(match, eloMap);
+			} else {
+				throw new Error(`Unknown match type on match ${matchId}`);
+			}
+		}
+
+		matchOffset += PAGE_SIZE;
+	}
+
+	//Persist final Elo to players
+	const playerIds = Object.keys(eloMap);
+	let writeOffset = 0;
+
+	while (writeOffset < playerIds.length) {
+		const batch = playerIds.slice(writeOffset, writeOffset + PAGE_SIZE);
+
+		for (const playerId of batch) {
+			const elo = assertExists(
+				eloMap[playerId],
+				`Missing Elo for ${playerId}`
+			);
+			await supabase
+				.from("players")
+				.update({
+					singles_elo: elo.singles,
+					doubles_elo: elo.doubles,
+				})
+				.eq("id", playerId);
+		}
+
+		writeOffset += PAGE_SIZE;
+	}
+
+	console.log("Elo rebuild complete");
+}
+
+async function replaySingles(match: any, eloMap: Record<string, EloState>) {
+	const playerA = assertExists(match.player_a1_id, "player_a1_id missing");
+	const playerB = assertExists(match.player_b1_id, "player_b1_id missing");
+
+	const stateA = assertExists(
+		eloMap[playerA],
+		`Missing Elo for player ${playerA}`
+	);
+	const stateB = assertExists(
+		eloMap[playerB],
+		`Missing Elo for player ${playerB}`
+	);
+
+	const scoreA = assertExists(match.score_a, "score_a missing");
+	const scoreB = assertExists(match.score_b, "score_b missing");
+	const gamePoints = assertExists(match.game_points, "game_points missing");
+
+	const beforeA = stateA.singles;
+	const beforeB = stateB.singles;
+
+	const elo = calculateElo(
+		beforeA,
+		beforeB,
+		scoreA,
+		scoreB,
+		gamePoints,
+		Boolean(match.tournament_id)
+	);
+
+	stateA.singles += elo.eloChangeA;
+	stateB.singles += elo.eloChangeB;
+
+	await supabase
+		.from("matches")
+		.update({
+			elo_before_a1: beforeA,
+			elo_before_b1: beforeB,
+			elo_change_a: elo.eloChangeA,
+			elo_change_b: elo.eloChangeB,
+		})
+		.eq("id", match.id);
+}
+
+async function replayDoubles(match: any, eloMap: Record<string, EloState>) {
+	const ids = [
+		match.player_a1_id,
+		match.player_a2_id,
+		match.player_b1_id,
+		match.player_b2_id,
+	].map((pid, i) =>
+		assertExists(pid, `Missing doubles player id at index ${i}`)
+	);
+
+	const [a1Id, a2Id, b1Id, b2Id] = ids;
+
+	const a1 = assertExists(eloMap[a1Id], `Missing Elo for ${a1Id}`);
+	const a2 = assertExists(eloMap[a2Id], `Missing Elo for ${a2Id}`);
+	const b1 = assertExists(eloMap[b1Id], `Missing Elo for ${b1Id}`);
+	const b2 = assertExists(eloMap[b2Id], `Missing Elo for ${b2Id}`);
+
+	const scoreA = assertExists(match.score_a, "score_a missing");
+	const scoreB = assertExists(match.score_b, "score_b missing");
+	const gamePoints = assertExists(match.game_points, "game_points missing");
+
+	const beforeA1 = a1.doubles;
+	const beforeA2 = a2.doubles;
+	const beforeB1 = b1.doubles;
+	const beforeB2 = b2.doubles;
+
+	const teamA = (beforeA1 + beforeA2) / 2;
+	const teamB = (beforeB1 + beforeB2) / 2;
+
+	const elo = calculateElo(teamA, teamB, scoreA, scoreB, gamePoints, false);
+
+	const splitA = Math.round(elo.eloChangeA / 2);
+	const splitB = Math.round(elo.eloChangeB / 2);
+
+	a1.doubles += splitA;
+	a2.doubles += splitA;
+	b1.doubles += splitB;
+	b2.doubles += splitB;
+
+	await supabase
+		.from("matches")
+		.update({
+			elo_before_a1: beforeA1,
+			elo_before_a2: beforeA2,
+			elo_before_b1: beforeB1,
+			elo_before_b2: beforeB2,
+			elo_change_a: elo.eloChangeA,
+			elo_change_b: elo.eloChangeB,
+		})
+		.eq("id", match.id);
+}
