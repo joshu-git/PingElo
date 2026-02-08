@@ -32,6 +32,19 @@ router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 				.json({ error: "Tournament name is required" });
 		}
 
+		const validNameRegex = /^[A-Za-z0-9 ]+$/;
+		if (!validNameRegex.test(trimmedName)) {
+			return res.status(400).json({
+				error: "Tournament name can only contain letters and numbers",
+			});
+		}
+
+		if (trimmedName.length > 25) {
+			return res.status(400).json({
+				error: "Tournament name cannot be longer than 25 characters",
+			});
+		}
+
 		const { data: existingTournament, error: checkError } = await supabase
 			.from("tournaments")
 			.select("id")

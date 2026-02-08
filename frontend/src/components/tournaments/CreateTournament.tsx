@@ -13,7 +13,6 @@ export default function CreateTournament() {
 
 	const [isAdmin, setIsAdmin] = useState(false);
 	const [loading, setLoading] = useState(false);
-	const [message, setMessage] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	const fieldClass =
@@ -40,70 +39,82 @@ export default function CreateTournament() {
 	async function createTournament(e: React.FormEvent) {
 		e.preventDefault();
 		if (!isAdmin || loading) return;
-
-		setLoading(true);
-		setMessage(null);
 		setError(null);
 
-		try {
-			const trimmedName = name.trim();
-			if (!trimmedName) {
-				throw new Error("Tournament name is required");
-			}
+		const trimmedName = name.trim();
 
-			const { data: existingTournament, error: checkError } =
-				await supabase
-					.from("tournaments")
-					.select("id")
-					.eq("tournament_name", trimmedName)
-					.maybeSingle();
-
-			if (checkError) {
-				throw new Error("Failed to check tournament name");
-			}
-
-			if (existingTournament) {
-				throw new Error("A tournament with this name already exists");
-			}
-
-			const { data } = await supabase.auth.getSession();
-			if (!data.session) throw new Error("Not signed in");
-
-			const res = await fetch(
-				`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/create`,
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						Authorization: `Bearer ${data.session.access_token}`,
-					},
-					body: JSON.stringify({
-						tournament_name: trimmedName,
-						tournament_description: description,
-						start_date: startDate,
-					}),
-				}
-			);
-
-			if (!res.ok) {
-				throw new Error(await res.text());
-			}
-
-			const tournament = await res.json();
-
-			setName("");
-			setDescription("");
-			setStartDate("");
-			setMessage("Tournament created successfully");
-
-			router.push(`/tournaments/${tournament.id}`);
-		} catch (err) {
-			setError(
-				err instanceof Error ? err.message : "Something went wrong"
-			);
-		} finally {
-			setLoading(false);
+		if (!trimmedName) {
+			setError("Tournament name is required");
 		}
+
+		setLoading(true);
+
+		const validNameRegex = /^[A-Za-z0-9 ]+$/;
+		if (!validNameRegex.test(trimmedName)) {
+			setError("Tournament name can only contain letters and numbers");
+			setLoading(false);
+			return;
+		}
+
+		if (trimmedName.length > 25) {
+			setError("Tournament name cannot be longer than 25 characters");
+			setLoading(false);
+			return;
+		}
+
+		const { data: existingTournament, error: checkError } = await supabase
+			.from("tournaments")
+			.select("id")
+			.eq("tournament_name", trimmedName)
+			.maybeSingle();
+
+		if (checkError) {
+			setError("Failed to check tournament name");
+			setLoading(false);
+			return;
+		}
+
+		if (existingTournament) {
+			setError("A tournament with this name already exists");
+			setLoading(false);
+			return;
+		}
+
+		const { data: sessionData } = await supabase.auth.getSession();
+		if (!sessionData.session) {
+			setLoading(false);
+			setError("Not signed in");
+			return;
+		}
+
+		const res = await fetch(
+			`${process.env.NEXT_PUBLIC_BACKEND_URL}/tournaments/create`,
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${sessionData.session.access_token}`,
+				},
+				body: JSON.stringify({
+					tournament_name: trimmedName,
+					tournament_description: description,
+					start_date: startDate,
+				}),
+			}
+		);
+
+		if (!res.ok) {
+			const { error } = await res.json();
+			setLoading(false);
+			setError(error || "Failed to create player");
+			return;
+		}
+
+		const tournament = await res.json();
+
+		setLoading(false);
+
+		router.push(`/tournaments/${tournament.id}`);
 	}
 
 	return (
@@ -156,12 +167,6 @@ export default function CreateTournament() {
 				{!isAdmin && (
 					<p className="text-xs text-center text-text-muted">
 						Only admins can create tournaments
-					</p>
-				)}
-
-				{message && (
-					<p className="text-xs text-center text-green-400">
-						{message}
 					</p>
 				)}
 
