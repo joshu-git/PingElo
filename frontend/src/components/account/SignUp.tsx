@@ -29,6 +29,21 @@ export default function SignUp() {
 
 		setLoading(true);
 
+		const validNameRegex = /^[A-Za-z0-9]+$/;
+		if (!validNameRegex.test(trimmedPlayerName)) {
+			setError(
+				"Player name can only contain letters and numbers (no spaces)"
+			);
+			setLoading(false);
+			return;
+		}
+
+		if (trimmedPlayerName.length > 10) {
+			setError("Player name cannot be longer than 10 characters");
+			setLoading(false);
+			return;
+		}
+
 		const { data: existingPlayer, error: checkError } = await supabase
 			.from("players")
 			.select("id")

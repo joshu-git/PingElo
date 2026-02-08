@@ -21,6 +21,23 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 			return res.status(400).json({ error: "Player name is required" });
 		}
 
+		const validNameRegex = /^[A-Za-z0-9]+$/;
+		if (!validNameRegex.test(trimmedName)) {
+			return res
+				.status(400)
+				.json({
+					error: "Player name can only contain letters and numbers (no spaces)",
+				});
+		}
+
+		if (trimmedName.length > 10) {
+			return res
+				.status(400)
+				.json({
+					error: "Player name cannot be longer than 10 characters",
+				});
+		}
+
 		const { data: duplicatePlayer, error: dupError } = await supabase
 			.from("players")
 			.select("id")
