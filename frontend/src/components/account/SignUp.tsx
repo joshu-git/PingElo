@@ -21,8 +21,8 @@ export default function SignUp() {
 		e.preventDefault();
 		setError(null);
 
-		const trimmedPlayerName = playerName.trim();
-		if (!trimmedPlayerName) {
+		const trimmedName = playerName.trim();
+		if (!trimmedName) {
 			setError("Player name is required");
 			return;
 		}
@@ -30,7 +30,7 @@ export default function SignUp() {
 		setLoading(true);
 
 		const validNameRegex = /^[A-Za-z0-9]+$/;
-		if (!validNameRegex.test(trimmedPlayerName)) {
+		if (!validNameRegex.test(trimmedName)) {
 			setError(
 				"Player name can only contain letters and numbers (no spaces)"
 			);
@@ -38,7 +38,7 @@ export default function SignUp() {
 			return;
 		}
 
-		if (trimmedPlayerName.length > 10) {
+		if (trimmedName.length > 10) {
 			setError("Player name cannot be longer than 10 characters");
 			setLoading(false);
 			return;
@@ -47,7 +47,7 @@ export default function SignUp() {
 		const { data: existingPlayer, error: checkError } = await supabase
 			.from("players")
 			.select("id")
-			.eq("player_name", trimmedPlayerName)
+			.eq("player_name", trimmedName)
 			.maybeSingle();
 
 		if (checkError) {
@@ -92,7 +92,7 @@ export default function SignUp() {
 					Authorization: `Bearer ${sessionData.session.access_token}`,
 				},
 				body: JSON.stringify({
-					player_name: trimmedPlayerName,
+					player_name: trimmedName,
 				}),
 			}
 		);
@@ -106,7 +106,7 @@ export default function SignUp() {
 
 		setLoading(false);
 
-		router.push(`/profile/${trimmedPlayerName}`);
+		router.push(`/profile/${trimmedName}`);
 	}
 
 	return (
