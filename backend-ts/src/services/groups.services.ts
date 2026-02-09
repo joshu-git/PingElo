@@ -68,3 +68,60 @@ export async function leaveGroup(playerId: string, accountId: string) {
 
 	if (permsError) throw new Error(permsError.message);
 }
+
+//TODO: Delete group
+
+//Give admin to a player
+export async function giveAdmin(accountId: string) {
+	const { error: permsError } = await supabase
+		.from("account")
+		.update({ is_admin: true })
+		.eq("id", accountId);
+
+	if (permsError) throw new Error(permsError.message);
+}
+
+//Remove admin from a player
+export async function removeAdmin(accountId: string) {
+	const { error: permsError } = await supabase
+		.from("account")
+		.update({ is_admin: false })
+		.eq("id", accountId);
+
+	if (permsError) throw new Error(permsError.message);
+}
+
+//Change the ownership of a group
+export async function changeOwnership(groupName: string, newOwnerId: string) {
+	const { error } = await supabase
+		.from("groups")
+		.update({ group_owner_id: newOwnerId })
+		.eq("group_name", groupName);
+
+	if (error) throw new Error(error.message);
+
+	const { error: permsError } = await supabase
+		.from("account")
+		.update({ is_admin: false })
+		.eq("id", newOwnerId);
+
+	if (permsError) throw new Error(permsError.message);
+}
+
+//Kick player
+export async function kickPlayer(playerId: string) {
+	const { error } = await supabase
+		.from("players")
+		.update({ group_id: null })
+		.eq("id", playerId);
+}
+
+//Ban player
+export async function banPlayer(playerId: string) {
+	const { error } = await supabase
+		.from("players")
+		.update({ group_id: null })
+		.eq("id", playerId);
+
+	//TODO: Add banning
+}
