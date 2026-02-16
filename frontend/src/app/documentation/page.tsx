@@ -137,11 +137,62 @@ export default function DocumentationPage() {
 								page
 							</li>
 							<li>Enter the details of your first match</li>
-							<li>Play four more to get your rank</li>
+							<li>Play five matches to get your rank</li>
 						</ul>
 					</Card>
 				</div>
 			</Section>
+
+			{/* WHAT NEXT? */}
+			<Section title="What Next?">
+				<div className="max-w-3xl space-y-4 text-text-muted leading-relaxed">
+					<p>
+						PingElo is not just for singles. We have doubles, and
+						tournaments which you may have already looked at.
+						Doubles has a seperate elo from singles and tournaments
+						give and take double the elo.
+					</p>
+					<p>
+						Currently tournaments do not support doubles and only
+						have single elimination but you can see our roadmap
+						below for the updates we have planned.
+					</p>
+				</div>
+			</Section>
+
+			{/* ROADMAP */}
+			<Section title="Update Roadmap">
+				<Card>
+					<img
+						src="/first-roadmap.png"
+						alt="First Update Roadmap"
+						className="w-full rounded-lg border border-[var(--color-border)]"
+					/>
+					<p className="text-sm text-text-muted mt-2">
+						Roadmap is subject to change - please{" "}
+						<Link
+							href="/contact"
+							className="underline hover:text-text transition"
+						>
+							contact
+						</Link>
+						us with any suggestions.
+					</p>
+				</Card>
+			</Section>
+
+			{/* CONTACT*/}
+			<section>
+				<p className="text-sm text-text-subtle">
+					Have any questions?{" "}
+					<Link
+						href="/contact"
+						className="underline hover:text-text transition"
+					>
+						Contact Me
+					</Link>
+				</p>
+			</section>
 		</div>
 	);
 }
