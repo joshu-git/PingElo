@@ -149,8 +149,8 @@ export default function DocumentationPage() {
 					<p>
 						PingElo is not just for singles. We have doubles, and
 						tournaments which you may have already looked at.
-						Doubles has a seperate elo from singles and tournaments
-						give and take double the elo.
+						Doubles has a seperate leaderboard and tournaments have
+						double the risk and reward.
 					</p>
 					<p>
 						Currently tournaments do not support doubles and only
@@ -175,10 +175,27 @@ export default function DocumentationPage() {
 							className="underline hover:text-text transition"
 						>
 							contact
-						</Link>
+						</Link>{" "}
 						us with any suggestions.
 					</p>
 				</Card>
+			</Section>
+
+			{/* FAIR PLAY*/}
+			<Section title="Fair Play">
+				<div className="max-w-3xl space-y-4 text-text-muted leading-relaxed">
+					<p>
+						Rules are set by the group or tournament owner; please
+						ensure you know the rules of a tournament before signing
+						up. If you forfeit, your opponent has the right to put
+						in a winning match against you.
+					</p>
+					<p>
+						Dashboards will be released soon for rule breakers.
+						Reporting will soon be enabled on profiles. This is not
+						on the roadmap as it is a key feature.
+					</p>
+				</div>
 			</Section>
 
 			{/* CONTACT*/}
