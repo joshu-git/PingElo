@@ -56,12 +56,12 @@ export default function DocumentationPage() {
 						</button>
 					</a>
 
-					<Link href="/documentation/accounts">
+					<Link href="/documentation/account">
 						<button
 							className="px-4 py-2 bg-accent-button text-button-text rounded-lg font-semibold hover:bg-accent-button-hover transition-colors"
 							style={{ color: "var(--color-text)" }}
 						>
-							Accounts
+							Account
 						</button>
 					</Link>
 				</div>
@@ -206,7 +206,7 @@ export default function DocumentationPage() {
 						href="/contact"
 						className="underline hover:text-text transition"
 					>
-						Contact Me
+						Contact Us
 					</Link>
 				</p>
 			</section>
