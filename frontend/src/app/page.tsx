@@ -73,6 +73,10 @@ export default function HomePage() {
 						</button>
 					</Link>
 
+					<Link href="/documentation">
+						<button className="px-4 py-2 rounded-lg">Guide</button>
+					</Link>
+
 					<Link href="/matches/submit">
 						<button className="px-4 py-2 rounded-lg">
 							Submit A Match
