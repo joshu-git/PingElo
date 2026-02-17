@@ -19,13 +19,13 @@ function Card({ children }: { children: React.ReactNode }) {
 	return <div className="bg-card p-6 hover-card space-y-3">{children}</div>;
 }
 
-export default function DocumentationPage() {
+export default function AccountDocumentationPage() {
 	return (
 		<div className="container py-16 space-y-16 md:space-y-20">
 			{/* HERO */}
 			<section className="max-w-3xl space-y-4 md:space-y-6">
 				<h1 className="text-5xl md:text-6xl font-extrabold tracking-tight">
-					Documentation
+					Account Documentation
 				</h1>
 
 				<p className="text-lg">
@@ -34,13 +34,11 @@ export default function DocumentationPage() {
 				</p>
 
 				<div className="flex flex-wrap gap-4 pt-2">
-					<Link href="/">
+					<Link href="/documentation">
 						<button
 							className="px-3 py-1 bg-card border border-[var(--color-border)] rounded-md hover:bg-accent-soft transition-colors"
 							style={{ color: "var(--color-text)" }}
-						>
-							Home
-						</button>
+						></button>
 					</Link>
 
 					<a
@@ -56,12 +54,12 @@ export default function DocumentationPage() {
 						</button>
 					</a>
 
-					<Link href="/documentation/account">
+					<Link href="/documentation/groups">
 						<button
 							className="px-4 py-2 bg-accent-button text-button-text rounded-lg font-semibold hover:bg-accent-button-hover transition-colors"
 							style={{ color: "var(--color-text)" }}
 						>
-							Account
+							Groups
 						</button>
 					</Link>
 				</div>
@@ -71,27 +69,27 @@ export default function DocumentationPage() {
 			<Section title="Overview">
 				<div className="max-w-3xl space-y-4 text-text-muted leading-relaxed">
 					<p>
-						PingElo was built to solve a real problem in my college
-						table tennis group: tracking rankings, determining
-						relative skill levels, and running tournaments without
-						spreadsheets or paid software.
+						Accounts are needed to ensure that all players and
+						matches are real. They are shared between PingElo and
+						LittleFlows, our social media platform, for easier
+						integration. LittleFlows is still in development.
 					</p>
 					<p>
-						The platform is actively used by my group and supports
-						any collection of players who want a fair, automated,
-						and competitive ranking system with minimal friction.
+						All useage data is kept private to third partes. Some
+						anonymous data may be used in future to guide updates.
+						Like supporting more languages when needed.
 					</p>
 				</div>
 			</Section>
 
-			{/* FIRST STEPS */}
-			<Section title="First Steps">
+			{/* ACCOUNT CREATION*/}
+			<Section title="Account Creation">
 				<div className="grid md:grid-cols-3 gap-6">
 					<Card>
-						<h3 className="font-semibold">1. Sign Up</h3>
+						<h3 className="font-semibold">1. Validation</h3>
 						<ul className="list-disc pl-5 text-text-muted space-y-1">
 							<li>
-								Go to the{" "}
+								Details are input on the{" "}
 								<Link
 									href="/account/signup"
 									className="underline hover:text-text transition"
@@ -100,100 +98,73 @@ export default function DocumentationPage() {
 								</Link>{" "}
 								page
 							</li>
-							<li>Enter your details and player name</li>
-							<li>You will be redirected to your profile</li>
+							<li>Fields are checked for validity</li>
+							<li>An appropriate message is shown</li>
 						</ul>
 					</Card>
 
 					<Card>
-						<h3 className="font-semibold">2. Join A Group</h3>
+						<h3 className="font-semibold">2. Account Creation</h3>
 						<ul className="list-disc pl-5 text-text-muted space-y-1">
-							<li>
-								Go to the{" "}
-								<Link
-									href="/groups"
-									className="underline hover:text-text transition"
-								>
-									Group
-								</Link>{" "}
-								page
-							</li>
-							<li>Find a group that you want to join</li>
-							<li>Go to their page then press Join Group</li>
+							<li>A request is sent to supabase</li>
+							<li>Account creation is triggered</li>
+							<li>The id is added to pe_account_id</li>
 						</ul>
 					</Card>
 
 					<Card>
-						<h3 className="font-semibold">3. Submit A Match</h3>
+						<h3 className="font-semibold">3. Player Creation</h3>
 						<ul className="list-disc pl-5 text-text-muted space-y-1">
-							<li>
-								Go to the{" "}
-								<Link
-									href="/matches/submit"
-									className="underline hover:text-text transition"
-								>
-									Submit Match
-								</Link>{" "}
-								page
-							</li>
-							<li>Enter the details of your first match</li>
-							<li>Play five matches to get your rank</li>
+							<li>Account creation is checked</li>
+							<li>The player is created and linked</li>
+							<li>The user is sent to their profile</li>
 						</ul>
 					</Card>
 				</div>
 			</Section>
 
-			{/* WHAT NEXT? */}
-			<Section title="What Next?">
+			{/* ACCOUNT ACTIONS */}
+			<Section title="Account Actions">
 				<div className="max-w-3xl space-y-4 text-text-muted leading-relaxed">
 					<p>
-						PingElo is not just for singles. We have doubles, and
-						tournaments which you may have already looked at.
-						Doubles has a seperate leaderboard and tournaments have
-						double the risk and reward.
+						With the release of dashboard we will be adding account
+						customisation so you can change your player name and
+						more. Accounts will get more features as LittleFlows is
+						developed further.
 					</p>
 					<p>
-						Currently tournaments do not support doubles and only
-						have single elimination but you can see our roadmap
-						below for the updates we have planned.
-					</p>
-				</div>
-			</Section>
-
-			{/* ROADMAP */}
-			<Section title="Update Roadmap">
-				<Card>
-					<img
-						src="/first-roadmap.png"
-						alt="First Update Roadmap"
-						className="w-full rounded-lg border border-[var(--color-border)]"
-					/>
-					<p className="text-sm text-text-muted mt-2">
-						Roadmap is subject to change - please{" "}
+						Currently we do not have a frontend for account recovery
+						and account deletion. If you need either of these please{" "}
 						<Link
 							href="/contact"
 							className="underline hover:text-text transition"
 						>
 							contact
 						</Link>{" "}
-						us with any suggestions.
+						us. These pages will be developed and created in future.
 					</p>
-				</Card>
+				</div>
 			</Section>
 
-			{/* FAIR PLAY */}
-			<Section title="Fair Play">
+			{/* OUR POLICY */}
+			<Section title="Our Policy">
 				<div className="max-w-3xl space-y-4 text-text-muted leading-relaxed">
 					<p>
-						Rules are set by the group or tournament owner; please
-						ensure you know the rules of a tournament before signing
-						up. If you forfeit, your opponent has the right to put
-						in a winning match against you.
+						Rules are set by the group or tournament owner as
+						detailed before. However, we reserve the right to delete
+						or ban accounts when needed. Falsifying matches, toxic
+						behaviour and lack of common sense is not taken lightly.
 					</p>
 					<p>
-						Dashboards will be released soon for rule breakers.
-						Reporting will soon be enabled on profiles. This is not
-						on the roadmap as it is a key feature.
+						This is ping pong; it is not hard to follow the rules.
+						If you believe someone is breaking the rules please{" "}
+						<Link
+							href="/report"
+							className="underline hover:text-text transition"
+						>
+							report
+						</Link>{" "}
+						them. This feature is not complete yet.
 					</p>
 				</div>
 			</Section>
