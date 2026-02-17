@@ -38,7 +38,9 @@ export default function AccountDocumentationPage() {
 						<button
 							className="px-3 py-1 bg-card border border-[var(--color-border)] rounded-md hover:bg-accent-soft transition-colors"
 							style={{ color: "var(--color-text)" }}
-						></button>
+						>
+							Documentation
+						</button>
 					</Link>
 
 					<a
@@ -55,12 +57,7 @@ export default function AccountDocumentationPage() {
 					</a>
 
 					<Link href="/documentation/groups">
-						<button
-							className="px-4 py-2 bg-accent-button text-button-text rounded-lg font-semibold hover:bg-accent-button-hover transition-colors"
-							style={{ color: "var(--color-text)" }}
-						>
-							Groups
-						</button>
+						<button className="px-4 py-2 rounded-lg">Groups</button>
 					</Link>
 				</div>
 			</section>
@@ -89,14 +86,13 @@ export default function AccountDocumentationPage() {
 						<h3 className="font-semibold">1. Validation</h3>
 						<ul className="list-disc pl-5 text-text-muted space-y-1">
 							<li>
-								Details are input on the{" "}
+								Details are input on{" "}
 								<Link
 									href="/account/signup"
 									className="underline hover:text-text transition"
 								>
 									Sign Up
-								</Link>{" "}
-								page
+								</Link>
 							</li>
 							<li>Fields are checked for validity</li>
 							<li>An appropriate message is shown</li>

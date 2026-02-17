@@ -57,10 +57,7 @@ export default function DocumentationPage() {
 					</a>
 
 					<Link href="/documentation/account">
-						<button
-							className="px-4 py-2 bg-accent-button text-button-text rounded-lg font-semibold hover:bg-accent-button-hover transition-colors"
-							style={{ color: "var(--color-text)" }}
-						>
+						<button className="px-4 py-2 rounded-lg">
 							Account
 						</button>
 					</Link>
