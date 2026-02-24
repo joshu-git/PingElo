@@ -99,11 +99,15 @@ export default function Leaderboard() {
 		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	};
 
+	//Helpers
 	const matchesPlayed = useCallback(
-		(p: PlayersRow) =>
-			matchType === "singles"
-				? (p.player_stats?.[0]?.singles_matches ?? 0)
-				: (p.player_stats?.[0]?.doubles_matches ?? 0),
+		(p: PlayersRow) => {
+			const stats = p.player_stats?.[0];
+			if (!stats) return 0;
+			return matchType === "singles"
+				? stats.singles_matches
+				: stats.doubles_matches;
+		},
 		[matchType]
 	);
 
@@ -149,8 +153,15 @@ export default function Leaderboard() {
 			if (requestId !== requestIdRef.current) return;
 
 			if (data) {
+				const normalized = data.map((p) => ({
+					...p,
+					player_stats:
+						p.player_stats && p.player_stats.length > 0
+							? p.player_stats
+							: [{ singles_matches: 0, doubles_matches: 0 }],
+				}));
 				setPlayers((prev) =>
-					offset === 0 ? data : [...prev, ...data]
+					offset === 0 ? normalized : [...prev, ...normalized]
 				);
 				setHasMore(data.length === PAGE_SIZE);
 			}
