@@ -45,7 +45,7 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 
 		//User must have a player
 		const { data: player, error: playerError } = await supabase
-			.from("players")
+			.from("pe_players")
 			.select("id, group_id")
 			.eq("account_id", req.user!.id)
 			.maybeSingle();
@@ -66,7 +66,7 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 
 		//Group name must be unique
 		const { data: existingGroup } = await supabase
-			.from("groups")
+			.from("pe_groups")
 			.select("id")
 			.eq("group_name", trimmedName)
 			.maybeSingle();
@@ -102,7 +102,7 @@ router.post("/join", requireAuth, async (req: AuthenticatedRequest, res) => {
 
 		//User must have a player
 		const { data: player, error: playerError } = await supabase
-			.from("players")
+			.from("pe_players")
 			.select("id, group_id")
 			.eq("account_id", req.user!.id)
 			.maybeSingle();
@@ -118,7 +118,7 @@ router.post("/join", requireAuth, async (req: AuthenticatedRequest, res) => {
 
 		//Check if the group exists
 		const { data: group } = await supabase
-			.from("groups")
+			.from("pe_groups")
 			.select("id, open")
 			.eq("id", groupId)
 			.maybeSingle();
@@ -146,7 +146,7 @@ router.post("/leave", requireAuth, async (req: AuthenticatedRequest, res) => {
 
 		//User must have a player
 		const { data: player, error: playerError } = await supabase
-			.from("players")
+			.from("pe_players")
 			.select("id, group_id")
 			.eq("account_id", req.user!.id)
 			.maybeSingle();
@@ -160,7 +160,7 @@ router.post("/leave", requireAuth, async (req: AuthenticatedRequest, res) => {
 
 		//Check if user is group owner
 		const { data: group } = await supabase
-			.from("groups")
+			.from("pe_groups")
 			.select("group_owner_id")
 			.eq("id", groupId)
 			.maybeSingle();

@@ -23,23 +23,19 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 
 		const validNameRegex = /^[A-Za-z0-9]+$/;
 		if (!validNameRegex.test(trimmedName)) {
-			return res
-				.status(400)
-				.json({
-					error: "Player name can only contain letters and numbers (no spaces)",
-				});
+			return res.status(400).json({
+				error: "Player name can only contain letters and numbers (no spaces)",
+			});
 		}
 
 		if (trimmedName.length > 10) {
-			return res
-				.status(400)
-				.json({
-					error: "Player name cannot be longer than 10 characters",
-				});
+			return res.status(400).json({
+				error: "Player name cannot be longer than 10 characters",
+			});
 		}
 
 		const { data: duplicatePlayer, error: dupError } = await supabase
-			.from("players")
+			.from("pe_players")
 			.select("id")
 			.eq("account_id", req.user!.id)
 			.maybeSingle();
@@ -57,7 +53,7 @@ router.post("/create", requireAuth, async (req: AuthenticatedRequest, res) => {
 		}
 
 		const { data: existingPlayer, error: checkError } = await supabase
-			.from("players")
+			.from("pe_players")
 			.select("id")
 			.eq("player_name", trimmedName)
 			.maybeSingle();

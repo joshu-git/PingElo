@@ -9,7 +9,7 @@ export async function createGroup(
 	groupDescription?: string
 ) {
 	const { data: group, error: groupError } = await supabase
-		.from("groups")
+		.from("pe_groups")
 		.insert({
 			group_name: groupName,
 			group_description: groupDescription,
@@ -23,14 +23,14 @@ export async function createGroup(
 	if (groupError) throw new Error(groupError.message);
 
 	const { error: updatePlayerError } = await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ group_id: group.id })
 		.eq("id", playerId);
 
 	if (updatePlayerError) throw new Error(updatePlayerError.message);
 
 	const { error: updatePermsError } = await supabase
-		.from("account")
+		.from("pe_account")
 		.update({ is_admin: true })
 		.eq("id", ownerId);
 
@@ -45,7 +45,7 @@ export async function createGroup(
 //Join group
 export async function joinGroup(playerId: string, groupId: string) {
 	const { error } = await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ group_id: groupId })
 		.eq("id", playerId);
 
@@ -55,14 +55,14 @@ export async function joinGroup(playerId: string, groupId: string) {
 //Leave group
 export async function leaveGroup(playerId: string, accountId: string) {
 	const { error } = await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ group_id: null })
 		.eq("id", playerId);
 
 	if (error) throw new Error(error.message);
 
 	const { error: permsError } = await supabase
-		.from("account")
+		.from("pe_account")
 		.update({ is_admin: false })
 		.eq("id", accountId);
 
@@ -74,7 +74,7 @@ export async function leaveGroup(playerId: string, accountId: string) {
 //Give admin to a player
 export async function giveAdmin(accountId: string) {
 	const { error: permsError } = await supabase
-		.from("account")
+		.from("pe_account")
 		.update({ is_admin: true })
 		.eq("id", accountId);
 
@@ -84,7 +84,7 @@ export async function giveAdmin(accountId: string) {
 //Remove admin from a player
 export async function removeAdmin(accountId: string) {
 	const { error: permsError } = await supabase
-		.from("account")
+		.from("pe_account")
 		.update({ is_admin: false })
 		.eq("id", accountId);
 
@@ -94,14 +94,14 @@ export async function removeAdmin(accountId: string) {
 //Change the ownership of a group
 export async function changeOwnership(groupName: string, newOwnerId: string) {
 	const { error } = await supabase
-		.from("groups")
+		.from("pe_groups")
 		.update({ group_owner_id: newOwnerId })
 		.eq("group_name", groupName);
 
 	if (error) throw new Error(error.message);
 
 	const { error: permsError } = await supabase
-		.from("account")
+		.from("pe_account")
 		.update({ is_admin: false })
 		.eq("id", newOwnerId);
 
@@ -111,7 +111,7 @@ export async function changeOwnership(groupName: string, newOwnerId: string) {
 //Kick player
 export async function kickPlayer(playerId: string) {
 	const { error } = await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ group_id: null })
 		.eq("id", playerId);
 }
@@ -119,7 +119,7 @@ export async function kickPlayer(playerId: string) {
 //Ban player
 export async function banPlayer(playerId: string) {
 	const { error } = await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ group_id: null })
 		.eq("id", playerId);
 

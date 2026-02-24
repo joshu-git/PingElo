@@ -3,7 +3,7 @@ import { supabase } from "../libs/supabase.js";
 //Player creation
 export async function createPlayer(player_name: string, account_id: string) {
 	const { data, error } = await supabase
-		.from("players")
+		.from("pe_players")
 		.insert({
 			player_name,
 			account_id,

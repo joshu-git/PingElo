@@ -70,7 +70,7 @@ async function checkBans(players: any[]) {
 	const groupIds = players.map((p) => p.group_id).filter(Boolean);
 
 	const { data: playerBans } = await supabase
-		.from("player_bans")
+		.from("pe_player_bans")
 		.select("id")
 		.in("player_id", playerIds)
 		.eq("active", true);
@@ -78,7 +78,7 @@ async function checkBans(players: any[]) {
 
 	if (groupIds.length > 0) {
 		const { data: groupBans } = await supabase
-			.from("group_bans")
+			.from("pe_group_bans")
 			.select("id")
 			.in("group_id", groupIds)
 			.eq("active", true);
@@ -96,7 +96,7 @@ async function checkAccess(
 	if (isOwner) return;
 
 	const { data: account } = await supabase
-		.from("account")
+		.from("pe_account")
 		.select("is_manager")
 		.eq("id", accountId)
 		.single();
@@ -105,14 +105,14 @@ async function checkAccess(
 
 	if (!tournamentId) {
 		const { data: admin } = await supabase
-			.from("account")
+			.from("pe_account")
 			.select("is_admin")
 			.eq("id", accountId)
 			.single();
 		if (!admin?.is_admin) throw new Error("Admin privileges required");
 
 		const { data: userPlayer } = await supabase
-			.from("players")
+			.from("pe_players")
 			.select("group_id")
 			.eq("account_id", accountId)
 			.single();
@@ -123,7 +123,7 @@ async function checkAccess(
 		if (!hasRights) throw new Error("Admin rights required for this match");
 	} else {
 		const { data: tournament } = await supabase
-			.from("tournaments")
+			.from("pe_tournaments")
 			.select("created_by")
 			.eq("id", tournamentId)
 			.single();
@@ -156,7 +156,7 @@ router.post(
 				validateMatchInput(req.body, "singles");
 
 			const { data: players } = await supabase
-				.from("players")
+				.from("pe_players")
 				.select("id, account_id, singles_elo, group_id")
 				.in("id", playerIds);
 			if (!players || players.length !== 2)
@@ -201,7 +201,7 @@ router.post(
 				validateMatchInput(req.body, "doubles");
 
 			const { data: players } = await supabase
-				.from("players")
+				.from("pe_players")
 				.select("id, account_id, doubles_elo, group_id")
 				.in("id", playerIds);
 			if (!players || players.length !== 4)

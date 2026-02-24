@@ -52,7 +52,7 @@ function calculateElo(
 //Gets the next match number
 async function getNextMatchNumber() {
 	const { data } = await supabase
-		.from("matches")
+		.from("pe_matches")
 		.select("match_number")
 		.order("match_number", { ascending: false })
 		.limit(1)
@@ -77,7 +77,7 @@ export async function createSinglesMatch(
 
 	if (!tournamentId) {
 		const { data, error } = await supabase
-			.from("players")
+			.from("pe_players")
 			.select("group_id")
 			.eq("id", playerAId)
 			.single();
@@ -118,7 +118,7 @@ export async function createSinglesMatch(
 	const winners = elo.winner === "A" ? [playerAId] : [playerBId];
 
 	const { data: match } = await supabase
-		.from("matches")
+		.from("pe_matches")
 		.insert({
 			player_a1_id: playerAId,
 			player_b1_id: playerBId,
@@ -141,19 +141,19 @@ export async function createSinglesMatch(
 		.single();
 
 	await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ singles_elo: ratingA + elo.eloChangeA })
 		.eq("id", playerAId);
 
 	await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ singles_elo: ratingB + elo.eloChangeB })
 		.eq("id", playerBId);
 
 	//Update the matches corresponding bracket
 	if (tournamentId && bracketId) {
 		await supabase
-			.from("tournament_brackets")
+			.from("pe_tournament_brackets")
 			.update({
 				match_id: match.id,
 				winner_id: winnerId,
@@ -183,7 +183,7 @@ export async function createDoublesMatch(
 	ratingB2: number
 ) {
 	const { data, error } = await supabase
-		.from("players")
+		.from("pe_players")
 		.select("group_id")
 		.eq("id", playerA1Id)
 		.single();
@@ -213,7 +213,7 @@ export async function createDoublesMatch(
 			: [playerB1Id, playerB2Id];
 
 	const { data: match } = await supabase
-		.from("matches")
+		.from("pe_matches")
 		.insert({
 			player_a1_id: playerA1Id,
 			player_a2_id: playerA2Id,
@@ -239,22 +239,22 @@ export async function createDoublesMatch(
 		.single();
 
 	await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ doubles_elo: ratingA1 + elo.eloChangeA })
 		.eq("id", playerA1Id);
 
 	await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ doubles_elo: ratingA2 + elo.eloChangeA })
 		.eq("id", playerA2Id);
 
 	await supabase
-		.from("players")
+		.from("pe_players")
 		.update({ doubles_elo: ratingB1 + elo.eloChangeB })
 		.eq("id", playerB1Id);
 	await supabase
 
-		.from("players")
+		.from("pe_players")
 		.update({ doubles_elo: ratingB2 + elo.eloChangeB })
 		.eq("id", playerB2Id);
 
@@ -279,7 +279,7 @@ export async function rebuildAllElos(): Promise<void> {
 
 	while (true) {
 		const { data, error } = await supabase
-			.from("players")
+			.from("pe_players")
 			.select("id")
 			.order("created_at", { ascending: true })
 			.range(playerOffset, playerOffset + PAGE_SIZE - 1);
@@ -302,7 +302,7 @@ export async function rebuildAllElos(): Promise<void> {
 
 	while (true) {
 		const { data, error } = await supabase
-			.from("matches")
+			.from("pe_matches")
 			.select("*")
 			.order("match_number", { ascending: true })
 			.range(matchOffset, matchOffset + PAGE_SIZE - 1);
@@ -343,7 +343,7 @@ export async function rebuildAllElos(): Promise<void> {
 				`Missing Elo for ${playerId}`
 			);
 			await supabase
-				.from("players")
+				.from("pe_players")
 				.update({
 					singles_elo: elo.singles,
 					doubles_elo: elo.doubles,
@@ -390,7 +390,7 @@ async function replaySingles(match: any, eloMap: Record<string, EloState>) {
 	stateB.singles += elo.eloChangeB;
 
 	await supabase
-		.from("matches")
+		.from("pe_matches")
 		.update({
 			elo_before_a1: beforeA,
 			elo_before_b1: beforeB,
@@ -440,7 +440,7 @@ async function replayDoubles(match: any, eloMap: Record<string, EloState>) {
 	b2.doubles += splitB;
 
 	await supabase
-		.from("matches")
+		.from("pe_matches")
 		.update({
 			elo_before_a1: beforeA1,
 			elo_before_a2: beforeA2,

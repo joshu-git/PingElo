@@ -24,7 +24,7 @@ export async function createTournament(
 	tournament_description?: string
 ) {
 	const { data, error } = await supabase
-		.from("tournaments")
+		.from("pe_tournaments")
 		.insert({
 			tournament_name,
 			tournament_description,
@@ -42,7 +42,7 @@ export async function createTournament(
 
 //Signs up a player to the tournament
 export async function signupPlayer(tournamentId: string, playerId: string) {
-	const { error } = await supabase.from("tournament_signups").insert({
+	const { error } = await supabase.from("pe_tournament_signups").insert({
 		tournament_id: tournamentId,
 		player_id: playerId,
 	});
@@ -57,7 +57,7 @@ export async function validateTournamentMatch(
 	playerBId: string
 ): Promise<string | null> {
 	const { data: tournament } = await supabase
-		.from("tournaments")
+		.from("pe_tournaments")
 		.select("started, completed")
 		.eq("id", tournamentId)
 		.single();
@@ -67,7 +67,7 @@ export async function validateTournamentMatch(
 	}
 
 	let { data: bracket } = await supabase
-		.from("tournament_brackets")
+		.from("pe_tournament_brackets")
 		.select("id, match_id")
 		.eq("tournament_id", tournamentId)
 		.eq("completed", false)
@@ -77,7 +77,7 @@ export async function validateTournamentMatch(
 
 	if (!bracket) {
 		const res = await supabase
-			.from("tournament_brackets")
+			.from("pe_tournament_brackets")
 			.select("id, match_id")
 			.eq("tournament_id", tournamentId)
 			.eq("completed", false)
@@ -138,10 +138,10 @@ export async function generateFirstRound(tournamentId: string, players: any) {
 		});
 	}
 
-	await supabase.from("tournament_brackets").insert(inserts);
+	await supabase.from("pe_tournament_brackets").insert(inserts);
 
 	await supabase
-		.from("tournaments")
+		.from("pe_tournaments")
 		.update({ started: true })
 		.eq("id", tournamentId);
 }
@@ -152,7 +152,7 @@ export async function advanceBracketRound(
 	bracketId: string
 ) {
 	const { data: bracket } = await supabase
-		.from("tournament_brackets")
+		.from("pe_tournament_brackets")
 		.select("round")
 		.eq("id", bracketId)
 		.single();
@@ -162,7 +162,7 @@ export async function advanceBracketRound(
 	const round = bracket.round;
 
 	const { data: open } = await supabase
-		.from("tournament_brackets")
+		.from("pe_tournament_brackets")
 		.select("id")
 		.eq("tournament_id", tournamentId)
 		.eq("round", round)
@@ -171,7 +171,7 @@ export async function advanceBracketRound(
 	if (open && open.length > 0) return;
 
 	const { data: finished } = await supabase
-		.from("tournament_brackets")
+		.from("pe_tournament_brackets")
 		.select("winner_id")
 		.eq("tournament_id", tournamentId)
 		.eq("round", round);
@@ -184,7 +184,7 @@ export async function advanceBracketRound(
 
 	if (winners.length === 1) {
 		await supabase
-			.from("tournaments")
+			.from("pe_tournaments")
 			.update({
 				completed: true,
 				winner: winners[0],
@@ -213,5 +213,5 @@ export async function advanceBracketRound(
 		});
 	}
 
-	await supabase.from("tournament_brackets").insert(inserts);
+	await supabase.from("pe_tournament_brackets").insert(inserts);
 }

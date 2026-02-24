@@ -46,7 +46,7 @@ router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 		}
 
 		const { data: existingTournament, error: checkError } = await supabase
-			.from("tournaments")
+			.from("pe_tournaments")
 			.select("id")
 			.eq("tournament_name", trimmedName)
 			.maybeSingle();
@@ -79,14 +79,14 @@ router.post("/create", requireAdmin, async (req: AuthenticatedRequest, res) => {
 //Ban check
 async function checkBans(players: any) {
 	const { data: playerBans } = await supabase
-		.from("player_bans")
+		.from("pe_player_bans")
 		.select("id")
 		.in("player_id", players.id)
 		.eq("active", true);
 	if (playerBans?.length) throw new Error("One or more players are banned");
 
 	const { data: groupBans } = await supabase
-		.from("group_bans")
+		.from("pe_group_bans")
 		.select("id")
 		.in("group_id", players.group_id)
 		.eq("active", true);
@@ -105,7 +105,7 @@ router.post("/signup", requireAuth, async (req: AuthenticatedRequest, res) => {
 		}
 
 		const { data: tournament } = await supabase
-			.from("tournaments")
+			.from("pe_tournaments")
 			.select("started, completed")
 			.eq("id", tournament_id)
 			.single();
@@ -119,7 +119,7 @@ router.post("/signup", requireAuth, async (req: AuthenticatedRequest, res) => {
 				.json({ error: "Tournament already started" });
 
 		const { data: players } = await supabase
-			.from("players")
+			.from("pe_players")
 			.select("id, account_id, group_id")
 			.eq("id", player_id)
 			.single();
@@ -151,7 +151,7 @@ router.post(
 			}
 
 			const { data: signups } = await supabase
-				.from("tournament_signups")
+				.from("pe_tournament_signups")
 				.select("player_id")
 				.eq("tournament_id", tournament_id);
 
