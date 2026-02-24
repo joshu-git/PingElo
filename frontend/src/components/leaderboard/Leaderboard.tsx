@@ -12,7 +12,7 @@ type PlayersRow = {
 	group_id: string | null;
 	singles_elo: number;
 	doubles_elo: number;
-	player_stats?: PlayerStatsRow[];
+	player_stats?: PlayerStatsRow; // <-- fixed to single object
 };
 
 type PlayerStatsRow = {
@@ -99,14 +99,12 @@ export default function Leaderboard() {
 		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	};
 
-	//Helpers
 	const matchesPlayed = useCallback(
 		(p: PlayersRow) => {
-			const stats = p.player_stats?.[0];
-			if (!stats) return 0;
+			if (!p.player_stats) return 0; // <-- fixed
 			return matchType === "singles"
-				? stats.singles_matches
-				: stats.doubles_matches;
+				? p.player_stats.singles_matches
+				: p.player_stats.doubles_matches;
 		},
 		[matchType]
 	);
@@ -153,17 +151,19 @@ export default function Leaderboard() {
 			if (requestId !== requestIdRef.current) return;
 
 			if (data) {
-				const normalized = data.map((p) => ({
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const mappedData: PlayersRow[] = data.map((p: any) => ({
 					...p,
-					player_stats:
-						p.player_stats && p.player_stats.length > 0
-							? p.player_stats
-							: [{ singles_matches: 0, doubles_matches: 0 }],
+					player_stats: p.player_stats?.[0] ?? {
+						singles_matches: 0,
+						doubles_matches: 0,
+					},
 				}));
+
 				setPlayers((prev) =>
-					offset === 0 ? normalized : [...prev, ...normalized]
+					offset === 0 ? mappedData : [...prev, ...mappedData]
 				);
-				setHasMore(data.length === PAGE_SIZE);
+				setHasMore(mappedData.length === PAGE_SIZE);
 			}
 
 			setInitialLoading(false);
