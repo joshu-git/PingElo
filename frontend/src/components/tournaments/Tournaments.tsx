@@ -41,7 +41,7 @@ export default function Tournaments() {
 	useEffect(() => {
 		const loadPlayers = async () => {
 			const { data, error } = await supabase
-				.from("players")
+				.from("pe_players")
 				.select("id, player_name");
 
 			if (error) {
@@ -70,7 +70,7 @@ export default function Tournaments() {
 			}
 
 			let query = supabase
-				.from("tournaments")
+				.from("pe_tournaments")
 				.select("*")
 				.order("created_at", { ascending: false })
 				.limit(PAGE_SIZE);

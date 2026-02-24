@@ -26,9 +26,9 @@ async function QuickStats() {
 		{ count: playerCount },
 		{ count: groupCount },
 	] = await Promise.all([
-		supabase.from("matches").select("*", { count: "exact", head: true }),
-		supabase.from("players").select("*", { count: "exact", head: true }),
-		supabase.from("groups").select("*", { count: "exact", head: true }),
+		supabase.from("pe_matches").select("*", { count: "exact", head: true }),
+		supabase.from("pe_players").select("*", { count: "exact", head: true }),
+		supabase.from("pe_groups").select("*", { count: "exact", head: true }),
 	]);
 
 	const stats = [

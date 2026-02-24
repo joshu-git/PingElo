@@ -98,7 +98,7 @@ export default function TournamentPage() {
 	/* -------------------- LOAD GROUPS -------------------- */
 	useEffect(() => {
 		supabase
-			.from("groups")
+			.from("pe_groups")
 			.select("id, group_name")
 			.then(({ data }) => data && setGroups(data));
 	}, []);
@@ -118,7 +118,7 @@ export default function TournamentPage() {
 			if (!uid) return;
 
 			const { data: player } = await supabase
-				.from("players")
+				.from("pe_players")
 				.select("id, player_name, account_id")
 				.eq("account_id", uid)
 				.single();
@@ -132,7 +132,7 @@ export default function TournamentPage() {
 	useEffect(() => {
 		const loadBasicTournament = async () => {
 			const { data } = await supabase
-				.from("tournaments")
+				.from("pe_tournaments")
 				.select(
 					"id, tournament_name, tournament_description, created_by, started, completed, start_date"
 				)
@@ -155,7 +155,7 @@ export default function TournamentPage() {
 			// -------------------- SIGNUPS --------------------
 			if (!tournament.started) {
 				const { data: signupRows } = await supabase
-					.from("tournament_signups")
+					.from("pe_tournament_signups")
 					.select("player_id")
 					.eq("tournament_id", tournament.id);
 
@@ -163,7 +163,7 @@ export default function TournamentPage() {
 
 				if (playerIds.length) {
 					const { data: players } = await supabase
-						.from("players")
+						.from("pe_players")
 						.select(
 							"id, player_name, account_id, group_id, singles_elo"
 						)
@@ -182,7 +182,7 @@ export default function TournamentPage() {
 								);
 							} else {
 								const { count } = await supabase
-									.from("matches")
+									.from("pe_matches")
 									.select("*", { count: "exact", head: true })
 									.or(
 										`player_a1_id.eq.${p.id},player_b1_id.eq.${p.id}`
@@ -204,7 +204,7 @@ export default function TournamentPage() {
 			// -------------------- BRACKETS --------------------
 			if (tournament.started) {
 				const { data: rawBrackets } = await supabase
-					.from("tournament_brackets")
+					.from("pe_tournament_brackets")
 					.select("*")
 					.eq("tournament_id", tournament.id)
 					.order("round", { ascending: false })
@@ -227,7 +227,7 @@ export default function TournamentPage() {
 				let playersMap = new Map<string, Player>();
 				if (playerIds.length) {
 					const { data: players } = await supabase
-						.from("players")
+						.from("pe_players")
 						.select("id, player_name, account_id, singles_elo")
 						.in("id", playerIds);
 
@@ -236,7 +236,7 @@ export default function TournamentPage() {
 
 				if (matchIds.length) {
 					const { data: matches } = await supabase
-						.from("matches")
+						.from("pe_matches")
 						.select("id, score_a, score_b, created_at")
 						.in("id", matchIds);
 

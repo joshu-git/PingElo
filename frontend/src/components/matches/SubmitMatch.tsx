@@ -111,7 +111,7 @@ export default function SubmitMatch() {
 		loadUserContext();
 
 		supabase
-			.from("tournaments")
+			.from("pe_tournaments")
 			.select("id, tournament_name")
 			.eq("started", true)
 			.eq("completed", false)
@@ -130,7 +130,7 @@ export default function SubmitMatch() {
 			//Tournament singles
 			if (tournamentId && !isDoubles) {
 				const { data } = await supabase
-					.from("tournament_brackets")
+					.from("pe_tournament_brackets")
 					.select("id, match_id, completed, player_a_id, player_b_id")
 					.eq("tournament_id", tournamentId)
 					.eq("completed", false);
@@ -148,7 +148,7 @@ export default function SubmitMatch() {
 				);
 
 				const { data: playersData } = await supabase
-					.from("players")
+					.from("pe_players")
 					.select("*")
 					.in("id", ids);
 
@@ -159,7 +159,7 @@ export default function SubmitMatch() {
 			//Group players
 			if (userGroupId) {
 				const { data } = await supabase
-					.from("players")
+					.from("pe_players")
 					.select("*")
 					.eq("group_id", userGroupId);
 

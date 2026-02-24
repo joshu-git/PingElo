@@ -25,7 +25,7 @@ export default function CreateTournament() {
 			if (!data.session) return;
 
 			const { data: account } = await supabase
-				.from("account")
+				.from("pe_account")
 				.select("is_admin")
 				.eq("id", data.session.user.id)
 				.single();
