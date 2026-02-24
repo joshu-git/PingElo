@@ -100,7 +100,7 @@ export default function SubmitMatch() {
 			if (!data.session) return;
 
 			const { data: player } = await supabase
-				.from("players")
+				.from("pe_players")
 				.select("group_id")
 				.eq("account_id", data.session.user.id)
 				.single();

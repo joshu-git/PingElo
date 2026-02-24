@@ -62,7 +62,7 @@ export default function Leaderboard() {
 	useEffect(() => {
 		const loadMeta = async () => {
 			const [{ data: groupData }, session] = await Promise.all([
-				supabase.from("groups").select("*").order("group_name"),
+				supabase.from("pe_groups").select("*").order("group_name"),
 				supabase.auth.getSession(),
 			]);
 
@@ -70,7 +70,7 @@ export default function Leaderboard() {
 
 			if (session.data.session) {
 				const { data: player } = await supabase
-					.from("players")
+					.from("pe_players")
 					.select("group_id")
 					.eq("account_id", session.data.session.user.id)
 					.maybeSingle();
@@ -123,7 +123,7 @@ export default function Leaderboard() {
 			else if (offset > 0) setLoadingMore(true);
 
 			let query = supabase
-				.from("players")
+				.from("pe_players")
 				.select(
 					`
 		id,

@@ -25,7 +25,7 @@ function AuthButton({ onClick }: { onClick?: () => void }) {
 			setSessionUserId(userId);
 
 			const { data: player } = await supabase
-				.from("players")
+				.from("pe_players")
 				.select("player_name")
 				.eq("account_id", userId)
 				.maybeSingle();
