@@ -61,6 +61,51 @@ async function getNextMatchNumber() {
 	return (data?.match_number ?? 0) + 1;
 }
 
+//Updates player stats
+async function updatePlayerStats(
+	playerId: string,
+	mode: "singles" | "doubles",
+	isWinner: boolean
+) {
+	const { data, error } = await supabase
+		.from("pe_player_stats")
+		.select("*")
+		.eq("player_id", playerId)
+		.single();
+
+	if (error && error.code !== "PGRST116") throw error;
+
+	const current = data ?? {
+		player_id: playerId,
+		singles_matches: 0,
+		singles_wins: 0,
+		singles_losses: 0,
+		doubles_matches: 0,
+		doubles_wins: 0,
+		doubles_losses: 0,
+	};
+
+	const updated =
+		mode === "singles"
+			? {
+					...current,
+					singles_matches: current.singles_matches + 1,
+					singles_wins: current.singles_wins + (isWinner ? 1 : 0),
+					singles_losses: current.singles_losses + (isWinner ? 0 : 1),
+				}
+			: {
+					...current,
+					doubles_matches: current.doubles_matches + 1,
+					doubles_wins: current.doubles_wins + (isWinner ? 1 : 0),
+					doubles_losses: current.doubles_losses + (isWinner ? 0 : 1),
+				};
+
+	await supabase.from("pe_player_stats").upsert({
+		...updated,
+		updated_at: new Date().toISOString(),
+	});
+}
+
 //Creates a singles match
 export async function createSinglesMatch(
 	userId: string,
@@ -162,6 +207,9 @@ export async function createSinglesMatch(
 		.from("pe_players")
 		.update({ singles_elo: ratingB + elo.eloChangeB })
 		.eq("id", playerBId);
+
+	await updatePlayerStats(playerAId, "singles", winnerId === playerAId);
+	await updatePlayerStats(playerBId, "singles", winnerId === playerBId);
 
 	//Update the matches corresponding bracket
 	if (tournamentId && bracketId) {
@@ -295,6 +343,13 @@ export async function createDoublesMatch(
 		.from("pe_players")
 		.update({ doubles_elo: ratingB2 + elo.eloChangeB })
 		.eq("id", playerB2Id);
+
+	const teamAWon = elo.winner === "A";
+
+	await updatePlayerStats(playerA1Id, "doubles", teamAWon);
+	await updatePlayerStats(playerA2Id, "doubles", teamAWon);
+	await updatePlayerStats(playerB1Id, "doubles", !teamAWon);
+	await updatePlayerStats(playerB2Id, "doubles", !teamAWon);
 
 	return { match, elo };
 }
