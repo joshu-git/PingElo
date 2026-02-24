@@ -3,7 +3,27 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { PlayersRow, GroupsRow, MatchType } from "@/types/database";
+
+type MatchType = "singles" | "doubles";
+
+type PlayersRow = {
+	id: string;
+	player_name: string;
+	group_id: string | null;
+	singles_elo: number;
+	doubles_elo: number;
+	player_stats?: PlayerStatsRow[];
+};
+
+type PlayerStatsRow = {
+	singles_matches: number;
+	doubles_matches: number;
+};
+
+type GroupsRow = {
+	id: string;
+	group_name: string;
+};
 
 const PAGE_SIZE = 50;
 
@@ -26,9 +46,6 @@ const RANK_STYLES: Record<1 | 2 | 3, string> = {
 export default function Leaderboard() {
 	const [players, setPlayers] = useState<PlayersRow[]>([]);
 	const [groups, setGroups] = useState<GroupsRow[]>([]);
-	const [matchCounts, setMatchCounts] = useState<Map<string, number>>(
-		new Map()
-	);
 
 	const [matchType, setMatchType] = useState<MatchType>("singles");
 	const [groupId, setGroupId] = useState<string | null>(null);
@@ -40,15 +57,6 @@ export default function Leaderboard() {
 
 	const loadMoreRef = useRef<HTMLDivElement | null>(null);
 	const requestIdRef = useRef(0);
-
-	//Cache match counts per match type
-	const matchCountsCacheRef = useRef<{
-		singles: Map<string, number>;
-		doubles: Map<string, number>;
-	}>({
-		singles: new Map(),
-		doubles: new Map(),
-	});
 
 	//Meta
 	useEffect(() => {
@@ -91,26 +99,11 @@ export default function Leaderboard() {
 		return RANKS.find((r) => elo >= r.min)?.label ?? "";
 	};
 
-	//Fetch match counts
-	const fetchMatchesPlayed = useCallback(
-		async (playerId: string) => {
-			const cache = matchCountsCacheRef.current[matchType];
-			if (cache.has(playerId)) return cache.get(playerId)!;
-
-			const orFilter =
-				matchType === "singles"
-					? `player_a1_id.eq.${playerId},player_b1_id.eq.${playerId}`
-					: `player_a1_id.eq.${playerId},player_a2_id.eq.${playerId},player_b1_id.eq.${playerId},player_b2_id.eq.${playerId}`;
-
-			const { count } = await supabase
-				.from("matches")
-				.select("*", { count: "exact", head: true })
-				.or(orFilter)
-				.eq("match_type", matchType);
-
-			cache.set(playerId, count ?? 0);
-			return count ?? 0;
-		},
+	const matchesPlayed = useCallback(
+		(p: PlayersRow) =>
+			matchType === "singles"
+				? (p.player_stats?.[0]?.singles_matches ?? 0)
+				: (p.player_stats?.[0]?.doubles_matches ?? 0),
 		[matchType]
 	);
 
@@ -131,7 +124,19 @@ export default function Leaderboard() {
 
 			let query = supabase
 				.from("players")
-				.select("*")
+				.select(
+					`
+		id,
+		player_name,
+		group_id,
+		singles_elo,
+		doubles_elo,
+		player_stats:pe_player_stats (
+			singles_matches,
+			doubles_matches
+		)
+	`
+				)
 				.order(
 					matchType === "singles" ? "singles_elo" : "doubles_elo",
 					{ ascending: false }
@@ -148,23 +153,12 @@ export default function Leaderboard() {
 					offset === 0 ? data : [...prev, ...data]
 				);
 				setHasMore(data.length === PAGE_SIZE);
-
-				const nextCounts = new Map(matchCounts);
-
-				await Promise.all(
-					data.map(async (p) => {
-						const count = await fetchMatchesPlayed(p.id);
-						nextCounts.set(p.id, count);
-					})
-				);
-
-				setMatchCounts(nextCounts);
 			}
 
 			setInitialLoading(false);
 			setLoadingMore(false);
 		},
-		[groupId, matchType, fetchMatchesPlayed, matchCounts]
+		[groupId, matchType]
 	);
 
 	//Initial load
@@ -203,12 +197,12 @@ export default function Leaderboard() {
 		const unranked: PlayersRow[] = [];
 
 		for (const p of sortedPlayers) {
-			const matches = matchCounts.get(p.id) ?? 0;
+			const matches = matchesPlayed(p);
 			(matches < 5 ? unranked : ranked).push(p);
 		}
 
 		return { rankedPlayers: ranked, unrankedPlayers: unranked };
-	}, [sortedPlayers, matchCounts]);
+	}, [sortedPlayers, matchesPlayed]);
 
 	//Filter handler
 	const handleFilterChange = (
@@ -310,7 +304,7 @@ export default function Leaderboard() {
 				{/* Ranked players */}
 				{rankedPlayers.map((p, i) => {
 					const rank = i + 1;
-					const matches = matchCounts.get(p.id) ?? 0;
+					const matches = matchesPlayed(p);
 					const elo = eloValue(p);
 					const rankClass =
 						RANK_STYLES[rank as 1 | 2 | 3] ?? "text-text-muted";
@@ -355,7 +349,7 @@ export default function Leaderboard() {
 				)}
 
 				{unrankedPlayers.map((p) => {
-					const matches = matchCounts.get(p.id) ?? 0;
+					const matches = matchesPlayed(p);
 					const elo = eloValue(p);
 
 					return (
