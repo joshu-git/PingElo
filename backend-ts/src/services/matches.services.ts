@@ -129,16 +129,29 @@ export async function createSinglesMatch(
 			winner1: winners[0],
 			match_number: matchNumber,
 			match_type: "singles",
-			elo_change_a: elo.eloChangeA,
-			elo_change_b: elo.eloChangeB,
-			elo_before_a1: ratingA,
-			elo_before_b1: ratingB,
 			tournament_id: tournamentId ?? null,
 			bracket_id: bracketId,
 			group_id: groupId,
 		})
 		.select()
 		.single();
+
+	await supabase.from("pe_elo_history").insert([
+		{
+			player_id: playerAId,
+			match_id: match.id,
+			elo_change: elo.eloChangeA,
+			mode: "singles",
+			created_at: match.created_at,
+		},
+		{
+			player_id: playerBId,
+			match_id: match.id,
+			elo_change: elo.eloChangeB,
+			mode: "singles",
+			created_at: match.created_at,
+		},
+	]);
 
 	await supabase
 		.from("pe_players")
@@ -227,16 +240,41 @@ export async function createDoublesMatch(
 			winner2: winners[1],
 			match_number: matchNumber,
 			match_type: "doubles",
-			elo_change_a: elo.eloChangeA,
-			elo_change_b: elo.eloChangeB,
-			elo_before_a1: ratingA1,
-			elo_before_a2: ratingA2,
-			elo_before_b1: ratingB1,
-			elo_before_b2: ratingB2,
 			group_id: groupId,
 		})
 		.select()
 		.single();
+
+	await supabase.from("pe_elo_history").insert([
+		{
+			player_id: playerA1Id,
+			match_id: match.id,
+			elo_change: elo.eloChangeA,
+			mode: "doubles",
+			created_at: match.created_at,
+		},
+		{
+			player_id: playerA2Id,
+			match_id: match.id,
+			elo_change: elo.eloChangeA,
+			mode: "doubles",
+			created_at: match.created_at,
+		},
+		{
+			player_id: playerB1Id,
+			match_id: match.id,
+			elo_change: elo.eloChangeB,
+			mode: "doubles",
+			created_at: match.created_at,
+		},
+		{
+			player_id: playerB2Id,
+			match_id: match.id,
+			elo_change: elo.eloChangeB,
+			mode: "doubles",
+			created_at: match.created_at,
+		},
+	]);
 
 	await supabase
 		.from("pe_players")
@@ -389,15 +427,20 @@ async function replaySingles(match: any, eloMap: Record<string, EloState>) {
 	stateA.singles += elo.eloChangeA;
 	stateB.singles += elo.eloChangeB;
 
-	await supabase
-		.from("pe_matches")
-		.update({
-			elo_before_a1: beforeA,
-			elo_before_b1: beforeB,
-			elo_change_a: elo.eloChangeA,
-			elo_change_b: elo.eloChangeB,
-		})
-		.eq("id", match.id);
+	await supabase.from("pe_elo_history").insert({
+		player_id: playerA,
+		match_id: match.id,
+		elo_change: elo.eloChangeA,
+		mode: "singles",
+		created_at: match.created_at,
+	});
+	await supabase.from("pe_elo_history").insert({
+		player_id: playerB,
+		match_id: match.id,
+		elo_change: elo.eloChangeB,
+		mode: "singles",
+		created_at: match.created_at,
+	});
 }
 
 async function replayDoubles(match: any, eloMap: Record<string, EloState>) {
@@ -439,15 +482,34 @@ async function replayDoubles(match: any, eloMap: Record<string, EloState>) {
 	b1.doubles += splitB;
 	b2.doubles += splitB;
 
-	await supabase
-		.from("pe_matches")
-		.update({
-			elo_before_a1: beforeA1,
-			elo_before_a2: beforeA2,
-			elo_before_b1: beforeB1,
-			elo_before_b2: beforeB2,
-			elo_change_a: elo.eloChangeA,
-			elo_change_b: elo.eloChangeB,
-		})
-		.eq("id", match.id);
+	await supabase.from("pe_elo_history").insert([
+		{
+			player_id: a1Id,
+			match_id: match.id,
+			elo_change: splitA,
+			mode: "doubles",
+			created_at: match.created_at,
+		},
+		{
+			player_id: a2Id,
+			match_id: match.id,
+			elo_change: splitA,
+			mode: "doubles",
+			created_at: match.created_at,
+		},
+		{
+			player_id: b1Id,
+			match_id: match.id,
+			elo_change: splitB,
+			mode: "doubles",
+			created_at: match.created_at,
+		},
+		{
+			player_id: b2Id,
+			match_id: match.id,
+			elo_change: splitB,
+			mode: "doubles",
+			created_at: match.created_at,
+		},
+	]);
 }
