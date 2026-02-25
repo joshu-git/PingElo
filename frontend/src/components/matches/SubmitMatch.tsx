@@ -149,7 +149,7 @@ export default function SubmitMatch() {
 
 				const { data: playersData } = await supabase
 					.from("pe_players")
-					.select("*")
+					.select("id, player_name, singles_elo, doubles_elo")
 					.in("id", ids);
 
 				setPlayers(playersData ?? []);
