@@ -96,7 +96,7 @@ async function checkAccess(
 	if (isOwner) return;
 
 	const { data: account } = await supabase
-		.from("pe_account")
+		.from("account")
 		.select("is_manager")
 		.eq("id", accountId)
 		.single();
@@ -105,7 +105,7 @@ async function checkAccess(
 
 	if (!tournamentId) {
 		const { data: admin } = await supabase
-			.from("pe_account")
+			.from("account")
 			.select("is_admin")
 			.eq("id", accountId)
 			.single();
