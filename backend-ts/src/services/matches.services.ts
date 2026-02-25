@@ -162,7 +162,7 @@ export async function createSinglesMatch(
 
 	const winners = elo.winner === "A" ? [playerAId] : [playerBId];
 
-	const { data: match } = await supabase
+	const { data: match, error: matchError } = await supabase
 		.from("pe_matches")
 		.insert({
 			player_a1_id: playerAId,
@@ -180,6 +180,15 @@ export async function createSinglesMatch(
 		})
 		.select()
 		.single();
+
+	if (matchError) {
+		console.error("Match insert failed:", matchError);
+		throw matchError;
+	}
+
+	if (!match) {
+		throw new Error("Match insert returned null");
+	}
 
 	await supabase.from("pe_elo_history").insert([
 		{
@@ -273,7 +282,7 @@ export async function createDoublesMatch(
 			? [playerA1Id, playerA2Id]
 			: [playerB1Id, playerB2Id];
 
-	const { data: match } = await supabase
+	const { data: match, error: matchError } = await supabase
 		.from("pe_matches")
 		.insert({
 			player_a1_id: playerA1Id,
@@ -292,6 +301,15 @@ export async function createDoublesMatch(
 		})
 		.select()
 		.single();
+
+	if (matchError) {
+		console.error("Match insert failed:", matchError);
+		throw matchError;
+	}
+
+	if (!match) {
+		throw new Error("Match insert returned null");
+	}
 
 	await supabase.from("pe_elo_history").insert([
 		{
