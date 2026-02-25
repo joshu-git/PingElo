@@ -133,6 +133,12 @@ router.post(
 			const { playerIds, scoreA, scoreB, gamePoints, tournamentId } =
 				validateMatchInput(req.body, "singles");
 
+			if (!req.user) {
+				return res.status(401).json({ error: "Unauthenticated" });
+			}
+
+			console.log("req.user:", req.user);
+
 			const { data: players } = await supabase
 				.from("pe_players")
 				.select("id, account_id, singles_elo, group_id")
@@ -148,6 +154,10 @@ router.post(
 
 			const playerA = players.find((p) => p.id === playerIds[0])!;
 			const playerB = players.find((p) => p.id === playerIds[1])!;
+
+			if (!playerA || !playerB) {
+				throw new Error("Invalid player IDs");
+			}
 
 			const result = await createSinglesMatch(
 				req.user!.id,
