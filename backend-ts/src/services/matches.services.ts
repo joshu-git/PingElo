@@ -1,8 +1,11 @@
 import { supabase } from "../libs/supabase.js";
+
 import {
 	validateTournamentMatch,
 	advanceBracketRound,
 } from "./tournaments.services.js";
+
+import { applyMatchXp } from "./xp.service.js";
 
 //Elo logic
 const BASE_K = 50;
@@ -217,8 +220,22 @@ export async function createSinglesMatch(
 		.update({ singles_elo: ratingB + elo.eloChangeB })
 		.eq("id", playerBId);
 
+	//Update stats for both players
 	await updatePlayerStats(playerAId, "singles", winnerId === playerAId);
 	await updatePlayerStats(playerBId, "singles", winnerId === playerBId);
+
+	//Update XP and levels for both players
+	await applyMatchXp({
+		playerId: playerAId,
+		isWinner: winnerId === playerAId,
+		isTournament: Boolean(tournamentId),
+	});
+
+	await applyMatchXp({
+		playerId: playerBId,
+		isWinner: winnerId === playerBId,
+		isTournament: Boolean(tournamentId),
+	});
 
 	//Update the matches corresponding bracket
 	if (tournamentId && bracketId) {
@@ -368,6 +385,27 @@ export async function createDoublesMatch(
 	await updatePlayerStats(playerA2Id, "doubles", teamAWon);
 	await updatePlayerStats(playerB1Id, "doubles", !teamAWon);
 	await updatePlayerStats(playerB2Id, "doubles", !teamAWon);
+
+	await applyMatchXp({
+		playerId: playerA1Id,
+		isWinner: teamAWon,
+		isTournament: false,
+	});
+	await applyMatchXp({
+		playerId: playerA2Id,
+		isWinner: teamAWon,
+		isTournament: false,
+	});
+	await applyMatchXp({
+		playerId: playerB1Id,
+		isWinner: !teamAWon,
+		isTournament: false,
+	});
+	await applyMatchXp({
+		playerId: playerB2Id,
+		isWinner: !teamAWon,
+		isTournament: false,
+	});
 
 	return { match, elo };
 }
