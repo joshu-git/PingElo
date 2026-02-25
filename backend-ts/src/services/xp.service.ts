@@ -42,7 +42,7 @@ export async function applyMatchXp(params: {
 	//Load player + stats
 	const { data: player, error: playerError } = await supabase
 		.from("pe_players")
-		.select("monthly_xp, total_xp, account_id")
+		.select("total_xp, account_id")
 		.eq("id", playerId)
 		.single();
 
@@ -50,11 +50,12 @@ export async function applyMatchXp(params: {
 
 	const { data: stats } = await supabase
 		.from("pe_player_stats")
-		.select("level")
+		.select("level, monthly_xp")
 		.eq("player_id", playerId)
 		.single();
 
 	const oldLevel = stats?.level ?? 0;
+	const oldMonthlyXp = stats?.monthly_xp ?? 0;
 
 	//Check subscription
 	let isPaid = false;
@@ -74,27 +75,24 @@ export async function applyMatchXp(params: {
 	const multiplier = getXpMultiplier(isPaid, isTournament);
 	const earnedXp = Math.floor(baseXp * multiplier);
 
-	const newMonthlyXp = player.monthly_xp + earnedXp;
-	const newTotalXp = player.total_xp + earnedXp;
+	const newMonthlyXp = oldMonthlyXp + earnedXp;
+	const newTotalXp = (player.total_xp ?? 0) + earnedXp;
 	const newLevel = getLevelFromMonthlyXp(newMonthlyXp);
 
 	//Persist XP
 	await supabase
 		.from("pe_players")
-		.update({
-			monthly_xp: newMonthlyXp,
-			total_xp: newTotalXp,
-		})
+		.update({ total_xp: newTotalXp })
 		.eq("id", playerId);
 
-	//Persist level
 	await supabase.from("pe_player_stats").upsert({
 		player_id: playerId,
+		monthly_xp: newMonthlyXp,
 		level: newLevel,
 		updated_at: new Date().toISOString(),
 	});
 
-	//Grant flokens on level up
+	//Grant flokens on level-up
 	const levelsGained = Math.max(0, newLevel - oldLevel);
 	const flokensEarned = levelsGained * FLOKENS_PER_LEVEL;
 
@@ -107,9 +105,7 @@ export async function applyMatchXp(params: {
 
 		await supabase
 			.from("account")
-			.update({
-				flokens: (account?.flokens ?? 0) + flokensEarned,
-			})
+			.update({ flokens: (account?.flokens ?? 0) + flokensEarned })
 			.eq("id", player.account_id);
 
 		await supabase.from("flokens_history").insert({
