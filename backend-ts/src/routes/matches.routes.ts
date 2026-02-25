@@ -64,28 +64,6 @@ function validateMatchInput(body: any, matchType: "singles" | "doubles") {
 	}
 }
 
-//Ban check
-async function checkBans(players: any[]) {
-	const playerIds = players.map((p) => p.id);
-	const groupIds = players.map((p) => p.group_id).filter(Boolean);
-
-	const { data: playerBans } = await supabase
-		.from("pe_player_bans")
-		.select("id")
-		.in("player_id", playerIds)
-		.eq("active", true);
-	if (playerBans?.length) throw new Error("One or more players are banned");
-
-	if (groupIds.length > 0) {
-		const { data: groupBans } = await supabase
-			.from("pe_group_bans")
-			.select("id")
-			.in("group_id", groupIds)
-			.eq("active", true);
-		if (groupBans?.length) throw new Error("One or more groups are banned");
-	}
-}
-
 //Check the user has access to this match
 async function checkAccess(
 	players: any[],
@@ -162,7 +140,6 @@ router.post(
 			if (!players || players.length !== 2)
 				return res.status(400).json({ error: "Invalid players" });
 
-			await checkBans(players);
 			await checkAccess(players, req.user!.id, tournamentId);
 
 			if (!tournamentId) {
@@ -207,7 +184,6 @@ router.post(
 			if (!players || players.length !== 4)
 				return res.status(400).json({ error: "Invalid players" });
 
-			await checkBans(players);
 			await checkAccess(players, req.user!.id);
 
 			enforceSameGroup(players);
