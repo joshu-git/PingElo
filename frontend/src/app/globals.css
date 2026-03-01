@@ -269,3 +269,9 @@ p {
 		color: black;
 	}
 }
+
+html,
+body,
+#__next {
+	width: 100%;
+}
