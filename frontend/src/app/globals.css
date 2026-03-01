@@ -166,8 +166,7 @@ button:disabled {
 	cursor: not-allowed;
 }
 
-/* Header, Footer, Mobile dropdown solid & square */
-header,
+/* Footer solid & square */
 footer,
 .mobile-dropdown {
 	background-color: var(--color-bg-card);
